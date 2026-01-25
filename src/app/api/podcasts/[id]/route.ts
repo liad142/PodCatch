@@ -1,10 +1,62 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createServerClient } from "@/lib/supabase";
 
 interface RouteParams {
   params: Promise<{
     id: string;
   }>;
+}
+
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { id } = await params;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Podcast ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Use server client with secret key for delete operations
+    const supabase = createServerClient();
+
+    // First delete all episodes for this podcast
+    const { error: episodesError } = await supabase
+      .from("episodes")
+      .delete()
+      .eq("podcast_id", id);
+
+    if (episodesError) {
+      console.error("Error deleting episodes:", episodesError);
+      return NextResponse.json(
+        { error: "Failed to delete episodes", details: episodesError.message },
+        { status: 500 }
+      );
+    }
+
+    // Then delete the podcast
+    const { error: podcastError } = await supabase
+      .from("podcasts")
+      .delete()
+      .eq("id", id);
+
+    if (podcastError) {
+      console.error("Error deleting podcast:", podcastError);
+      return NextResponse.json(
+        { error: "Failed to delete podcast", details: podcastError.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error in podcast DELETE:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
@@ -17,6 +69,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         { status: 400 }
       );
     }
+
+    // Use server client for GET as well to ensure consistent permissions
+    const supabase = createServerClient();
 
     // Fetch podcast details
     const { data: podcast, error: podcastError } = await supabase

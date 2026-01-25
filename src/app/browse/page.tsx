@@ -1,141 +1,148 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from "react";
-import { ChevronDown, Globe } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Carousel } from "@/components/Carousel";
-import { CategoryCard, Category } from "@/components/CategoryCard";
-import { SpotifyShowCard, SpotifyShow } from "@/components/SpotifyShowCard";
-import { useCountry, COUNTRY_OPTIONS } from "@/contexts/CountryContext";
-import { cn } from "@/lib/utils";
+import { useState, useEffect, useCallback } from 'react';
+import { ChevronDown, Globe, Moon, Sun } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Carousel } from '@/components/Carousel';
+import { GenreCard, Genre } from '@/components/GenreCard';
+import { PodcastGridSection } from '@/components/PodcastGridSection';
+import { YouTubeSection } from '@/components/YouTubeSection';
+import { ApplePodcast } from '@/components/ApplePodcastCard';
+import { useCountry, COUNTRY_OPTIONS } from '@/contexts/CountryContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { cn } from '@/lib/utils';
 
-interface ApiShow {
+interface ApiPodcast {
   id: string;
   name: string;
-  publisher: string;
-  description: string;
-  imageUrl: string | null;
-  totalEpisodes: number;
-  explicit: boolean;
-  spotifyUrl: string;
+  artistName: string;
+  description?: string;
+  artworkUrl: string;
+  genres?: string[];
+  trackCount?: number;
+  contentAdvisoryRating?: string;
 }
 
-interface ApiCategory {
-  id: string;
-  name: string;
-  iconUrl: string | null;
-}
-
-// Transform API show to component format
-function transformShow(show: ApiShow): SpotifyShow {
+// Transform API podcast to component format
+function transformPodcast(podcast: ApiPodcast): ApplePodcast {
   return {
-    id: show.id,
-    name: show.name,
-    publisher: show.publisher,
-    description: show.description,
-    images: show.imageUrl ? [{ url: show.imageUrl }] : [],
-    total_episodes: show.totalEpisodes,
-    external_urls: { spotify: show.spotifyUrl },
+    id: podcast.id,
+    name: podcast.name,
+    artistName: podcast.artistName,
+    description: podcast.description,
+    artworkUrl: podcast.artworkUrl,
+    genres: podcast.genres,
+    trackCount: podcast.trackCount,
+    contentAdvisoryRating: podcast.contentAdvisoryRating,
   };
 }
 
-// Transform API category to component format
-function transformCategory(cat: ApiCategory): Category {
-  return {
-    id: cat.id,
-    name: cat.name,
-    icon: undefined, // Icons come from CSS gradients
-  };
-}
+const INITIAL_PODCAST_COUNT = 30;
+const LOAD_MORE_COUNT = 30;
 
 export default function BrowsePage() {
   const { country, setCountry, countryInfo } = useCountry();
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
 
   // Data states
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [topShows, setTopShows] = useState<SpotifyShow[]>([]);
-  const [categoryShows, setCategoryShows] = useState<Record<string, SpotifyShow[]>>({});
+  const [genres, setGenres] = useState<Genre[]>([]);
+  const [topPodcasts, setTopPodcasts] = useState<ApplePodcast[]>([]);
+  const [podcastOffset, setPodcastOffset] = useState(0);
+  const [hasMorePodcasts, setHasMorePodcasts] = useState(true);
 
   // Loading states
-  const [loadingCategories, setLoadingCategories] = useState(true);
-  const [loadingTopShows, setLoadingTopShows] = useState(true);
-  const [loadingCategoryShows, setLoadingCategoryShows] = useState<Record<string, boolean>>({});
+  const [loadingGenres, setLoadingGenres] = useState(true);
+  const [loadingTopPodcasts, setLoadingTopPodcasts] = useState(true);
 
   // Error states
   const [error, setError] = useState<string | null>(null);
 
-  // Featured categories to show carousels for
-  const featuredCategoryIds = ["comedy", "news", "true_crime", "technology", "business"];
-
-  // Fetch categories
-  const fetchCategories = useCallback(async () => {
-    setLoadingCategories(true);
+  // Fetch genres
+  const fetchGenres = useCallback(async () => {
+    setLoadingGenres(true);
     try {
-      const response = await fetch(`/api/spotify/categories?market=${country}`);
-      if (!response.ok) throw new Error("Failed to fetch categories");
+      const response = await fetch('/api/apple/genres');
+      if (!response.ok) throw new Error('Failed to fetch genres');
       const data = await response.json();
-      setCategories((data.categories || []).map(transformCategory));
+      setGenres(data.genres || []);
     } catch (err) {
-      console.error("Error fetching categories:", err);
-      setError("Failed to load categories");
+      console.error('Error fetching genres:', err);
+      setError('Failed to load genres');
     } finally {
-      setLoadingCategories(false);
+      setLoadingGenres(false);
     }
-  }, [country]);
+  }, []);
 
-  // Fetch top shows
-  const fetchTopShows = useCallback(async () => {
-    setLoadingTopShows(true);
+  // Fetch top podcasts
+  const fetchTopPodcasts = useCallback(async (reset = false) => {
+    if (reset) {
+      setLoadingTopPodcasts(true);
+      setPodcastOffset(0);
+    }
+    
     try {
-      const response = await fetch(`/api/spotify/shows/top?market=${country}&limit=20`);
-      if (!response.ok) throw new Error("Failed to fetch top shows");
+      const offset = reset ? 0 : podcastOffset;
+      const response = await fetch(
+        `/api/apple/top?country=${country.toLowerCase()}&limit=${INITIAL_PODCAST_COUNT}`
+      );
+      if (!response.ok) throw new Error('Failed to fetch top podcasts');
       const data = await response.json();
-      setTopShows((data.shows || []).map(transformShow));
+      const newPodcasts = (data.podcasts || []).map(transformPodcast);
+      
+      if (reset) {
+        setTopPodcasts(newPodcasts);
+      } else {
+        setTopPodcasts(prev => [...prev, ...newPodcasts]);
+      }
+      
+      // Check if there are more podcasts (iTunes RSS typically returns up to 200)
+      setHasMorePodcasts(newPodcasts.length === INITIAL_PODCAST_COUNT && podcastOffset + INITIAL_PODCAST_COUNT < 200);
     } catch (err) {
-      console.error("Error fetching top shows:", err);
+      console.error('Error fetching top podcasts:', err);
+      if (reset) {
+        setError('Failed to load podcasts');
+      }
     } finally {
-      setLoadingTopShows(false);
+      setLoadingTopPodcasts(false);
     }
-  }, [country]);
+  }, [country, podcastOffset]);
 
-  // Fetch shows for a category
-  const fetchCategoryShows = useCallback(async (categoryId: string) => {
-    setLoadingCategoryShows((prev) => ({ ...prev, [categoryId]: true }));
+  // Load more podcasts
+  const handleLoadMorePodcasts = async () => {
+    const newOffset = podcastOffset + LOAD_MORE_COUNT;
+    setPodcastOffset(newOffset);
+    
     try {
       const response = await fetch(
-        `/api/spotify/categories/${categoryId}/shows?market=${country}&limit=20`
+        `/api/apple/top?country=${country.toLowerCase()}&limit=${LOAD_MORE_COUNT}`
       );
-      if (!response.ok) throw new Error("Failed to fetch category shows");
+      if (!response.ok) throw new Error('Failed to load more podcasts');
       const data = await response.json();
-      setCategoryShows((prev) => ({
-        ...prev,
-        [categoryId]: (data.shows || []).map(transformShow),
-      }));
+      const newPodcasts = (data.podcasts || []).map(transformPodcast);
+      
+      // Filter out duplicates
+      setTopPodcasts(prev => {
+        const existingIds = new Set(prev.map(p => p.id));
+        const uniqueNew = newPodcasts.filter((p: ApplePodcast) => !existingIds.has(p.id));
+        return [...prev, ...uniqueNew];
+      });
+      
+      setHasMorePodcasts(newPodcasts.length === LOAD_MORE_COUNT);
     } catch (err) {
-      console.error(`Error fetching shows for ${categoryId}:`, err);
-    } finally {
-      setLoadingCategoryShows((prev) => ({ ...prev, [categoryId]: false }));
+      console.error('Error loading more podcasts:', err);
     }
-  }, [country]);
+  };
 
   // Initial data fetch
   useEffect(() => {
-    fetchCategories();
-    fetchTopShows();
-  }, [fetchCategories, fetchTopShows]);
+    fetchGenres();
+  }, [fetchGenres]);
 
-  // Fetch category shows when categories load
+  // Refetch podcasts when country changes
   useEffect(() => {
-    if (categories.length > 0) {
-      const existingCategoryIds = categories.map((c) => c.id);
-      featuredCategoryIds
-        .filter((id) => existingCategoryIds.includes(id))
-        .forEach((categoryId) => {
-          fetchCategoryShows(categoryId);
-        });
-    }
-  }, [categories, fetchCategoryShows]);
+    fetchTopPodcasts(true);
+  }, [country]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Country selector dropdown
   const handleCountrySelect = (code: string) => {
@@ -143,132 +150,140 @@ export default function BrowsePage() {
     setIsCountryDropdownOpen(false);
   };
 
-  // Get category name by id
-  const getCategoryName = (id: string): string => {
-    const category = categories.find((c) => c.id === id);
-    return category?.name || id.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-  };
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isCountryDropdownOpen) {
+        const target = event.target as HTMLElement;
+        if (!target.closest('[data-country-selector]')) {
+          setIsCountryDropdownOpen(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isCountryDropdownOpen]);
 
   return (
-    <div className="min-h-screen">
+    <div>
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-b from-primary/20 via-primary/5 to-transparent py-12 sm:py-16">
         <div className="container mx-auto px-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">
-                Discover Podcasts
+                Discover
               </h1>
               <p className="mt-2 text-muted-foreground text-lg">
-                Explore top podcasts from around the world
+                Explore top podcasts and trending videos from around the world
               </p>
             </div>
 
-            {/* Country Selector */}
-            <div className="relative">
-              <Button
-                variant="outline"
-                onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
-                className="flex items-center gap-2 min-w-[180px] justify-between"
-                aria-expanded={isCountryDropdownOpen}
-                aria-haspopup="listbox"
-              >
-                <span className="flex items-center gap-2">
+            {/* Country Selector + Theme Toggle */}
+            <div className="flex items-center gap-2">
+              {/* Country Selector */}
+              <div className="relative" data-country-selector>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
+                  className="flex items-center gap-2 min-w-[180px] justify-between"
+                  aria-expanded={isCountryDropdownOpen}
+                  aria-haspopup="listbox"
+                >
                   <Globe className="h-4 w-4" />
                   <span>{countryInfo?.flag}</span>
                   <span>{countryInfo?.name}</span>
-                </span>
-                <ChevronDown
-                  className={cn(
-                    "h-4 w-4 transition-transform",
-                    isCountryDropdownOpen && "rotate-180"
-                  )}
-                />
-              </Button>
+                  <ChevronDown
+                    className={cn(
+                      'h-4 w-4 transition-transform',
+                      isCountryDropdownOpen && 'rotate-180'
+                    )}
+                  />
+                </Button>
 
-              {isCountryDropdownOpen && (
-                <div
-                  role="listbox"
-                  className="absolute top-full right-0 mt-2 z-50 w-56 max-h-64 overflow-y-auto rounded-lg border bg-popover shadow-lg"
-                >
-                  {COUNTRY_OPTIONS.map((option) => (
-                    <button
-                      key={option.code}
-                      role="option"
-                      aria-selected={option.code === country}
-                      onClick={() => handleCountrySelect(option.code)}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-accent transition-colors",
-                        option.code === country && "bg-accent"
-                      )}
-                    >
-                      <span className="text-lg">{option.flag}</span>
-                      <span className="text-sm">{option.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+                {isCountryDropdownOpen && (
+                  <div
+                    role="listbox"
+                    className="absolute top-full right-0 mt-2 z-50 w-56 max-h-64 overflow-y-auto rounded-lg border bg-popover shadow-lg"
+                  >
+                    {COUNTRY_OPTIONS.map((option) => (
+                      <button
+                        key={option.code}
+                        role="option"
+                        aria-selected={option.code === country}
+                        onClick={() => handleCountrySelect(option.code)}
+                        className={cn(
+                          'w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-accent transition-colors',
+                          option.code === country && 'bg-accent'
+                        )}
+                      >
+                        <span className="text-lg">{option.flag}</span>
+                        <span className="text-sm">{option.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Theme Toggle */}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={toggleTheme}
+                aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+              >
+                {resolvedTheme === 'dark' ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+              </Button>
             </div>
           </div>
         </div>
 
         {/* Decorative elements */}
-        <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-primary/5 rounded-full blur-2xl" />
+        <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
       </section>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8 space-y-10">
+      <div className="container mx-auto px-4 py-8 space-y-12">
         {error && (
           <div className="p-4 rounded-lg bg-destructive/10 text-destructive text-center">
             {error}
           </div>
         )}
 
-        {/* Categories Carousel */}
+        {/* Genres Carousel - Unchanged */}
         <Carousel
-          title="Browse Categories"
-          items={categories}
-          isLoading={loadingCategories}
-          itemCount={12}
-          seeAllHref="/browse/categories"
-          renderItem={(category) => <CategoryCard category={category} />}
-          keyExtractor={(category) => category.id}
+          title="Browse Genres"
+          items={genres}
+          isLoading={loadingGenres}
+          itemCount={18}
+          renderItem={(genre) => <GenreCard genre={genre} />}
+          keyExtractor={(genre) => genre.id}
           itemClassName="w-40"
           skeletonClassName="w-40 h-24"
         />
 
-        {/* Top Podcasts Carousel */}
-        <Carousel
-          title={`Top Podcasts in ${countryInfo?.name || "Your Region"}`}
-          items={topShows}
-          isLoading={loadingTopShows}
-          itemCount={12}
-          renderItem={(show, index) => (
-            <SpotifyShowCard show={show} priority={index < 4} />
-          )}
-          keyExtractor={(show) => show.id}
-          itemClassName="w-[160px] sm:w-[180px]"
-          skeletonClassName="w-[160px] sm:w-[180px] h-[240px]"
+        {/* Top Podcasts Grid Section - NEW */}
+        <PodcastGridSection
+          title={`Top Podcasts in ${countryInfo?.name || 'Your Region'}`}
+          subtitle={`${countryInfo?.flag} Discover the most popular shows`}
+          podcasts={topPodcasts}
+          isLoading={loadingTopPodcasts}
+          initialCount={INITIAL_PODCAST_COUNT}
+          showLoadMore={hasMorePodcasts && topPodcasts.length >= INITIAL_PODCAST_COUNT}
+          onLoadMore={handleLoadMorePodcasts}
         />
 
-        {/* Category-specific Carousels */}
-        {featuredCategoryIds
-          .filter((id) => categories.some((c) => c.id === id))
-          .map((categoryId) => (
-            <Carousel
-              key={categoryId}
-              title={`Top in ${getCategoryName(categoryId)}`}
-              items={categoryShows[categoryId] || []}
-              isLoading={loadingCategoryShows[categoryId] ?? true}
-              itemCount={12}
-              seeAllHref={`/browse/category/${categoryId}`}
-              renderItem={(show) => <SpotifyShowCard show={show} />}
-              keyExtractor={(show) => show.id}
-              itemClassName="w-[160px] sm:w-[180px]"
-              skeletonClassName="w-[160px] sm:w-[180px] h-[240px]"
-            />
-          ))}
+        {/* YouTube Section - NEW */}
+        <YouTubeSection
+          initialTab="trending"
+          itemsPerPage={12}
+        />
       </div>
     </div>
   );

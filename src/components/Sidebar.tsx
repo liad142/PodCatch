@@ -1,0 +1,268 @@
+'use client';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import {
+  Compass,
+  Radio,
+  Rss,
+  FileText,
+  Brain,
+  Bookmark,
+  Settings,
+  Headphones,
+  Menu,
+  X,
+  Moon,
+  Sun,
+  User,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Button } from '@/components/ui/button';
+
+// Navigation configuration - easy to edit
+const NAV_ITEMS = [
+  { label: 'Discover', href: '/browse', icon: Compass },
+  { label: 'My Podcasts', href: '/my-podcasts', icon: Radio },
+  { label: 'Feed', href: '/feed', icon: Rss },
+  { label: 'Episode Summaries', href: '/summaries', icon: FileText },
+  { label: 'Smart Notes', href: '/smart-notes', icon: Brain },
+  { label: 'Saved', href: '/saved', icon: Bookmark },
+  { label: 'Settings', href: '/settings', icon: Settings },
+] as const;
+
+interface NavItemProps {
+  item: (typeof NAV_ITEMS)[number];
+  isActive: boolean;
+  onClick?: () => void;
+}
+
+function NavItem({ item, isActive, onClick }: NavItemProps) {
+  const Icon = item.icon;
+
+  return (
+    <Link
+      href={item.href}
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+        isActive
+          ? 'bg-primary text-primary-foreground'
+          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+      )}
+    >
+      <Icon className="h-5 w-5 shrink-0" />
+      <span>{item.label}</span>
+    </Link>
+  );
+}
+
+function ThemeToggle() {
+  const { resolvedTheme, toggleTheme } = useTheme();
+
+  return (
+    <button
+      onClick={toggleTheme}
+      className={cn(
+        'flex items-center justify-center w-9 h-9 rounded-lg transition-colors',
+        'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
+      )}
+      aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+    >
+      {resolvedTheme === 'dark' ? (
+        <Sun className="h-5 w-5 text-muted-foreground" />
+      ) : (
+        <Moon className="h-5 w-5 text-muted-foreground" />
+      )}
+    </button>
+  );
+}
+
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+  const pathname = usePathname();
+
+  const isActive = (href: string) => {
+    if (href === '/my-podcasts') {
+      // My Podcasts is active for both /my-podcasts and home /
+      return pathname === '/my-podcasts' || pathname === '/';
+    }
+    return pathname.startsWith(href);
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Brand Header */}
+      <div className="flex items-center justify-between px-4 py-5 border-b border-border">
+        <Link href="/" className="flex items-center gap-2" onClick={onNavigate}>
+          <Headphones className="h-7 w-7 text-primary" />
+          <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            PodCatch
+          </span>
+        </Link>
+        <ThemeToggle />
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" aria-label="Main navigation">
+        {NAV_ITEMS.map((item) => (
+          <NavItem
+            key={item.href}
+            item={item}
+            isActive={isActive(item.href)}
+            onClick={onNavigate}
+          />
+        ))}
+      </nav>
+
+      {/* Footer - User Status */}
+      <div className="px-4 py-4 border-t border-border">
+        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/50">
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+            <User className="h-4 w-4 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">Guest</p>
+            <p className="text-xs text-muted-foreground">Not signed in</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MobileDrawer({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = '';
+    };
+  }, [isOpen, onClose]);
+
+  // Focus trap: focus first focusable element when opened
+  const drawerRef = React.useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    if (isOpen && drawerRef.current) {
+      const firstFocusable = drawerRef.current.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      firstFocusable?.focus();
+    }
+  }, [isOpen]);
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className={cn(
+          'fixed inset-0 bg-black/50 z-40 transition-opacity lg:hidden',
+          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        )}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Drawer */}
+      <div
+        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation menu"
+        className={cn(
+          'fixed top-0 left-0 bottom-0 w-72 bg-background border-r border-border z-50 transition-transform lg:hidden',
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className={cn(
+            'absolute top-4 right-4 p-2 rounded-lg transition-colors',
+            'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+          )}
+          aria-label="Close navigation menu"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        <SidebarContent onNavigate={onClose} />
+      </div>
+    </>
+  );
+}
+
+export function Sidebar() {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const closeMobileMenu = useCallback(() => {
+    setIsMobileMenuOpen(false);
+  }, []);
+
+  // Close mobile menu on route change
+  const pathname = usePathname();
+  useEffect(() => {
+    closeMobileMenu();
+  }, [pathname, closeMobileMenu]);
+
+  return (
+    <>
+      {/* Mobile Header */}
+      <header className="fixed top-0 left-0 right-0 h-14 bg-background/95 backdrop-blur border-b border-border z-30 lg:hidden">
+        <div className="flex items-center justify-between h-full px-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMobileMenuOpen(true)}
+            aria-label="Open navigation menu"
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="mobile-navigation"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+
+          <Link href="/" className="flex items-center gap-2">
+            <Headphones className="h-6 w-6 text-primary" />
+            <span className="text-lg font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              PodCatch
+            </span>
+          </Link>
+
+          <ThemeToggle />
+        </div>
+      </header>
+
+      {/* Mobile Drawer */}
+      <MobileDrawer isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
+
+      {/* Desktop Sidebar */}
+      <aside
+        className="fixed top-0 left-0 bottom-0 w-64 bg-background border-r border-border hidden lg:flex flex-col z-30"
+        aria-label="Main navigation"
+      >
+        <SidebarContent />
+      </aside>
+    </>
+  );
+}
+
+// Export nav items for documentation/reference
+export { NAV_ITEMS };

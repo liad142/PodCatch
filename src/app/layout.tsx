@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { CountryProvider } from "@/contexts/CountryContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { Sidebar } from "@/components/Sidebar";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -15,8 +18,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <ThemeProvider>
+          <CountryProvider>
+            <div className="min-h-screen bg-background">
+              <Sidebar />
+              {/* Main content area - offset for sidebar on desktop, header on mobile */}
+              <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen">
+                <div className="max-w-7xl mx-auto">
+                  {children}
+                </div>
+              </main>
+            </div>
+          </CountryProvider>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

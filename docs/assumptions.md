@@ -1,48 +1,133 @@
-# Feature #1: Spotify-based Podcast Discovery - Assumptions
+# Assumptions for Feature #2: RSSHub YouTube Integration
 
-## API & Authentication
-1. **Spotify API Credentials**: We assume a Spotify Web API app will be created with Client ID and Client Secret. These will be stored as `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in environment variables.
-2. **Spotify Client Credentials Flow**: For MVP, we use the Client Credentials OAuth flow (no user authentication required). This allows access to public podcast data without user login.
-3. **Rate Limiting**: Spotify API has rate limits. We'll implement exponential backoff retry logic and respect `Retry-After` headers.
+## Product Decisions
+- **YouTube is primary source**: Full implementation for MVP
+- **Podcasts placeholder**: UI includes toggles but backend can be added later
+- **No AI summaries yet**: Cards show raw metadata only (title, description, thumbnail)
+- **Bookmark system**: Simple boolean flag, no folders/tags
+- **Channel input methods**: Support URL, channel ID, and @handle
+- **Feed modes**:
+  1. Channels You Follow (subscribed only)
+  2. Latest Items (chronological across all followed)
+  3. Mixed (future: add recommendations)
 
-## Markets & Regions
-4. **MVP Markets**: Israel (IL) and United States (US) only.
-5. **Default Market**: US is the default/fallback market when IL has missing content or when user location is unknown.
-6. **User Country Detection**: We auto-detect via `navigator.language` / `Accept-Language` header, with manual override in settings (stored in localStorage for MVP, Supabase user preferences later).
+## Technical Decisions
+- **RSSHub deployment**: Self-hosted via Docker recommended
+  - Env var: `RSSHUB_BASE_URL` (default: http://localhost:1200)
+  - Fallback to public instance allowed but with warning
+- **Caching strategy**: 
+  - Cache RSSHub responses for 30 minutes
+  - Store feed items in DB permanently
+  - Dedupe by `video_id` (YouTube) or `episode_id` (future)
+- **Rate limiting**: 
+  - Max 10 requests/minute to RSSHub per user
+  - Implement simple in-memory rate limiter
+- **Pagination**: 
+  - Load 20 items per page initially
+  - Infinite scroll on frontend
+- **Data model**:
+  - `source_type` enum: 'youtube' | 'podcast'
+  - Unified `feed_items` table for all content types
+  - Separate `youtube_channels` table for followed channels
 
-## Caching Strategy
-7. **Cache TTL**: 6 hours default for categories and top podcasts. Configurable via `CACHE_TTL_HOURS` env variable.
-8. **Database Caching**: All Spotify responses are cached in Supabase tables to reduce API calls and improve performance.
-9. **Cache Key Structure**: `{endpoint}:{market}:{params_hash}` pattern for cache lookup.
+## API Endpoints (Backend)
+- `POST /api/youtube/channels/follow` - Add channel by URL/ID/@handle
+- `DELETE /api/youtube/channels/:id/unfollow` - Remove channel
+- `GET /api/youtube/channels` - List followed channels
+- `GET /api/feed` - Unified feed with filters (source_type, mode)
+- `POST /api/feed/:id/bookmark` - Toggle bookmark
+- `GET /api/youtube/refresh` - Force refresh all followed channels
+
+## UI Components
+- `FeedScreen.tsx` - Main unified feed with mode switcher
+- `YouTubeChannelManager.tsx` - Follow/unfollow UI
+- `FeedItemCard.tsx` - Universal card (adapts to source_type)
+- `FilterBar.tsx` - Source type toggles (YouTube/Podcasts/All)
+
+## Dependencies to Add
+- Backend: `rss-parser` for parsing RSS feeds from RSSHub
+- Backend: `node-cache` for in-memory caching
+- Frontend: React Query for feed state management (optional, can use fetch)
+
+## Out of Scope (MVP)
+- AI summarization (comes later)
+- Recommendations algorithm
+- Playlist creation
+- Video playback in-app (just link to YouTube)
+- Email notifications
+- RSS feed export
+- Advanced search/filters
+
+---
+
+# Assumptions for Feature #3: Discover Page Refactor + YouTube Section
+
+## Product Decisions (January 2025)
+
+### Discover Page Refactor
+- **Genre carousel preserved**: The "Browse Genres" horizontal carousel remains exactly as-is at the top
+- **Removed genre carousels**: All "Top in {Genre}" carousels below the main content have been removed
+- **Single podcast grid**: One centralized "Top Podcasts in {Country}" grid replaces multiple carousels
+- **Grid layout**: Pocket Casts-inspired grid design, not Spotify-style horizontal lists
+- **Initial count**: 30 podcasts shown initially, with "Load More" pagination
+- **No infinite scroll**: Explicit pagination chosen over infinite scroll for better UX control
+
+### YouTube Section on Discover
+- **Two tabs**: Trending and Followed
+- **Trending source**: RSSHub `/youtube/trending/{country}` endpoint
+- **Fallback channels**: If trending unavailable, popular tech/educational channels used
+- **12 items default**: Shows 12 videos per tab initially
+- **Save functionality**: Users can save videos to their Saved page
+
+### Genre Page
+- **Pagination added**: "Load More" button for loading more podcasts
+- **Country indicator**: Shows current country in header
+- **30 initial items**: Same as main Discover grid
+
+### Saved Page
+- **Two tabs**: YouTube and Podcasts (podcasts coming soon)
+- **Real-time updates**: Unsaving a video removes it from the list immediately
+- **Uses feed_items.bookmarked**: No new table needed
+
+## Technical Decisions
+
+### API Endpoints Added
+- `GET /api/youtube/trending` - Trending videos via RSSHub
+- `GET /api/youtube/followed` - Videos from followed channels
+- `POST /api/youtube/save` - Save/unsave video
+- `GET /api/youtube/save` - Get saved videos
+
+### Caching Updates
+- **Apple top charts**: 6-hour TTL (increased from 1 hour)
+- **Apple search**: 30-minute TTL
+- **YouTube trending**: 30-minute TTL
+- **YouTube channels**: 30-minute TTL (unchanged)
+
+### Component Architecture
+- `PodcastGridSection` - Reusable grid for podcasts with loading states
+- `YouTubeSection` - Self-contained YouTube section with tabs
+- `VideoCard` - YouTube video card with save button
+- `EmptyState` - Configurable empty state component
+
+### Error Handling
+- **Graceful degradation**: If RSSHub fails, return empty with message, don't crash
+- **Cache fallback**: Return expired cache data if fresh fetch fails
+- **User feedback**: Clear error messages and retry buttons
 
 ## UI/UX Decisions
-10. **Carousel Item Count**: 12 items visible per carousel section, horizontally scrollable.
-11. **Grid Layout**: Show pages use responsive grid (2 cols mobile, 3 tablet, 4 desktop).
-12. **Episode Pagination**: Initial load of 20 episodes, then load more on scroll (infinite scroll).
-13. **Spotify Show vs RSS**: Spotify discovery creates references to shows. User can optionally add show's RSS feed later for full integration.
+- **Theme compatibility**: All components work in both light and dark mode
+- **Responsive grid**: 2 columns mobile → 6 columns desktop
+- **Loading skeletons**: Proper loading states match actual card dimensions
+- **Play overlay**: Hover effect on video thumbnails shows play button
 
-## Data Model Decisions
-14. **Separate Tables**: Spotify-sourced data is stored in separate tables (`spotify_*`) from user-added RSS podcasts to maintain data integrity.
-15. **Show ID Mapping**: Spotify show IDs are stored and used as primary reference. RSS feed URL is optional metadata.
-16. **No Episode Audio**: Spotify API doesn't provide direct audio URLs. Episodes are metadata-only; playback happens via Spotify client redirect.
+## Authentication Assumptions
+- **Demo user**: Using `demo-user-id` placeholder until auth is implemented
+- **No OAuth**: YouTube subscription import not available (would require Google OAuth)
+- **Manual follows only**: Users must manually add channels
 
-## Search
-17. **Unified Search**: Search bar searches both Spotify catalog and local RSS podcasts.
-18. **Market-aware Search**: All searches include user's market for localized results.
-19. **Search Debounce**: 300ms debounce on search input.
-
-## Categories
-20. **Spotify Categories**: We use Spotify's podcast categories endpoint. Not all general Spotify categories have podcasts; we filter to podcast-relevant ones.
-21. **Category Icons**: We'll use category images from Spotify API or fallback to generated icons.
-
-## Future Considerations (Not in MVP)
-- Spotify OAuth for user's followed/liked shows import
-- User accounts and saved preferences in Supabase
-- Push notifications for new episodes
-- Podcast episode streaming via Spotify SDK
-
-## Technical Stack
-- **Frontend**: Next.js 16 App Router, Tailwind CSS 4, React 19
-- **Backend**: Next.js API Routes (serverless)
-- **Database**: Supabase (PostgreSQL)
-- **Caching Layer**: Supabase tables with TTL-based invalidation
+## Out of Scope
+- YouTube OAuth integration for subscription import
+- Podcast episode saves (future feature)
+- Server-side pagination with real offsets
+- Infinite scroll
+- Video playback in-app

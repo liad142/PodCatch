@@ -109,7 +109,7 @@ export async function getCategoryWithShows(
 
   // Filter by market if specified
   let shows = (showRelations ?? [])
-    .map((r: { show_id: string; spotify_shows: DbSpotifyShow }) => r.spotify_shows)
+    .map((r: any) => r.spotify_shows)
     .filter(Boolean);
 
   if (market) {
@@ -258,7 +258,7 @@ export async function getShowWithCategories(
   if (categoriesError) throw categoriesError;
 
   const categories = (categoryRelations ?? [])
-    .map((r: { category_id: string; spotify_categories: DbSpotifyCategory }) => r.spotify_categories)
+    .map((r: any) => r.spotify_categories)
     .filter(Boolean);
 
   return { ...show, categories };
