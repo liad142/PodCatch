@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, use } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Apple, Play, Clock, Calendar, ExternalLink } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, Apple, Play, Clock, Calendar, ExternalLink, Sparkles, Loader2, FileText, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -35,6 +36,15 @@ interface Episode {
   seasonNumber?: number;
 }
 
+interface SummaryAvailability {
+  audioUrl: string;
+  episodeId: string | null;
+  hasQuickSummary: boolean;
+  hasDeepSummary: boolean;
+  quickStatus: string | null;
+  deepStatus: string | null;
+}
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
@@ -62,12 +72,15 @@ function formatDate(dateString: string): string {
 export default function PodcastPage({ params }: PageProps) {
   const { id: podcastId } = use(params);
   const { country } = useCountry();
-  
+  const router = useRouter();
+
   const [podcast, setPodcast] = useState<Podcast | null>(null);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [isLoadingPodcast, setIsLoadingPodcast] = useState(true);
   const [isLoadingEpisodes, setIsLoadingEpisodes] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [importingEpisodeId, setImportingEpisodeId] = useState<string | null>(null);
+  const [summaryAvailability, setSummaryAvailability] = useState<Map<string, SummaryAvailability>>(new Map());
 
   const fetchPodcast = useCallback(async () => {
     setIsLoadingPodcast(true);
@@ -107,6 +120,94 @@ export default function PodcastPage({ params }: PageProps) {
     fetchPodcast();
     fetchEpisodes();
   }, [fetchPodcast, fetchEpisodes]);
+
+  // Check for existing summaries after episodes load
+  useEffect(() => {
+    async function checkSummaries() {
+      const audioUrls = episodes
+        .map(e => e.audioUrl)
+        .filter((url): url is string => !!url);
+
+      if (audioUrls.length === 0) return;
+
+      try {
+        const response = await fetch('/api/summaries/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audioUrls }),
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const availabilityMap = new Map<string, SummaryAvailability>();
+        for (const item of data.availability) {
+          availabilityMap.set(item.audioUrl, item);
+        }
+        setSummaryAvailability(availabilityMap);
+      } catch (err) {
+        console.error('Error checking summaries:', err);
+      }
+    }
+
+    if (episodes.length > 0) {
+      checkSummaries();
+    }
+  }, [episodes]);
+
+  const handleSummarize = async (episode: Episode) => {
+    if (!podcast) return;
+
+    // Check if episode already exists in DB
+    const availability = episode.audioUrl ? summaryAvailability.get(episode.audioUrl) : null;
+    if (availability?.episodeId) {
+      // Episode already imported, navigate directly
+      router.push(`/episode/${availability.episodeId}`);
+      return;
+    }
+
+    setImportingEpisodeId(episode.id);
+
+    try {
+      const response = await fetch('/api/episodes/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          episode: {
+            externalId: episode.id,
+            title: episode.title,
+            description: episode.description,
+            publishedAt: episode.publishedAt,
+            duration: episode.duration,
+            audioUrl: episode.audioUrl,
+          },
+          podcast: {
+            externalId: podcast.id,
+            name: podcast.name,
+            artistName: podcast.artistName,
+            artworkUrl: podcast.artworkUrl,
+            feedUrl: podcast.feedUrl,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to import episode');
+      }
+
+      const { episodeId } = await response.json();
+      router.push(`/episode/${episodeId}`);
+    } catch (err) {
+      console.error('Error importing episode:', err);
+      setImportingEpisodeId(null);
+    }
+  };
+
+  // Helper to get summary status for an episode
+  const getEpisodeSummaryInfo = (episode: Episode) => {
+    if (!episode.audioUrl) return null;
+    return summaryAvailability.get(episode.audioUrl) || null;
+  };
 
   const imageUrl = podcast?.artworkUrl?.replace('100x100', '600x600') || '/placeholder-podcast.png';
 
@@ -264,6 +365,20 @@ export default function PodcastPage({ params }: PageProps) {
 
                     {/* Episode Info */}
                     <div className="flex-1 min-w-0">
+                      {/* Summary Ready Badge */}
+                      {(() => {
+                        const summaryInfo = getEpisodeSummaryInfo(episode);
+                        const hasSummary = summaryInfo?.hasQuickSummary || summaryInfo?.hasDeepSummary;
+                        return hasSummary ? (
+                          <div className="mb-2">
+                            <Badge variant="default" className="text-xs">
+                              <FileText className="h-3 w-3 mr-1" />
+                              Summary Ready
+                            </Badge>
+                          </div>
+                        ) : null;
+                      })()}
+
                       <h3 className="font-medium line-clamp-2 mb-1">
                         {episode.seasonNumber && episode.episodeNumber && (
                           <span className="text-muted-foreground text-sm mr-2">
@@ -272,7 +387,7 @@ export default function PodcastPage({ params }: PageProps) {
                         )}
                         {episode.title}
                       </h3>
-                      
+
                       <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
@@ -290,23 +405,53 @@ export default function PodcastPage({ params }: PageProps) {
                         {episode.description}
                       </p>
 
-                      {episode.audioUrl && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="mt-2"
-                          asChild
-                        >
-                          <a
-                            href={episode.audioUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                      <div className="flex gap-2 mt-2">
+                        {episode.audioUrl && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            asChild
                           >
-                            <Play className="h-4 w-4 mr-2" />
-                            Play Episode
-                          </a>
-                        </Button>
-                      )}
+                            <a
+                              href={episode.audioUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <Play className="h-4 w-4 mr-2" />
+                              Play Episode
+                            </a>
+                          </Button>
+                        )}
+                        {(() => {
+                          const summaryInfo = getEpisodeSummaryInfo(episode);
+                          const hasSummary = summaryInfo?.hasQuickSummary || summaryInfo?.hasDeepSummary;
+                          return (
+                            <Button
+                              variant={hasSummary ? "secondary" : "default"}
+                              size="sm"
+                              onClick={() => handleSummarize(episode)}
+                              disabled={importingEpisodeId === episode.id}
+                            >
+                              {importingEpisodeId === episode.id ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Loading...
+                                </>
+                              ) : hasSummary ? (
+                                <>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View Summary
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="h-4 w-4 mr-2" />
+                                  Summarize
+                                </>
+                              )}
+                            </Button>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </div>
                 </CardContent>

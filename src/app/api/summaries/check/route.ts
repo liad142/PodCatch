@@ -1,0 +1,138 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+// Use service role key for reading from database
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const secretKey = process.env.SUPABASE_SECRET_KEY!;
+
+  if (!secretKey) {
+    throw new Error('SUPABASE_SECRET_KEY is required');
+  }
+
+  return createClient(url, secretKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+}
+
+interface CheckSummariesRequest {
+  audioUrls: string[];
+}
+
+interface SummaryAvailability {
+  audioUrl: string;
+  episodeId: string | null;
+  hasQuickSummary: boolean;
+  hasDeepSummary: boolean;
+  quickStatus: string | null;
+  deepStatus: string | null;
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body: CheckSummariesRequest = await request.json();
+    const { audioUrls } = body;
+
+    if (!audioUrls || !Array.isArray(audioUrls) || audioUrls.length === 0) {
+      return NextResponse.json(
+        { error: 'audioUrls array is required' },
+        { status: 400 }
+      );
+    }
+
+    // Limit to prevent abuse
+    if (audioUrls.length > 100) {
+      return NextResponse.json(
+        { error: 'Maximum 100 audio URLs allowed per request' },
+        { status: 400 }
+      );
+    }
+
+    const supabase = getSupabase();
+
+    // Find episodes by audio URLs
+    const { data: episodes, error: episodesError } = await supabase
+      .from('episodes')
+      .select('id, audio_url')
+      .in('audio_url', audioUrls);
+
+    if (episodesError) {
+      console.error('Error fetching episodes:', episodesError);
+      return NextResponse.json(
+        { error: 'Database error' },
+        { status: 500 }
+      );
+    }
+
+    // If no episodes found, return empty availability
+    if (!episodes || episodes.length === 0) {
+      const availability: SummaryAvailability[] = audioUrls.map(url => ({
+        audioUrl: url,
+        episodeId: null,
+        hasQuickSummary: false,
+        hasDeepSummary: false,
+        quickStatus: null,
+        deepStatus: null,
+      }));
+      return NextResponse.json({ availability });
+    }
+
+    // Get episode IDs
+    const episodeIds = episodes.map(e => e.id);
+
+    // Fetch summaries for these episodes
+    const { data: summaries, error: summariesError } = await supabase
+      .from('summaries')
+      .select('episode_id, level, status')
+      .in('episode_id', episodeIds);
+
+    if (summariesError) {
+      console.error('Error fetching summaries:', summariesError);
+      return NextResponse.json(
+        { error: 'Database error' },
+        { status: 500 }
+      );
+    }
+
+    // Build audio URL to episode mapping
+    const audioUrlToEpisode = new Map(episodes.map(e => [e.audio_url, e.id]));
+
+    // Build episode ID to summaries mapping
+    const episodeSummaries = new Map<string, { quick: string | null; deep: string | null }>();
+    for (const summary of summaries || []) {
+      const existing = episodeSummaries.get(summary.episode_id) || { quick: null, deep: null };
+      if (summary.level === 'quick') {
+        existing.quick = summary.status;
+      } else if (summary.level === 'deep') {
+        existing.deep = summary.status;
+      }
+      episodeSummaries.set(summary.episode_id, existing);
+    }
+
+    // Build response
+    const availability: SummaryAvailability[] = audioUrls.map(url => {
+      const episodeId = audioUrlToEpisode.get(url) || null;
+      const summaryInfo = episodeId ? episodeSummaries.get(episodeId) : null;
+
+      return {
+        audioUrl: url,
+        episodeId,
+        hasQuickSummary: summaryInfo?.quick === 'ready',
+        hasDeepSummary: summaryInfo?.deep === 'ready',
+        quickStatus: summaryInfo?.quick || null,
+        deepStatus: summaryInfo?.deep || null,
+      };
+    });
+
+    return NextResponse.json({ availability });
+  } catch (error) {
+    console.error('Error in summaries check:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

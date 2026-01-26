@@ -32,3 +32,10 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Testing & Debug
+.playwright-mcp/
+.serena/
+
+# Claude Code
+.claude/settings.local.json

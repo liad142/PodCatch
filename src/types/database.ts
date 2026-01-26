@@ -125,3 +125,68 @@ export interface EpisodeSummariesResponse {
     deep?: SummaryData;
   };
 }
+
+// ============================================
+// EPISODE INSIGHTS HUB TYPES
+// ============================================
+
+// Insight tab types
+export type InsightTab = 'summary' | 'mindmap' | 'transcript' | 'keywords' | 'highlights' | 'shownotes';
+
+// Keyword structure
+export interface KeywordItem {
+  word: string;
+  frequency: number;
+  relevance: 'high' | 'medium' | 'low';
+}
+
+// Highlight structure (key quotes/moments)
+export interface HighlightItem {
+  quote: string;
+  timestamp?: string; // "12:34" format
+  context?: string;
+  importance: 'critical' | 'important' | 'notable';
+}
+
+// Shownotes section
+export interface ShownotesSection {
+  timestamp?: string;
+  title: string;
+  content: string;
+  links?: Array<{ label: string; url: string }>;
+}
+
+// Mindmap node for hierarchical view
+export interface MindmapNode {
+  id: string;
+  label: string;
+  children?: MindmapNode[];
+}
+
+// Complete insights content (stored in content_json)
+export interface InsightsContent {
+  keywords: KeywordItem[];
+  highlights: HighlightItem[];
+  shownotes: ShownotesSection[];
+  mindmap: MindmapNode;
+  generated_at: string;
+}
+
+// Insight status (reuses SummaryStatus values)
+export type InsightStatus = SummaryStatus;
+
+// API response for episode insights page
+export interface EpisodeInsightsResponse {
+  episode_id: string;
+  transcript_status: TranscriptStatus | 'not_started';
+  transcript_text?: string;
+  insights?: {
+    status: InsightStatus;
+    content?: InsightsContent;
+    updated_at?: string;
+  };
+  summaries: {
+    quick?: SummaryData;
+    deep?: SummaryData;
+  };
+}

@@ -4,7 +4,7 @@ A modern podcast and YouTube content aggregator with AI-powered summaries.
 
 ## Features
 
-### ✅ Feature #1: Apple Podcasts Discovery (Updated - via iTunes API + RSSHub)
+### ✅ Feature #1: Apple Podcasts Discovery (via iTunes API + RSSHub)
 - Browse podcast genres from Apple Podcasts
 - Search for podcasts using iTunes Search API
 - View podcast details and episodes
@@ -13,7 +13,7 @@ A modern podcast and YouTube content aggregator with AI-powered summaries.
 - Smart caching for API responses
 - **Note:** Originally planned for Spotify, pivoted to Apple Podcasts due to Spotify API restrictions
 
-### ✅ Feature #2: RSSHub YouTube Integration (NEW - Implemented)
+### ✅ Feature #2: RSSHub YouTube Integration
 - **Follow YouTube Channels**: Add channels by URL, channel ID, or @handle
 - **Unified Feed**: View content from all followed channels in one place
 - **Feed Modes**:
@@ -27,12 +27,56 @@ A modern podcast and YouTube content aggregator with AI-powered summaries.
 - **Smart Caching**: 30-minute cache for RSS feeds to reduce load
 - **Rate Limiting**: 10 requests/minute per user for channel operations
 
+### ✅ Feature #3: Modern Sidebar Navigation
+- **Persistent Navigation**: Collapsible sidebar with icons and labels
+- **Quick Access**: Navigate to Discover, My Podcasts, Feed, Episode Summaries, Smart Notes, Saved, and Settings
+- **Responsive**: Adapts to mobile (bottom bar) and desktop (side drawer)
+- **User Profile**: Displays current user info with avatar
+
+### ✅ Feature #4: Multi-Level AI Summaries
+- **Quick Summary**: Fast, concise overview perfect for deciding whether to listen
+  - TLDR (2 sentences max)
+  - Key takeaways (5-7 bullets)
+  - Target audience (who should listen)
+  - Topic tags
+- **Deep Summary**: Comprehensive analysis for engaged listeners
+  - Structured sections with key points
+  - Mentioned resources (tools, links, people, papers)
+  - Actionable next steps
+  - Rich topic taxonomy
+- **Smart Processing**:
+  - Automatic transcription via Groq (Whisper Large v3)
+  - AI summarization via Claude 3.5 Haiku
+  - Status tracking (queued → transcribing → summarizing → ready)
+  - Global caching (summaries shared across all users)
+- **Dual Import Sources**:
+  - Import from Apple Podcasts (via browse)
+  - Import from YouTube channels (coming soon)
+
+### ✅ Feature #5: Insights Hub (Advanced Analysis)
+- **Multiple Analysis Views**:
+  - **Summary Tab**: Quick and Deep summaries in one place
+  - **Transcript Tab**: Full episode transcript with timestamps
+  - **Keywords Tab**: Top keywords with frequency counts
+  - **Highlights Tab**: Key moments and quotes
+  - **Mind Map Tab**: Visual concept relationships (Mermaid diagram)
+  - **Show Notes Tab**: Generated episode notes
+- **Sticky Navigation**: Tab bar stays visible while scrolling
+- **Smart Generation**: Each insight type generated on-demand
+- **Status Indicators**: Visual feedback for generation progress
+
+### 🎯 Global Database Caching
+- **One Summary Per Episode**: When one user generates a summary, all users benefit
+- **Instant Access**: "Summary Ready" badges show pre-existing summaries
+- **Smart Deduplication**: Episodes matched by audio URL across all import sources
+- **Cost Efficient**: Reduces API calls to Claude and Groq by sharing results
+
 ### 🔮 Future Features
-- AI-powered content summaries (Groq/Claude)
-- Podcast RSS feed integration
-- Unified content recommendations
-- Email notifications
+- Chat with episode (Q&A on transcript)
+- Personalized recommendations
+- Email notifications for new content
 - Playlist management
+- Multi-language support
 
 ## Tech Stack
 
@@ -135,13 +179,14 @@ ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
 
 ### 4. Database Setup
-Run migrations in Supabase SQL editor:
+Run migrations in Supabase SQL editor in order:
 
 ```bash
-# In order:
-1. src/db/migrations/001_spotify_schema.sql
-2. src/db/migrations/002_spotify_cache_update.sql
-3. src/db/migrations/003_rsshub_youtube.sql  # NEW
+1. src/db/migrations/001_spotify_schema.sql      # Base schema
+2. src/db/migrations/002_spotify_cache_update.sql # Cache updates
+3. src/db/migrations/003_rsshub_youtube.sql      # YouTube integration
+4. src/db/migrations/004_multi_level_summaries.sql # AI summaries
+5. src/db/migrations/005_insights_level.sql      # Insights hub
 ```
 
 ### 5. Start RSSHub (Self-Hosted - Recommended)
@@ -210,13 +255,24 @@ npm start
   - Query params: `userId`, `sourceType`, `mode`, `bookmarked`, `limit`, `offset`
 - `POST /api/feed/[id]/bookmark` - Toggle bookmark on item
 
-### Apple Podcasts Integration (NEW)
+### Apple Podcasts Integration
 - `GET /api/apple/genres` - Get podcast genres
 - `GET /api/apple/genres/[id]/podcasts` - Get podcasts in genre
 - `GET /api/apple/top` - Get top podcasts by country
 - `GET /api/apple/search` - Search podcasts
 - `GET /api/apple/podcasts/[id]` - Get podcast details
 - `GET /api/apple/podcasts/[id]/episodes` - Get podcast episodes (via RSS)
+
+### Episode Import & Summaries
+- `POST /api/episodes/import` - Import episode from external source (Apple, YouTube)
+- `GET /api/episodes/[id]/summaries` - Get all summaries for an episode
+- `POST /api/episodes/[id]/summaries` - Request summary generation (quick/deep)
+- `POST /api/summaries/check` - Batch check summary availability by audio URLs
+
+### Insights Generation
+- `POST /api/episodes/[id]/insights` - Generate specific insight type
+  - Body: `{ type: 'keywords' | 'highlights' | 'mindmap' | 'shownotes' }`
+- `GET /api/episodes/[id]/insights` - Get all insights for an episode
 
 ### Spotify Integration (Deprecated)
 - `GET /api/spotify/categories` - Get podcast categories
@@ -227,13 +283,21 @@ npm start
 
 ## Database Schema
 
-### YouTube Tables (NEW)
+### Core Tables
+- `podcasts` - Podcast metadata (global)
+- `episodes` - Episode metadata (global, deduplicated by audio_url)
+- `transcripts` - Audio transcriptions (global, shared across summaries)
+- `summaries` - Multi-level summaries (quick/deep/insights, global)
+  - Unique constraint: (episode_id, level, language)
+  - Status tracking: not_ready → queued → transcribing → summarizing → ready/failed
+
+### YouTube Tables
 - `youtube_channels` - Channel metadata
 - `youtube_channel_follows` - User subscriptions
 - `feed_items` - Unified content storage (YouTube + future podcasts)
 - `rsshub_cache` - Temporary RSS feed cache (30min TTL)
 
-### Spotify Tables
+### Spotify Tables (Legacy)
 - `spotify_shows` - Cached podcast metadata
 - `spotify_episodes` - Cached episode data
 - `spotify_categories` - Category information
@@ -302,6 +366,49 @@ See `docs/assumptions.md` for detailed product and technical decisions including
 ISC
 
 ## Changelog
+
+### 2026-01-27 - Features #4 & #5: AI Summaries + Insights Hub + Global Caching
+**Added:**
+- Multi-level AI summaries (Quick & Deep) with Claude 3.5 Haiku
+- Automatic transcription via Groq (Whisper Large v3)
+- Insights Hub with 6 analysis views (Summary, Transcript, Keywords, Highlights, Mind Map, Show Notes)
+- Global database caching - one summary per episode shared across all users
+- Smart episode import with audio URL deduplication
+- Summary status tracking (queued → transcribing → summarizing → ready/failed)
+- "Summary Ready" badges for episodes with existing summaries
+- Batch summary availability checking API
+
+**Components:**
+- `SummaryPanel.tsx` - Quick/Deep summary display with request UI
+- `InsightHub.tsx` - Tabbed interface for all insights
+- `StickyTabNav.tsx` - Persistent tab navigation
+- `insights/KeywordsView.tsx` - Keyword frequency analysis
+- `insights/HighlightsView.tsx` - Key moments and quotes
+- `insights/MindMapView.tsx` - Visual concept map (Mermaid)
+- `insights/ShowNotesView.tsx` - Generated episode notes
+- `insights/TranscriptView.tsx` - Full transcript display
+
+**Backend:**
+- `src/lib/summary-service.ts` - Summary orchestration & transcript management
+- `src/lib/insights-service.ts` - Insights generation (keywords, highlights, etc.)
+- `src/lib/groq.ts` - Groq API client for transcription
+- `src/app/api/episodes/import/route.ts` - Episode import with deduplication
+- `src/app/api/summaries/check/route.ts` - Batch availability checker
+- `src/app/api/episodes/[id]/summaries/route.ts` - Summary generation
+- `src/app/api/episodes/[id]/insights/route.ts` - Insights generation
+
+**Database:**
+- `004_multi_level_summaries.sql` - Summaries & transcripts schema
+- `005_insights_level.sql` - Insights level support
+- New tables: `transcripts`, `summaries` (with level: quick/deep/insights)
+
+**Pages:**
+- `/episode/[id]` - Episode detail with summary panel
+- `/episode/[id]/insights` - Full-page insights hub
+
+**Documentation:**
+- `docs/summaries-levels.md` - Multi-level summary architecture
+- Updated `docs/assumptions.md` with Feature #4 decisions
 
 ### 2025-01-25 - Feature #3: Discover Page Refactor + YouTube Section
 **Changed:**

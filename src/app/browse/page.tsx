@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronDown, Globe, Moon, Sun } from 'lucide-react';
+import { ChevronDown, Moon, Sun } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Carousel } from '@/components/Carousel';
 import { GenreCard, Genre } from '@/components/GenreCard';
@@ -182,47 +183,55 @@ export default function BrowsePage() {
 
             {/* Country Selector + Theme Toggle */}
             <div className="flex items-center gap-2">
-              {/* Country Selector */}
               <div className="relative" data-country-selector>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
-                  className="flex items-center gap-2 min-w-[180px] justify-between"
-                  aria-expanded={isCountryDropdownOpen}
-                  aria-haspopup="listbox"
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  <Globe className="h-4 w-4" />
-                  <span>{countryInfo?.flag}</span>
-                  <span>{countryInfo?.name}</span>
-                  <ChevronDown
-                    className={cn(
-                      'h-4 w-4 transition-transform',
-                      isCountryDropdownOpen && 'rotate-180'
-                    )}
-                  />
-                </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 h-auto text-sm"
+                    aria-expanded={isCountryDropdownOpen}
+                    aria-haspopup="listbox"
+                  >
+                    <span className="text-base">{countryInfo?.flag}</span>
+                    <span className="hidden sm:inline">{countryInfo?.name}</span>
+                    <motion.div
+                      animate={{ rotate: isCountryDropdownOpen ? 180 : 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </motion.div>
+                  </Button>
+                </motion.div>
 
                 {isCountryDropdownOpen && (
-                  <div
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.15 }}
                     role="listbox"
-                    className="absolute top-full right-0 mt-2 z-50 w-56 max-h-64 overflow-y-auto rounded-lg border bg-popover shadow-lg"
+                    className="absolute top-full right-0 mt-1 z-[9999] w-56 max-h-64 overflow-y-auto rounded-lg border bg-popover shadow-lg"
                   >
                     {COUNTRY_OPTIONS.map((option) => (
-                      <button
+                      <motion.button
                         key={option.code}
                         role="option"
                         aria-selected={option.code === country}
                         onClick={() => handleCountrySelect(option.code)}
+                        whileHover={{ backgroundColor: 'var(--accent)' }}
                         className={cn(
-                          'w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-accent transition-colors',
+                          'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
                           option.code === country && 'bg-accent'
                         )}
                       >
                         <span className="text-lg">{option.flag}</span>
                         <span className="text-sm">{option.name}</span>
-                      </button>
+                      </motion.button>
                     ))}
-                  </div>
+                  </motion.div>
                 )}
               </div>
 
@@ -231,6 +240,7 @@ export default function BrowsePage() {
                 variant="outline"
                 size="icon"
                 onClick={toggleTheme}
+                className="h-9 w-9"
                 aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
               >
                 {resolvedTheme === 'dark' ? (

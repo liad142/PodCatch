@@ -19,6 +19,7 @@ import {
   Play,
   Sparkles,
   FileText,
+  Brain,
 } from "lucide-react";
 
 interface EpisodeData extends Episode {
@@ -210,8 +211,15 @@ export default function EpisodePage() {
                         <ExternalLink className="ml-2 h-3 w-3" />
                       </Button>
                     </a>
+                    <Link href={`/episode/${episodeId}/insights`}>
+                      <Button size="sm">
+                        <Brain className="mr-2 h-4 w-4" />
+                        View Insights
+                      </Button>
+                    </Link>
                     <Button
                       size="sm"
+                      variant="secondary"
                       onClick={() => setShowSummaryPanel(true)}
                       disabled={isProcessing}
                     >

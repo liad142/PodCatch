@@ -131,7 +131,7 @@ export function EpisodeCard({ episode, showSummaryButton = true, summaryStatus }
           </div>
           {showSummaryButton && (
             <div className="shrink-0">
-              <Link href={`/episode/${episode.id}`}>
+              <Link href={`/episode/${episode.id}/insights`}>
                 <Button
                   variant={buttonConfig.variant}
                   size="sm"

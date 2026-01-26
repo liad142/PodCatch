@@ -4,6 +4,7 @@ import "./globals.css";
 import { CountryProvider } from "@/contexts/CountryContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { Sidebar } from "@/components/Sidebar";
+import { Agentation } from "agentation";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -33,6 +34,7 @@ export default function RootLayout({
             </div>
           </CountryProvider>
         </ThemeProvider>
+        {process.env.NODE_ENV === "development" && <Agentation />}
       </body>
     </html>
   );

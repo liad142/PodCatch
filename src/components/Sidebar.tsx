@@ -14,12 +14,9 @@ import {
   Headphones,
   Menu,
   X,
-  Moon,
-  Sun,
   User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 
 // Navigation configuration - easy to edit
@@ -60,27 +57,6 @@ function NavItem({ item, isActive, onClick }: NavItemProps) {
   );
 }
 
-function ThemeToggle() {
-  const { resolvedTheme, toggleTheme } = useTheme();
-
-  return (
-    <button
-      onClick={toggleTheme}
-      className={cn(
-        'flex items-center justify-center w-9 h-9 rounded-lg transition-colors',
-        'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
-      )}
-      aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
-    >
-      {resolvedTheme === 'dark' ? (
-        <Sun className="h-5 w-5 text-muted-foreground" />
-      ) : (
-        <Moon className="h-5 w-5 text-muted-foreground" />
-      )}
-    </button>
-  );
-}
-
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
 
@@ -102,7 +78,6 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             PodCatch
           </span>
         </Link>
-        <ThemeToggle />
       </div>
 
       {/* Navigation */}
@@ -246,7 +221,7 @@ export function Sidebar() {
             </span>
           </Link>
 
-          <ThemeToggle />
+          <div className="w-9" /> {/* Spacer for alignment */}
         </div>
       </header>
 

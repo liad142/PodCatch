@@ -41,14 +41,25 @@ export function PodcastCard({ podcast, onRemove }: PodcastCardProps) {
     }
   };
   // Handle image_url that might be an array or invalid
-  let imageUrl = podcast.image_url;
-  if (imageUrl) {
+  let imageUrl: string | null = null;
+  const rawImageUrl = podcast.image_url;
+  
+  if (rawImageUrl) {
     try {
-      // If it's a JSON array string, extract the first URL
-      if (imageUrl.startsWith('[')) {
-        const parsed = JSON.parse(imageUrl);
-        imageUrl = Array.isArray(parsed) ? parsed[0] : null;
+      // If it's already an array, get the first element
+      if (Array.isArray(rawImageUrl)) {
+        imageUrl = rawImageUrl[0] || null;
       }
+      // If it's a JSON array string, extract the first URL
+      else if (typeof rawImageUrl === 'string' && rawImageUrl.startsWith('[')) {
+        const parsed = JSON.parse(rawImageUrl);
+        imageUrl = Array.isArray(parsed) ? parsed[0] : rawImageUrl;
+      }
+      // Otherwise, use it as-is
+      else {
+        imageUrl = rawImageUrl;
+      }
+      
       // Validate URL
       if (imageUrl) {
         new URL(imageUrl);
@@ -70,6 +81,7 @@ export function PodcastCard({ podcast, onRemove }: PodcastCardProps) {
                 fill
                 className="object-cover transition-transform group-hover:scale-105"
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                unoptimized
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">

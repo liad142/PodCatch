@@ -144,11 +144,12 @@ export default function PodcastPage() {
               <div className="w-48 h-48 shrink-0 rounded-lg overflow-hidden bg-muted">
                 {podcast.image_url ? (
                   <Image
-                    src={podcast.image_url}
+                    src={Array.isArray(podcast.image_url) ? podcast.image_url[0] : podcast.image_url}
                     alt={podcast.title}
                     width={192}
                     height={192}
                     className="w-full h-full object-cover"
+                    unoptimized
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
