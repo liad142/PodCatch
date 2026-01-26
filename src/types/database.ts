@@ -46,4 +46,82 @@ export interface Summary {
 export interface EpisodeWithSummary extends Episode {
   transcript?: Transcript;
   summary?: Summary;
+  summaryStatus?: SummaryStatus;
+}
+
+// Status types for the new summary system
+export type TranscriptStatus = 'queued' | 'transcribing' | 'ready' | 'failed';
+export type SummaryStatus = 'not_ready' | 'queued' | 'transcribing' | 'summarizing' | 'ready' | 'failed';
+export type SummaryLevel = 'quick' | 'deep';
+
+// Quick summary content structure
+export interface QuickSummaryContent {
+  tldr: string;
+  key_takeaways: string[];
+  who_is_this_for: string;
+  topics: string[];
+}
+
+// Deep summary content structure
+export interface DeepSummarySection {
+  title: string;
+  summary: string;
+  key_points: string[];
+}
+
+export interface DeepSummaryResource {
+  type: 'book' | 'tool' | 'website' | 'github' | 'paper' | 'other' | 'repo' | 'link' | 'person';
+  label: string;
+  url?: string;
+  notes?: string;
+}
+
+export interface DeepSummaryActionPrompt {
+  title: string;
+  details: string;
+}
+
+export interface DeepSummaryContent {
+  tldr: string;
+  sections: DeepSummarySection[];
+  resources: DeepSummaryResource[];
+  action_prompts: DeepSummaryActionPrompt[];
+  topics: string[];
+}
+
+// Extended transcript with status
+export interface TranscriptWithStatus extends Transcript {
+  status: TranscriptStatus;
+  error_message?: string;
+  updated_at: string;
+}
+
+// Summary record in database
+export interface SummaryRecord {
+  id: string;
+  episode_id: string;
+  level: SummaryLevel;
+  language: string;
+  status: SummaryStatus;
+  content_json: QuickSummaryContent | DeepSummaryContent | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Summary data for API response
+export interface SummaryData {
+  status: SummaryStatus;
+  content?: QuickSummaryContent | DeepSummaryContent;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// API response structure for episode summaries
+export interface EpisodeSummariesResponse {
+  episode_id: string;
+  summaries: {
+    quick?: SummaryData;
+    deep?: SummaryData;
+  };
 }

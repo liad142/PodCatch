@@ -1,133 +1,223 @@
-# Assumptions for Feature #2: RSSHub YouTube Integration
+# Design Assumptions
 
-## Product Decisions
-- **YouTube is primary source**: Full implementation for MVP
-- **Podcasts placeholder**: UI includes toggles but backend can be added later
-- **No AI summaries yet**: Cards show raw metadata only (title, description, thumbnail)
-- **Bookmark system**: Simple boolean flag, no folders/tags
-- **Channel input methods**: Support URL, channel ID, and @handle
-- **Feed modes**:
-  1. Channels You Follow (subscribed only)
-  2. Latest Items (chronological across all followed)
-  3. Mixed (future: add recommendations)
-
-## Technical Decisions
-- **RSSHub deployment**: Self-hosted via Docker recommended
-  - Env var: `RSSHUB_BASE_URL` (default: http://localhost:1200)
-  - Fallback to public instance allowed but with warning
-- **Caching strategy**: 
-  - Cache RSSHub responses for 30 minutes
-  - Store feed items in DB permanently
-  - Dedupe by `video_id` (YouTube) or `episode_id` (future)
-- **Rate limiting**: 
-  - Max 10 requests/minute to RSSHub per user
-  - Implement simple in-memory rate limiter
-- **Pagination**: 
-  - Load 20 items per page initially
-  - Infinite scroll on frontend
-- **Data model**:
-  - `source_type` enum: 'youtube' | 'podcast'
-  - Unified `feed_items` table for all content types
-  - Separate `youtube_channels` table for followed channels
-
-## API Endpoints (Backend)
-- `POST /api/youtube/channels/follow` - Add channel by URL/ID/@handle
-- `DELETE /api/youtube/channels/:id/unfollow` - Remove channel
-- `GET /api/youtube/channels` - List followed channels
-- `GET /api/feed` - Unified feed with filters (source_type, mode)
-- `POST /api/feed/:id/bookmark` - Toggle bookmark
-- `GET /api/youtube/refresh` - Force refresh all followed channels
-
-## UI Components
-- `FeedScreen.tsx` - Main unified feed with mode switcher
-- `YouTubeChannelManager.tsx` - Follow/unfollow UI
-- `FeedItemCard.tsx` - Universal card (adapts to source_type)
-- `FilterBar.tsx` - Source type toggles (YouTube/Podcasts/All)
-
-## Dependencies to Add
-- Backend: `rss-parser` for parsing RSS feeds from RSSHub
-- Backend: `node-cache` for in-memory caching
-- Frontend: React Query for feed state management (optional, can use fetch)
-
-## Out of Scope (MVP)
-- AI summarization (comes later)
-- Recommendations algorithm
-- Playlist creation
-- Video playback in-app (just link to YouTube)
-- Email notifications
-- RSS feed export
-- Advanced search/filters
+This document captures assumptions and design decisions made during the implementation of all PodCatch features.
 
 ---
 
-# Assumptions for Feature #3: Discover Page Refactor + YouTube Section
+# Feature #4: Multi-Level Summaries
 
-## Product Decisions (January 2025)
+## Architecture Decisions
 
-### Discover Page Refactor
-- **Genre carousel preserved**: The "Browse Genres" horizontal carousel remains exactly as-is at the top
-- **Removed genre carousels**: All "Top in {Genre}" carousels below the main content have been removed
-- **Single podcast grid**: One centralized "Top Podcasts in {Country}" grid replaces multiple carousels
-- **Grid layout**: Pocket Casts-inspired grid design, not Spotify-style horizontal lists
-- **Initial count**: 30 podcasts shown initially, with "Load More" pagination
-- **No infinite scroll**: Explicit pagination chosen over infinite scroll for better UX control
+### 1. Synchronous Processing
+**Decision**: Summary generation is synchronous within the API request.
 
-### YouTube Section on Discover
-- **Two tabs**: Trending and Followed
-- **Trending source**: RSSHub `/youtube/trending/{country}` endpoint
-- **Fallback channels**: If trending unavailable, popular tech/educational channels used
-- **12 items default**: Shows 12 videos per tab initially
-- **Save functionality**: Users can save videos to their Saved page
+**Rationale**: Simpler implementation without requiring a separate job queue system. For MVP, this is acceptable since:
+- Claude API response times are typically < 10 seconds
+- Groq transcription is fast for most episodes
+- Users can see progress via polling
 
-### Genre Page
-- **Pagination added**: "Load More" button for loading more podcasts
-- **Country indicator**: Shows current country in header
-- **30 initial items**: Same as main Discover grid
+**Future**: Could migrate to async job queue (e.g., Supabase Edge Functions, Trigger.dev) for better scalability.
 
-### Saved Page
-- **Two tabs**: YouTube and Podcasts (podcasts coming soon)
-- **Real-time updates**: Unsaving a video removes it from the list immediately
-- **Uses feed_items.bookmarked**: No new table needed
+### 2. Global Summaries (Not Per-User)
+**Decision**: One shared summary per episode for all users.
 
-## Technical Decisions
+**Rationale**:
+- Reduces API costs (Claude, Groq)
+- Faster subsequent requests
+- Episode content is objective, not user-specific
 
-### API Endpoints Added
-- `GET /api/youtube/trending` - Trending videos via RSSHub
-- `GET /api/youtube/followed` - Videos from followed channels
-- `POST /api/youtube/save` - Save/unsave video
-- `GET /api/youtube/save` - Get saved videos
+**Trade-off**: No personalization based on user interests.
 
-### Caching Updates
-- **Apple top charts**: 6-hour TTL (increased from 1 hour)
-- **Apple search**: 30-minute TTL
-- **YouTube trending**: 30-minute TTL
-- **YouTube channels**: 30-minute TTL (unchanged)
+### 3. Quick Summary as Default
+**Decision**: Clicking "Summarize" in episode list generates Quick summary by default.
 
-### Component Architecture
-- `PodcastGridSection` - Reusable grid for podcasts with loading states
-- `YouTubeSection` - Self-contained YouTube section with tabs
-- `VideoCard` - YouTube video card with save button
-- `EmptyState` - Configurable empty state component
+**Rationale**:
+- Faster to generate
+- Covers most use cases (quick decision: "Should I listen?")
+- Deep summary available as opt-in for users who want more
 
-### Error Handling
-- **Graceful degradation**: If RSSHub fails, return empty with message, don't crash
-- **Cache fallback**: Return expired cache data if fresh fetch fails
-- **User feedback**: Clear error messages and retry buttons
+### 4. Transcript Reuse
+**Decision**: Single transcript shared by both Quick and Deep summaries.
+
+**Rationale**:
+- Transcription is the most expensive operation (time + cost)
+- Same transcript serves both summary levels
+- Transcript can be used for future "Chat with Episode" feature
+
+### 5. English-Only Launch
+**Decision**: Default language is 'en', no UI for language selection.
+
+**Rationale**:
+- Simplifies MVP
+- Schema supports multiple languages for future expansion
+- Can add language detection later
+
+## Data Model Decisions
+
+### 6. Episode ID as TEXT (Not UUID)
+**Decision**: `episode_id` is TEXT, not a foreign key.
+
+**Rationale**:
+- Episodes may come from external sources (Apple Podcasts, RSS)
+- IDs might be strings like "abc123" or URLs
+- Avoids tight coupling with episode table structure
+
+### 7. JSONB for Summary Content
+**Decision**: Store summary as JSONB instead of separate columns.
+
+**Rationale**:
+- Flexible schema evolution
+- Can add new fields without migrations
+- Easy to query specific fields if needed
+
+### 8. Status in Summary Table (Not Separate Jobs Table)
+**Decision**: Status tracking is directly in the summaries table.
+
+**Rationale**:
+- Simpler queries (one table instead of joins)
+- Natural fit since status is per-summary
+- No need for complex job management
 
 ## UI/UX Decisions
-- **Theme compatibility**: All components work in both light and dark mode
-- **Responsive grid**: 2 columns mobile → 6 columns desktop
-- **Loading skeletons**: Proper loading states match actual card dimensions
-- **Play overlay**: Hover effect on video thumbnails shows play button
 
-## Authentication Assumptions
-- **Demo user**: Using `demo-user-id` placeholder until auth is implemented
-- **No OAuth**: YouTube subscription import not available (would require Google OAuth)
-- **Manual follows only**: Users must manually add channels
+### 9. Polling for Progress (Not WebSockets)
+**Decision**: Frontend polls status every 2.5 seconds.
 
-## Out of Scope
-- YouTube OAuth integration for subscription import
-- Podcast episode saves (future feature)
-- Server-side pagination with real offsets
-- Infinite scroll
-- Video playback in-app
+**Rationale**:
+- Works with serverless deployment
+- No WebSocket infrastructure needed
+- Acceptable UX for operations that take 20-60 seconds
+
+**Trade-off**: Slightly higher server load, but negligible for expected traffic.
+
+### 10. Panel vs Modal
+**Decision**: Side panel on desktop, full-screen on mobile.
+
+**Rationale**:
+- Desktop: Side panel keeps context visible
+- Mobile: Full screen maximizes content readability
+
+### 11. Button Labeling
+**Decision**: Use "View Summary" when ready, "Summarize" when not.
+
+**Rationale**:
+- Honest about what happens on click
+- "Generate" implies work even when cached
+- Clear distinction between viewing and creating
+
+## Error Handling Decisions
+
+### 12. Retry on Failure
+**Decision**: Failed summaries can be retried by clicking again.
+
+**Rationale**:
+- Simple recovery mechanism
+- Status is updated to show failure
+- No automatic retry to avoid infinite loops
+
+### 13. Partial Success
+**Decision**: If Quick succeeds but Deep fails, Quick is still usable.
+
+**Rationale**:
+- Independent operations
+- Users get value from Quick even if Deep fails
+- Can retry Deep separately
+
+## Security & Privacy
+
+### 14. No User Ownership
+**Decision**: Summaries are not tied to specific users.
+
+**Rationale**:
+- Global cache benefits all users
+- No need for RLS complexity
+- Episode content is public anyway
+
+**Note**: RLS is enabled with permissive policies for future flexibility.
+
+## Performance Considerations
+
+### 15. Transcript Size Limit
+**Decision**: Transcript is truncated to 100,000 characters for Claude.
+
+**Rationale**:
+- Fits within Claude context window
+- Covers most podcasts (100k chars is approximately 2-3 hours of speech)
+- Prevents token limit errors
+
+### 16. No Caching at API Level
+**Decision**: Rely on database for caching, no HTTP cache headers.
+
+**Rationale**:
+- Status changes require fresh data
+- Database is source of truth
+- Could add cache headers for ready summaries later
+
+## API Design Decisions
+
+### 17. RESTful Endpoints
+**Decision**: Use REST-style endpoints rather than GraphQL or RPC.
+
+**Rationale**:
+- Familiar pattern for most developers
+- Easy to test with curl/Postman
+- Matches existing API patterns in the codebase
+
+### 18. Idempotent POST
+**Decision**: POST /summaries is idempotent - returns existing if ready.
+
+**Rationale**:
+- Safe to retry on network errors
+- Simplifies frontend logic
+- Prevents accidental duplicate processing
+
+### 19. Combined Status Endpoint
+**Decision**: GET /summaries returns both Quick and Deep statuses.
+
+**Rationale**:
+- Single request for full picture
+- Reduces polling requests
+- Easier state management in frontend
+
+## Technology Choices
+
+### 20. Groq for Transcription
+**Decision**: Use Groq's Whisper API for transcription.
+
+**Rationale**:
+- Very fast transcription (near real-time)
+- Cost-effective
+- Good accuracy for English content
+
+### 21. Claude for Summarization
+**Decision**: Use Anthropic's Claude API for generating summaries.
+
+**Rationale**:
+- High quality structured output
+- Reliable JSON generation
+- Good at following specific format requirements
+
+### 22. Supabase for Storage
+**Decision**: Use Supabase PostgreSQL for transcript and summary storage.
+
+**Rationale**:
+- Already used in the project
+- Good JSONB support
+- Built-in RLS for future auth needs
+
+## Future Considerations (Not in MVP)
+
+- Chat with Episode feature (mentioned as future, not implemented)
+- Multi-language support (schema ready, UI not)
+- User-specific preferences
+- Summary regeneration/refresh
+- Export functionality from summary panel
+- Saving summaries to user's library
+- Batch processing multiple episodes
+- Summary quality feedback/rating
+- Custom summary templates
+- Podcast-level summaries (aggregating episodes)
+
+---
+
+# Feature #2: RSSHub YouTube Integration
