@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SummaryStatusBadge } from "./SummaryStatusBadge";
+import { SummarizeButton } from "./SummarizeButton";
 import type { EpisodeWithSummary, SummaryStatus } from "@/types/database";
-import { Calendar, Clock, FileText, Sparkles, Loader2, RefreshCw, Eye } from "lucide-react";
+import { Calendar, Clock, FileText } from "lucide-react";
 
 interface EpisodeCardProps {
   episode: EpisodeWithSummary;
@@ -33,53 +33,9 @@ function formatDate(dateString: string | null): string {
   });
 }
 
-function getButtonConfig(hasSummary: boolean, summaryStatus?: SummaryStatus | null) {
-  // Check if processing
-  const isProcessing = summaryStatus && ['queued', 'transcribing', 'summarizing'].includes(summaryStatus);
-  const isFailed = summaryStatus === 'failed';
-  const isReady = summaryStatus === 'ready' || hasSummary;
-
-  if (isProcessing) {
-    return {
-      text: 'Summarizing...',
-      icon: Loader2,
-      variant: 'secondary' as const,
-      spin: true,
-    };
-  }
-
-  if (isFailed) {
-    return {
-      text: 'Retry',
-      icon: RefreshCw,
-      variant: 'destructive' as const,
-      spin: false,
-    };
-  }
-
-  if (isReady) {
-    return {
-      text: 'View Summary',
-      icon: Eye,
-      variant: 'secondary' as const,
-      spin: false,
-    };
-  }
-
-  // Default: not ready
-  return {
-    text: 'Summarize',
-    icon: Sparkles,
-    variant: 'default' as const,
-    spin: false,
-  };
-}
-
 export function EpisodeCard({ episode, showSummaryButton = true, summaryStatus }: EpisodeCardProps) {
   const hasSummary = !!episode.summary;
   const effectiveStatus = summaryStatus ?? episode.summaryStatus ?? null;
-  const buttonConfig = getButtonConfig(hasSummary, effectiveStatus);
-  const ButtonIcon = buttonConfig.icon;
 
   // Determine if we should show the processing badge instead of the "Summary Available" badge
   const isProcessing = effectiveStatus && ['queued', 'transcribing', 'summarizing'].includes(effectiveStatus);
@@ -131,16 +87,10 @@ export function EpisodeCard({ episode, showSummaryButton = true, summaryStatus }
           </div>
           {showSummaryButton && (
             <div className="shrink-0">
-              <Link href={`/episode/${episode.id}/insights`}>
-                <Button
-                  variant={buttonConfig.variant}
-                  size="sm"
-                  disabled={isProcessing ?? false}
-                >
-                  <ButtonIcon className={`mr-2 h-4 w-4 ${buttonConfig.spin ? 'animate-spin' : ''}`} />
-                  {buttonConfig.text}
-                </Button>
-              </Link>
+              <SummarizeButton
+                episodeId={episode.id}
+                initialStatus={effectiveStatus === 'ready' || hasSummary ? 'ready' : effectiveStatus === 'failed' ? 'failed' : 'not_ready'}
+              />
             </div>
           )}
         </div>

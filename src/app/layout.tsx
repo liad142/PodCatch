@@ -3,7 +3,9 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { CountryProvider } from "@/contexts/CountryContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { SummarizeQueueProvider } from "@/contexts/SummarizeQueueContext";
 import { Sidebar } from "@/components/Sidebar";
+import { QueueToast } from "@/components/QueueToast";
 import { Agentation } from "agentation";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -23,15 +25,17 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider>
           <CountryProvider>
-            <div className="min-h-screen bg-background">
-              <Sidebar />
-              {/* Main content area - offset for sidebar on desktop, header on mobile */}
-              <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen">
-                <div className="max-w-7xl mx-auto">
-                  {children}
-                </div>
-              </main>
-            </div>
+            <SummarizeQueueProvider>
+              <div className="min-h-screen bg-background">
+                <Sidebar />
+                <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen">
+                  <div className="max-w-7xl mx-auto">
+                    {children}
+                  </div>
+                </main>
+              </div>
+              <QueueToast />
+            </SummarizeQueueProvider>
           </CountryProvider>
         </ThemeProvider>
         {process.env.NODE_ENV === "development" && <Agentation />}
