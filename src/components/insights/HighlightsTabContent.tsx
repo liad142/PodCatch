@@ -4,9 +4,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MiniLoadingAnimation } from "@/components/animations";
 import { cn } from "@/lib/utils";
 import type { HighlightItem } from "@/types/database";
-import { Quote, Copy, Check, Sparkles, Loader2, Lightbulb, AlertCircle, Star, Clock } from "lucide-react";
+import { Quote, Copy, Check, Sparkles, Lightbulb, AlertCircle, Star, Clock } from "lucide-react";
 
 interface HighlightsTabContentProps {
   highlights: HighlightItem[] | undefined;
@@ -39,30 +40,22 @@ export function HighlightsTabContent({
     );
   }
 
+  if (isGenerating) {
+    return <MiniLoadingAnimation message="Generating highlights..." />;
+  }
+
   if (!highlights || highlights.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[400px] text-center p-4">
         <Lightbulb className="h-12 w-12 text-muted-foreground mb-4" />
-        {isGenerating ? (
-          <>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span>Extracting highlights...</span>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">This may take a moment</p>
-          </>
-        ) : (
-          <>
-            <p className="text-muted-foreground">No highlights extracted yet</p>
-            <p className="text-sm text-muted-foreground mt-1 mb-4">
-              Generate insights to find key quotes and moments
-            </p>
-            <Button onClick={onGenerate} className="gap-2">
-              <Sparkles className="h-4 w-4" />
-              Generate Insights
-            </Button>
-          </>
-        )}
+        <p className="text-muted-foreground">No highlights extracted yet</p>
+        <p className="text-sm text-muted-foreground mt-1 mb-4">
+          Generate insights to find key quotes and moments
+        </p>
+        <Button onClick={onGenerate} className="gap-2">
+          <Sparkles className="h-4 w-4" />
+          Generate Insights
+        </Button>
       </div>
     );
   }

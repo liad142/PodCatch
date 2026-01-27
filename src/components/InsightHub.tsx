@@ -15,10 +15,11 @@ import type { InsightTab, EpisodeInsightsResponse, InsightsContent, SummaryData 
 
 interface InsightHubProps {
   episodeId: string;
+  initialTab?: InsightTab;
 }
 
-export function InsightHub({ episodeId }: InsightHubProps) {
-  const [activeTab, setActiveTab] = useState<InsightTab>('summary');
+export function InsightHub({ episodeId, initialTab = 'summary' }: InsightHubProps) {
+  const [activeTab, setActiveTab] = useState<InsightTab>(initialTab);
   const [data, setData] = useState<EpisodeInsightsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);

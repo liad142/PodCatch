@@ -4,9 +4,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MiniLoadingAnimation } from "@/components/animations";
 import { cn } from "@/lib/utils";
 import type { MindmapNode } from "@/types/database";
-import { Brain, ChevronDown, ChevronRight, Sparkles, Loader2, Circle, Copy, Check } from "lucide-react";
+import { Brain, ChevronDown, ChevronRight, Sparkles, Circle, Copy, Check } from "lucide-react";
 
 interface MindmapTabContentProps {
   mindmap: MindmapNode | undefined;
@@ -90,30 +91,22 @@ export function MindmapTabContent({
     );
   }
 
+  if (isGenerating) {
+    return <MiniLoadingAnimation message="Generating mindmap..." />;
+  }
+
   if (!mindmap) {
     return (
       <div className="flex flex-col items-center justify-center h-[400px] text-center p-4">
         <Brain className="h-12 w-12 text-muted-foreground mb-4" />
-        {isGenerating ? (
-          <>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span>Creating mindmap...</span>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">This may take a moment</p>
-          </>
-        ) : (
-          <>
-            <p className="text-muted-foreground">No mindmap generated yet</p>
-            <p className="text-sm text-muted-foreground mt-1 mb-4">
-              Generate insights to create a visual mindmap
-            </p>
-            <Button onClick={onGenerate} className="gap-2">
-              <Sparkles className="h-4 w-4" />
-              Generate Insights
-            </Button>
-          </>
-        )}
+        <p className="text-muted-foreground">No mindmap generated yet</p>
+        <p className="text-sm text-muted-foreground mt-1 mb-4">
+          Generate insights to create a visual mindmap
+        </p>
+        <Button onClick={onGenerate} className="gap-2">
+          <Sparkles className="h-4 w-4" />
+          Generate Insights
+        </Button>
       </div>
     );
   }

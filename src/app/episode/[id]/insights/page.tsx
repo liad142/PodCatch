@@ -1,24 +1,31 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/Header";
 import { InsightHub } from "@/components/InsightHub";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase";
-import type { Episode, Podcast } from "@/types/database";
+import type { Episode, Podcast, InsightTab } from "@/types/database";
 import { ArrowLeft, Clock, Calendar, Play, ExternalLink } from "lucide-react";
 
 interface EpisodeData extends Episode {
   podcast?: Podcast;
 }
 
+const validTabs: InsightTab[] = ['summary', 'mindmap', 'transcript', 'keywords', 'highlights', 'shownotes'];
+
 export default function EpisodeInsightsPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const episodeId = params.id as string;
+
+  // Get initial tab from URL query parameter
+  const tabParam = searchParams.get('tab') as InsightTab | null;
+  const initialTab: InsightTab = tabParam && validTabs.includes(tabParam) ? tabParam : 'summary';
 
   const [episode, setEpisode] = useState<EpisodeData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -193,7 +200,7 @@ export default function EpisodeInsightsPage() {
 
       {/* Insight Hub */}
       <div className="flex-1 flex flex-col">
-        {episodeId && <InsightHub episodeId={episodeId} />}
+        {episodeId && <InsightHub episodeId={episodeId} initialTab={initialTab} />}
       </div>
     </div>
   );
