@@ -89,6 +89,17 @@ export default function EpisodeInsightsPage() {
     });
   };
 
+  // Extract Apple podcast ID from rss_feed_url (format: "apple:123456" or actual RSS URL)
+  const getBackLink = () => {
+    const rssUrl = episode?.podcast?.rss_feed_url;
+    if (rssUrl?.startsWith('apple:')) {
+      const appleId = rssUrl.replace('apple:', '');
+      return `/browse/podcast/${appleId}`;
+    }
+    // Fallback to internal podcast page if not an Apple import
+    return `/podcast/${episode?.podcast_id}`;
+  };
+
   if (error && !episode) {
     return (
       <div className="min-h-screen bg-background">
@@ -145,7 +156,7 @@ export default function EpisodeInsightsPage() {
                     variant="ghost"
                     size="sm"
                     className="h-7 px-2 -ml-2"
-                    onClick={() => router.push(`/podcast/${episode.podcast_id}`)}
+                    onClick={() => router.push(getBackLink())}
                   >
                     <ArrowLeft className="h-4 w-4 mr-1" />
                     Back

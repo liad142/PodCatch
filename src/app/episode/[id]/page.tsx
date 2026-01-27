@@ -17,10 +17,10 @@ import {
   Clock,
   ExternalLink,
   Play,
-  Sparkles,
   FileText,
   Brain,
 } from "lucide-react";
+import { SummarizeButton } from "@/components/SummarizeButton";
 
 interface EpisodeData extends Episode {
   podcast?: Podcast;
@@ -108,13 +108,16 @@ export default function EpisodePage() {
   };
 
   const hasSummaryReady = summaries?.quick?.status === 'ready' || summaries?.deep?.status === 'ready';
-  const isProcessing = ['queued', 'transcribing', 'summarizing'].includes(summaries?.quick?.status || '') ||
-                       ['queued', 'transcribing', 'summarizing'].includes(summaries?.deep?.status || '');
 
-  const getButtonText = () => {
-    if (hasSummaryReady) return "View Summary";
-    if (isProcessing) return "Summarizing...";
-    return "Summarize Episode";
+  // Extract Apple podcast ID from rss_feed_url (format: "apple:123456" or actual RSS URL)
+  const getBackLink = () => {
+    const rssUrl = episode?.podcast?.rss_feed_url;
+    if (rssUrl?.startsWith('apple:')) {
+      const appleId = rssUrl.replace('apple:', '');
+      return `/browse/podcast/${appleId}`;
+    }
+    // Fallback to internal podcast page if not an Apple import
+    return `/podcast/${episode?.podcast_id}`;
   };
 
   return (
@@ -148,7 +151,7 @@ export default function EpisodePage() {
           ) : episode ? (
             <div className="space-y-8">
               {/* Back Button */}
-              <Link href={`/podcast/${episode.podcast_id}`}>
+              <Link href={getBackLink()}>
                 <Button variant="ghost" className="-ml-2">
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back to {episode.podcast?.title || "Podcast"}
@@ -217,15 +220,9 @@ export default function EpisodePage() {
                         View Insights
                       </Button>
                     </Link>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setShowSummaryPanel(true)}
-                      disabled={isProcessing}
-                    >
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      {getButtonText()}
-                    </Button>
+                    <SummarizeButton
+                      episodeId={episodeId}
+                    />
                   </div>
                 </CardContent>
               </Card>

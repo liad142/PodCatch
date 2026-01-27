@@ -1,34 +1,64 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Header } from "@/components/Header";
-import { EpisodeList } from "@/components/EpisodeList";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
-import type { Podcast, EpisodeWithSummary } from "@/types/database";
-import { ArrowLeft, Mic2, Calendar, Globe, Rss } from "lucide-react";
+import { useSummarizeQueue } from "@/contexts/SummarizeQueueContext";
+import { SummarizeButton } from "@/components/SummarizeButton";
+import type { Podcast } from "@/types/database";
+import { ArrowLeft, Mic2, Calendar, Globe, Rss, Clock, Play, FileText, Loader2 } from "lucide-react";
+
+interface Episode {
+  id: string;
+  podcastId: string;
+  title: string;
+  description: string;
+  publishedAt: string;
+  duration: number;
+  audioUrl?: string;
+  artworkUrl?: string;
+  episodeNumber?: number;
+  seasonNumber?: number;
+}
+
+interface SummaryAvailability {
+  audioUrl: string;
+  episodeId: string | null;
+  hasQuickSummary: boolean;
+  hasDeepSummary: boolean;
+  quickStatus: string | null;
+  deepStatus: string | null;
+}
 
 export default function PodcastPage() {
   const params = useParams();
   const podcastId = params.id as string;
 
   const [podcast, setPodcast] = useState<Podcast | null>(null);
-  const [episodes, setEpisodes] = useState<EpisodeWithSummary[]>([]);
+  const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingEpisodes, setIsLoadingEpisodes] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [appleId, setAppleId] = useState<string | null>(null);
+  const [summaryAvailability, setSummaryAvailability] = useState<Map<string, SummaryAvailability>>(new Map());
+  const [importingEpisodeId, setImportingEpisodeId] = useState<string | null>(null);
 
+  const { addToQueue } = useSummarizeQueue();
+
+  // Fetch podcast from DB
   useEffect(() => {
-    async function fetchPodcastData() {
+    async function fetchPodcast() {
       try {
         setIsLoading(true);
         setError(null);
 
-        // Fetch podcast details
         const { data: podcastData, error: podcastError } = await supabase
           .from("podcasts")
           .select("*")
@@ -38,45 +68,10 @@ export default function PodcastPage() {
         if (podcastError) throw podcastError;
         setPodcast(podcastData);
 
-        // Fetch episodes with their summaries
-        const { data: episodesData, error: episodesError } = await supabase
-          .from("episodes")
-          .select("*")
-          .eq("podcast_id", podcastId)
-          .order("published_at", { ascending: false });
-
-        if (episodesError) throw episodesError;
-
-        // Fetch transcripts and summaries for episodes
-        const episodesWithSummaries = await Promise.all(
-          (episodesData || []).map(async (episode) => {
-            // Get transcript
-            const { data: transcriptData } = await supabase
-              .from("transcripts")
-              .select("*")
-              .eq("episode_id", episode.id)
-              .single();
-
-            let summary = null;
-            if (transcriptData) {
-              // Get summary if transcript exists
-              const { data: summaryData } = await supabase
-                .from("summaries")
-                .select("*")
-                .eq("transcript_id", transcriptData.id)
-                .single();
-              summary = summaryData;
-            }
-
-            return {
-              ...episode,
-              transcript: transcriptData || undefined,
-              summary: summary || undefined,
-            };
-          })
-        );
-
-        setEpisodes(episodesWithSummaries);
+        // Check if this is an Apple podcast
+        if (podcastData.rss_feed_url?.startsWith('apple:')) {
+          setAppleId(podcastData.rss_feed_url.replace('apple:', ''));
+        }
       } catch (err) {
         console.error("Error fetching podcast:", err);
         setError("Failed to load podcast");
@@ -86,17 +81,162 @@ export default function PodcastPage() {
     }
 
     if (podcastId) {
-      fetchPodcastData();
+      fetchPodcast();
     }
   }, [podcastId]);
 
+  // Fetch episodes from Apple API once we have the appleId
+  const fetchEpisodes = useCallback(async () => {
+    if (!appleId) return;
+
+    setIsLoadingEpisodes(true);
+    try {
+      const response = await fetch(`/api/apple/podcasts/${appleId}/episodes?limit=50`);
+      if (!response.ok) throw new Error('Failed to fetch episodes');
+      const data = await response.json();
+      setEpisodes(data.episodes || []);
+    } catch (err) {
+      console.error("Error fetching episodes:", err);
+    } finally {
+      setIsLoadingEpisodes(false);
+    }
+  }, [appleId]);
+
+  useEffect(() => {
+    fetchEpisodes();
+  }, [fetchEpisodes]);
+
+  // Check for existing summaries
+  useEffect(() => {
+    async function checkSummaries() {
+      const audioUrls = episodes
+        .map(e => e.audioUrl)
+        .filter((url): url is string => !!url);
+
+      if (audioUrls.length === 0) return;
+
+      try {
+        const response = await fetch('/api/summaries/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audioUrls }),
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const availabilityMap = new Map<string, SummaryAvailability>();
+        for (const item of data.availability) {
+          availabilityMap.set(item.audioUrl, item);
+        }
+        setSummaryAvailability(availabilityMap);
+      } catch (err) {
+        console.error('Error checking summaries:', err);
+      }
+    }
+
+    if (episodes.length > 0) {
+      checkSummaries();
+    }
+  }, [episodes]);
+
+  const handleSummarize = async (episode: Episode) => {
+    if (!podcast || !episode.audioUrl) return;
+
+    const availability = summaryAvailability.get(episode.audioUrl);
+    if (availability?.episodeId) {
+      addToQueue(availability.episodeId);
+      return;
+    }
+
+    setImportingEpisodeId(episode.id);
+
+    try {
+      const response = await fetch('/api/episodes/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          episode: {
+            externalId: episode.id,
+            title: episode.title,
+            description: episode.description,
+            publishedAt: episode.publishedAt,
+            duration: episode.duration,
+            audioUrl: episode.audioUrl,
+          },
+          podcast: {
+            externalId: appleId || podcastId,
+            name: podcast.title,
+            artistName: podcast.author || '',
+            artworkUrl: typeof podcast.image_url === 'string' ? podcast.image_url : '',
+            feedUrl: podcast.rss_feed_url,
+          },
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to import episode');
+
+      const { episodeId } = await response.json();
+
+      setSummaryAvailability(prev => {
+        const updated = new Map(prev);
+        updated.set(episode.audioUrl!, {
+          audioUrl: episode.audioUrl!,
+          episodeId,
+          hasQuickSummary: false,
+          hasDeepSummary: false,
+          quickStatus: null,
+          deepStatus: null,
+        });
+        return updated;
+      });
+
+      addToQueue(episodeId);
+    } catch (err) {
+      console.error('Error importing episode:', err);
+    } finally {
+      setImportingEpisodeId(null);
+    }
+  };
+
+  const getEpisodeSummaryInfo = (episode: Episode) => {
+    if (!episode.audioUrl) return null;
+    return summaryAvailability.get(episode.audioUrl) || null;
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
-      month: "long",
+      month: "short",
       day: "numeric",
       year: "numeric",
     });
   };
+
+  const formatDuration = (seconds: number): string => {
+    if (!seconds) return '';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes} min`;
+  };
+
+  if (error && !podcast) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="text-center py-12">
+            <p className="text-destructive">{error}</p>
+            <Link href="/">
+              <Button variant="outline" className="mt-4">
+                Return to Home
+              </Button>
+            </Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -106,13 +246,12 @@ export default function PodcastPage() {
         <Link href="/">
           <Button variant="ghost" className="mb-6 -ml-2">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Podcasts
+            Back to My Podcasts
           </Button>
         </Link>
 
         {isLoading ? (
           <div className="space-y-8">
-            {/* Podcast Info Skeleton */}
             <div className="flex flex-col md:flex-row gap-6">
               <Skeleton className="w-48 h-48 rounded-lg shrink-0" />
               <div className="flex-1 space-y-4">
@@ -125,17 +264,6 @@ export default function PodcastPage() {
                 <Skeleton className="h-20 w-full" />
               </div>
             </div>
-            {/* Episodes Skeleton */}
-            <EpisodeList episodes={[]} isLoading={true} />
-          </div>
-        ) : error ? (
-          <div className="text-center py-12">
-            <p className="text-destructive">{error}</p>
-            <Link href="/">
-              <Button variant="outline" className="mt-4">
-                Return to Home
-              </Button>
-            </Link>
           </div>
         ) : podcast ? (
           <div className="space-y-8">
@@ -180,28 +308,187 @@ export default function PodcastPage() {
                   </Badge>
                 </div>
                 {podcast.description && (
-                  <p className="text-muted-foreground leading-relaxed">
+                  <p className="text-muted-foreground leading-relaxed line-clamp-3">
                     {podcast.description}
                   </p>
                 )}
-                <div className="mt-4">
-                  <a
-                    href={podcast.rss_feed_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                  >
-                    <Rss className="h-4 w-4" />
-                    RSS Feed
-                  </a>
-                </div>
+                {podcast.rss_feed_url && !podcast.rss_feed_url.startsWith('apple:') && (
+                  <div className="mt-4">
+                    <a
+                      href={podcast.rss_feed_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                    >
+                      <Rss className="h-4 w-4" />
+                      RSS Feed
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Episodes Section */}
             <section>
               <h2 className="text-2xl font-semibold mb-6">Episodes</h2>
-              <EpisodeList episodes={episodes} />
+
+              {isLoadingEpisodes ? (
+                <div className="space-y-4">
+                  {[...Array(5)].map((_, i) => (
+                    <Card key={i}>
+                      <CardContent className="p-4">
+                        <div className="flex gap-4">
+                          <Skeleton className="w-20 h-20 rounded-lg flex-shrink-0" />
+                          <div className="flex-1 space-y-2">
+                            <Skeleton className="h-5 w-3/4" />
+                            <Skeleton className="h-4 w-1/4" />
+                            <Skeleton className="h-12 w-full" />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : !appleId ? (
+                <div className="text-center py-12 bg-muted/30 rounded-lg">
+                  <p className="text-muted-foreground">
+                    Episodes will be available when you start summarizing them.
+                  </p>
+                </div>
+              ) : episodes.length === 0 ? (
+                <div className="text-center py-12 bg-muted/30 rounded-lg">
+                  <p className="text-muted-foreground">
+                    No episodes found.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {episodes.map((episode) => {
+                    const summaryInfo = getEpisodeSummaryInfo(episode);
+                    const hasSummary = summaryInfo?.hasQuickSummary || summaryInfo?.hasDeepSummary;
+                    const canNavigate = summaryInfo?.episodeId;
+
+                    return (
+                      <Card key={episode.id} className="hover:bg-accent/50 transition-colors">
+                        <CardContent className="p-4">
+                          <div className="flex gap-4">
+                            {episode.artworkUrl && (
+                              <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+                                <Image
+                                  src={episode.artworkUrl.replace('100x100', '200x200')}
+                                  alt={episode.title}
+                                  fill
+                                  className="object-cover"
+                                  unoptimized
+                                />
+                              </div>
+                            )}
+
+                            <div className="flex-1 min-w-0">
+                              {hasSummary && (
+                                <div className="mb-2">
+                                  <Badge variant="default" className="text-xs">
+                                    <FileText className="h-3 w-3 mr-1" />
+                                    Summary Ready
+                                  </Badge>
+                                </div>
+                              )}
+
+                              {canNavigate ? (
+                                <Link href={`/episode/${summaryInfo.episodeId}`}>
+                                  <h3 className="font-medium line-clamp-2 mb-1 hover:text-primary hover:underline cursor-pointer">
+                                    {episode.seasonNumber && episode.episodeNumber && (
+                                      <span className="text-muted-foreground text-sm mr-2">
+                                        S{episode.seasonNumber}E{episode.episodeNumber}
+                                      </span>
+                                    )}
+                                    {episode.title}
+                                  </h3>
+                                </Link>
+                              ) : (
+                                <h3 className="font-medium line-clamp-2 mb-1">
+                                  {episode.seasonNumber && episode.episodeNumber && (
+                                    <span className="text-muted-foreground text-sm mr-2">
+                                      S{episode.seasonNumber}E{episode.episodeNumber}
+                                    </span>
+                                  )}
+                                  {episode.title}
+                                </h3>
+                              )}
+
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  {formatDate(episode.publishedAt)}
+                                </span>
+                                {episode.duration > 0 && (
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    {formatDuration(episode.duration)}
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="text-sm text-muted-foreground line-clamp-2">
+                                {episode.description}
+                              </p>
+
+                              <div className="flex gap-2 mt-2">
+                                {episode.audioUrl && (
+                                  <Button variant="ghost" size="sm" asChild>
+                                    <a
+                                      href={episode.audioUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      <Play className="h-4 w-4 mr-2" />
+                                      Play Episode
+                                    </a>
+                                  </Button>
+                                )}
+                                {/* Show SummarizeButton only if no summary ready */}
+                                {!hasSummary && (
+                                  summaryInfo?.episodeId ? (
+                                    <SummarizeButton episodeId={summaryInfo.episodeId} />
+                                  ) : (
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      onClick={() => handleSummarize(episode)}
+                                      disabled={importingEpisodeId === episode.id}
+                                    >
+                                      {importingEpisodeId === episode.id ? (
+                                        <>
+                                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                          Importing...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <FileText className="h-4 w-4 mr-2" />
+                                          Summarize
+                                        </>
+                                      )}
+                                    </Button>
+                                  )
+                                )}
+                                {/* Show View button when summary is ready */}
+                                {hasSummary && summaryInfo?.episodeId && (
+                                  <Link href={`/episode/${summaryInfo.episodeId}/insights`}>
+                                    <Button variant="default" size="sm">
+                                      <FileText className="h-4 w-4 mr-2" />
+                                      View Summary
+                                    </Button>
+                                  </Link>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </section>
           </div>
         ) : (

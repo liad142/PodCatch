@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback, use } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, Apple, Play, Clock, Calendar, ExternalLink, Sparkles, Loader2, FileText, Eye } from 'lucide-react';
+import { ArrowLeft, Apple, Play, Clock, Calendar, ExternalLink, Loader2, FileText } from 'lucide-react';
+import { SummarizeButton } from '@/components/SummarizeButton';
+import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -72,7 +73,6 @@ function formatDate(dateString: string): string {
 export default function PodcastPage({ params }: PageProps) {
   const { id: podcastId } = use(params);
   const { country } = useCountry();
-  const router = useRouter();
 
   const [podcast, setPodcast] = useState<Podcast | null>(null);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
@@ -155,14 +155,16 @@ export default function PodcastPage({ params }: PageProps) {
     }
   }, [episodes]);
 
+  const { addToQueue } = useSummarizeQueue();
+
   const handleSummarize = async (episode: Episode) => {
-    if (!podcast) return;
+    if (!podcast || !episode.audioUrl) return;
 
     // Check if episode already exists in DB
-    const availability = episode.audioUrl ? summaryAvailability.get(episode.audioUrl) : null;
+    const availability = summaryAvailability.get(episode.audioUrl);
     if (availability?.episodeId) {
-      // Episode already imported, navigate directly
-      router.push(`/episode/${availability.episodeId}`);
+      // Episode already imported - add to queue and let SummarizeButton handle it
+      addToQueue(availability.episodeId);
       return;
     }
 
@@ -196,9 +198,26 @@ export default function PodcastPage({ params }: PageProps) {
       }
 
       const { episodeId } = await response.json();
-      router.push(`/episode/${episodeId}`);
+
+      // Update local state so SummarizeButton shows for this episode
+      setSummaryAvailability(prev => {
+        const updated = new Map(prev);
+        updated.set(episode.audioUrl!, {
+          audioUrl: episode.audioUrl!,
+          episodeId,
+          hasQuickSummary: false,
+          hasDeepSummary: false,
+          quickStatus: null,
+          deepStatus: null,
+        });
+        return updated;
+      });
+
+      // Add to queue to start summarization
+      addToQueue(episodeId);
     } catch (err) {
       console.error('Error importing episode:', err);
+    } finally {
       setImportingEpisodeId(null);
     }
   };
@@ -379,14 +398,31 @@ export default function PodcastPage({ params }: PageProps) {
                         ) : null;
                       })()}
 
-                      <h3 className="font-medium line-clamp-2 mb-1">
-                        {episode.seasonNumber && episode.episodeNumber && (
-                          <span className="text-muted-foreground text-sm mr-2">
-                            S{episode.seasonNumber}E{episode.episodeNumber}
-                          </span>
-                        )}
-                        {episode.title}
-                      </h3>
+                      {(() => {
+                        const summaryInfo = getEpisodeSummaryInfo(episode);
+                        const canNavigate = summaryInfo?.episodeId;
+                        const title = (
+                          <>
+                            {episode.seasonNumber && episode.episodeNumber && (
+                              <span className="text-muted-foreground text-sm mr-2">
+                                S{episode.seasonNumber}E{episode.episodeNumber}
+                              </span>
+                            )}
+                            {episode.title}
+                          </>
+                        );
+                        return canNavigate ? (
+                          <Link href={`/episode/${summaryInfo.episodeId}`}>
+                            <h3 className="font-medium line-clamp-2 mb-1 hover:text-primary hover:underline cursor-pointer">
+                              {title}
+                            </h3>
+                          </Link>
+                        ) : (
+                          <h3 className="font-medium line-clamp-2 mb-1">
+                            {title}
+                          </h3>
+                        );
+                      })()}
 
                       <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
                         <span className="flex items-center gap-1">
@@ -425,9 +461,32 @@ export default function PodcastPage({ params }: PageProps) {
                         {(() => {
                           const summaryInfo = getEpisodeSummaryInfo(episode);
                           const hasSummary = summaryInfo?.hasQuickSummary || summaryInfo?.hasDeepSummary;
+
+                          // If summary is ready, show View Summary button
+                          if (hasSummary && summaryInfo?.episodeId) {
+                            return (
+                              <Link href={`/episode/${summaryInfo.episodeId}/insights`}>
+                                <Button variant="default" size="sm">
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  View Summary
+                                </Button>
+                              </Link>
+                            );
+                          }
+
+                          // If episode is in DB but summary not ready, show SummarizeButton
+                          if (summaryInfo?.episodeId) {
+                            return (
+                              <SummarizeButton
+                                episodeId={summaryInfo.episodeId}
+                              />
+                            );
+                          }
+
+                          // Otherwise show import button
                           return (
                             <Button
-                              variant={hasSummary ? "secondary" : "default"}
+                              variant="default"
                               size="sm"
                               onClick={() => handleSummarize(episode)}
                               disabled={importingEpisodeId === episode.id}
@@ -435,16 +494,11 @@ export default function PodcastPage({ params }: PageProps) {
                               {importingEpisodeId === episode.id ? (
                                 <>
                                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Loading...
-                                </>
-                              ) : hasSummary ? (
-                                <>
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  View Summary
+                                  Importing...
                                 </>
                               ) : (
                                 <>
-                                  <Sparkles className="h-4 w-4 mr-2" />
+                                  <FileText className="h-4 w-4 mr-2" />
                                   Summarize
                                 </>
                               )}
