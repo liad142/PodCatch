@@ -275,3 +275,158 @@ export async function summarizeAllBlocks(
 
   return summaries;
 }
+
+// ============================================
+// AGENT C: THE EDITOR
+// ============================================
+
+const AGENT_C_SYSTEM = `You are an expert content editor. Your job is to synthesize multiple topic block summaries into a cohesive final summary of the entire podcast episode.
+
+Respond ONLY with valid JSON. No markdown, no explanations.`;
+
+const AGENT_C_PROMPT = `Synthesize these topic block summaries into a final episode summary.
+
+Speakers in this episode:
+{SPEAKERS}
+
+Block Summaries:
+{BLOCK_SUMMARIES}
+
+Return a JSON object:
+{
+  "tldr": "2-3 sentences capturing the essence of the entire episode",
+  "sections": [
+    {
+      "title": "Section title",
+      "summary": "2-3 sentences summarizing this section with speaker attribution",
+      "keyPoints": ["point 1", "point 2"],
+      "speakers": ["John (Host)", "Sarah (Guest)"]
+    }
+  ],
+  "keyTakeaways": ["5-7 most important insights from the episode"],
+  "actionItems": ["2-4 concrete actions listeners can take"],
+  "topics": ["topic1", "topic2", "topic3"]
+}
+
+RULES:
+- tldr should capture the main value proposition of the episode
+- Sections should follow the natural flow of the episode (can merge or split blocks as needed)
+- keyTakeaways should be specific and valuable, not generic
+- actionItems should be practical and actionable
+- topics should be 3-5 key themes (1-3 words each)
+- IMPORTANT: Write in the SAME LANGUAGE as the source content
+
+`;
+
+export async function synthesizeFinalSummary(
+  blockSummaries: BlockSummary[],
+  speakers: SpeakerInfo[]
+): Promise<FinalSummary> {
+  logWithTime('Agent C (Editor) starting', { blockCount: blockSummaries.length });
+
+  const startTime = Date.now();
+
+  // Format speakers
+  const speakerList = speakers
+    .map(s => `- ${s.name} (${s.role})`)
+    .join('\n');
+
+  // Format block summaries
+  const summariesText = blockSummaries
+    .map((bs, i) => `
+### Block ${i + 1}: ${bs.label}
+Summary: ${bs.summary}
+Key Points:
+${bs.keyPoints.map(p => `- ${p}`).join('\n')}
+Speaker Contributions:
+${bs.speakerContributions.map(c => `- ${c.speaker}: ${c.contribution}`).join('\n')}
+`)
+    .join('\n---\n');
+
+  const prompt = AGENT_C_PROMPT
+    .replace('{SPEAKERS}', speakerList)
+    .replace('{BLOCK_SUMMARIES}', summariesText);
+
+  try {
+    const message = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 4000,
+      system: AGENT_C_SYSTEM,
+      messages: [{ role: 'user', content: prompt }]
+    });
+
+    const textContent = message.content[0];
+    if (textContent.type !== 'text') {
+      throw new Error('Unexpected response type from Agent C');
+    }
+
+    let jsonText = textContent.text.trim();
+    if (!jsonText.startsWith('{')) {
+      const match = jsonText.match(/\{[\s\S]*\}/);
+      if (match) jsonText = match[0];
+      else throw new Error('No JSON found in Agent C response');
+    }
+
+    const parsed = JSON.parse(jsonText);
+
+    const duration = Date.now() - startTime;
+    logWithTime('Agent C completed', { durationMs: duration });
+
+    return {
+      tldr: parsed.tldr || '',
+      speakers,
+      sections: (parsed.sections || []).map((s: {
+        title: string;
+        summary: string;
+        keyPoints: string[];
+        speakers: string[];
+      }) => ({
+        title: s.title || '',
+        summary: s.summary || '',
+        keyPoints: s.keyPoints || [],
+        speakers: s.speakers || [],
+      })),
+      keyTakeaways: parsed.keyTakeaways || [],
+      actionItems: parsed.actionItems || [],
+      topics: parsed.topics || [],
+    };
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    logWithTime('Agent C FAILED', { durationMs: duration, error: errorMsg });
+    throw new Error(`Agent C (Editor) failed: ${errorMsg}`);
+  }
+}
+
+// ============================================
+// ORCHESTRATION: Full sub-agent pipeline
+// ============================================
+
+export async function runSubAgentPipeline(transcript: DiarizedTranscript): Promise<FinalSummary> {
+  logWithTime('=== SUB-AGENT PIPELINE STARTED ===', {
+    utteranceCount: transcript.utterances.length,
+    duration: transcript.duration,
+  });
+
+  const pipelineStart = Date.now();
+
+  // Step 1: Agent A analyzes transcript
+  const analysis = await analyzeTranscript(transcript);
+
+  // Step 2: Agent B summarizes all blocks in parallel
+  const blockSummaries = await summarizeAllBlocks(analysis.topicBlocks, analysis.speakers);
+
+  // Step 3: Agent C synthesizes final summary
+  const finalSummary = await synthesizeFinalSummary(blockSummaries, analysis.speakers);
+
+  const totalDuration = Date.now() - pipelineStart;
+  logWithTime('=== SUB-AGENT PIPELINE COMPLETED ===', {
+    totalDurationMs: totalDuration,
+    totalDurationSec: (totalDuration / 1000).toFixed(1),
+    speakersFound: analysis.speakers.length,
+    blocksProcessed: blockSummaries.length,
+    sectionsGenerated: finalSummary.sections.length,
+  });
+
+  return finalSummary;
+}
