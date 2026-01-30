@@ -143,3 +143,135 @@ export async function analyzeTranscript(transcript: DiarizedTranscript): Promise
     throw new Error(`Agent A (Analyst) failed: ${errorMsg}`);
   }
 }
+
+// ============================================
+// AGENT B: THE WRITER (runs in parallel)
+// ============================================
+
+const AGENT_B_SYSTEM = `You are an expert content summarizer. Your job is to create a detailed summary of a specific topic block from a podcast, with speaker attribution.
+
+Respond ONLY with valid JSON. No markdown, no explanations.`;
+
+const AGENT_B_PROMPT = `Summarize this topic block from a podcast transcript.
+
+Speaker mapping:
+{SPEAKERS}
+
+Topic Block: "{LABEL}"
+Duration: {START_TIME} - {END_TIME}
+
+Return a JSON object:
+{
+  "summary": "2-4 sentences summarizing this block. Use speaker names, e.g. 'John (Host) explained that...'",
+  "keyPoints": ["point 1", "point 2", "point 3"],
+  "speakerContributions": [
+    { "speaker": "John (Host)", "contribution": "What this speaker contributed to the discussion" }
+  ]
+}
+
+RULES:
+- Use speaker names with roles in parentheses: "John (Host)", "Sarah (Guest)"
+- Key points should be specific and actionable, not generic
+- Each speaker who talked significantly should have a contribution entry
+- IMPORTANT: Write in the SAME LANGUAGE as the transcript
+
+Transcript:
+`;
+
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+export async function summarizeBlock(
+  block: TopicBlock,
+  speakers: SpeakerInfo[]
+): Promise<BlockSummary> {
+  logWithTime('Agent B (Writer) starting', { blockId: block.id, label: block.label });
+
+  const startTime = Date.now();
+
+  // Format speakers for prompt
+  const speakerMap = speakers
+    .map(s => `Speaker ${s.id} = ${s.name} (${s.role})`)
+    .join('\n');
+
+  // Format utterances
+  const transcriptText = block.utterances
+    .map(u => {
+      const speaker = speakers.find(s => s.id === u.speaker);
+      const name = speaker ? `${speaker.name} (${speaker.role})` : `Speaker ${u.speaker}`;
+      return `${name}: ${u.text}`;
+    })
+    .join('\n');
+
+  const prompt = AGENT_B_PROMPT
+    .replace('{SPEAKERS}', speakerMap)
+    .replace('{LABEL}', block.label)
+    .replace('{START_TIME}', formatTime(block.startTime))
+    .replace('{END_TIME}', formatTime(block.endTime))
+    + transcriptText;
+
+  try {
+    const message = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 2000,
+      system: AGENT_B_SYSTEM,
+      messages: [{ role: 'user', content: prompt }]
+    });
+
+    const textContent = message.content[0];
+    if (textContent.type !== 'text') {
+      throw new Error('Unexpected response type from Agent B');
+    }
+
+    let jsonText = textContent.text.trim();
+    if (!jsonText.startsWith('{')) {
+      const match = jsonText.match(/\{[\s\S]*\}/);
+      if (match) jsonText = match[0];
+      else throw new Error('No JSON found in Agent B response');
+    }
+
+    const parsed = JSON.parse(jsonText);
+
+    const duration = Date.now() - startTime;
+    logWithTime('Agent B completed', { blockId: block.id, durationMs: duration });
+
+    return {
+      blockId: block.id,
+      label: block.label,
+      summary: parsed.summary || '',
+      keyPoints: parsed.keyPoints || [],
+      speakerContributions: parsed.speakerContributions || [],
+    };
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    logWithTime('Agent B FAILED', { blockId: block.id, durationMs: duration, error: errorMsg });
+    throw new Error(`Agent B (Writer) failed for block ${block.id}: ${errorMsg}`);
+  }
+}
+
+// Parallel execution of Agent B for all blocks
+export async function summarizeAllBlocks(
+  blocks: TopicBlock[],
+  speakers: SpeakerInfo[]
+): Promise<BlockSummary[]> {
+  logWithTime('Starting parallel block summarization', { blockCount: blocks.length });
+
+  const startTime = Date.now();
+
+  const summaries = await Promise.all(
+    blocks.map(block => summarizeBlock(block, speakers))
+  );
+
+  const duration = Date.now() - startTime;
+  logWithTime('All blocks summarized', {
+    blockCount: summaries.length,
+    durationMs: duration,
+    avgPerBlock: Math.round(duration / blocks.length)
+  });
+
+  return summaries;
+}
