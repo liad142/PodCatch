@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,6 +8,15 @@ import { MiniLoadingAnimation } from "@/components/animations";
 import { cn } from "@/lib/utils";
 import type { HighlightItem } from "@/types/database";
 import { Quote, Copy, Check, Sparkles, Lightbulb, AlertCircle, Star, Clock } from "lucide-react";
+
+// Detect if text is primarily RTL (Hebrew, Arabic, etc.)
+function isRTLText(text: string): boolean {
+  const rtlChars = /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g;
+  const rtlMatches = (text.match(rtlChars) || []).length;
+  const latinChars = /[a-zA-Z]/g;
+  const latinMatches = (text.match(latinChars) || []).length;
+  return rtlMatches > latinMatches;
+}
 
 interface HighlightsTabContentProps {
   highlights: HighlightItem[] | undefined;
@@ -71,19 +80,27 @@ export function HighlightsTabContent({
     }
   };
 
-  const getImportanceBorder = (importance: string) => {
+  const getImportanceBorder = (importance: string, isRTL: boolean) => {
+    const side = isRTL ? 'border-r' : 'border-l';
     switch (importance) {
       case 'critical':
-        return 'border-l-red-500';
+        return `${side}-red-500`;
       case 'important':
-        return 'border-l-yellow-500';
+        return `${side}-yellow-500`;
       default:
-        return 'border-l-blue-500';
+        return `${side}-blue-500`;
     }
   };
 
+  // Detect RTL from highlights content
+  const isRTL = useMemo(() => {
+    if (!highlights) return false;
+    const allText = highlights.map(h => h.quote + (h.context || '')).join(' ');
+    return isRTLText(allText);
+  }, [highlights]);
+
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-4" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="font-semibold flex items-center gap-2">
@@ -99,27 +116,28 @@ export function HighlightsTabContent({
           <div
             key={i}
             className={cn(
-              "group relative rounded-lg border border-l-4 p-4 transition-all hover:shadow-md",
-              getImportanceBorder(highlight.importance)
+              "group relative rounded-lg border p-4 transition-all hover:shadow-md",
+              isRTL ? "border-r-4" : "border-l-4",
+              getImportanceBorder(highlight.importance, isRTL)
             )}
           >
             {/* Quote */}
-            <div className="flex items-start gap-3">
+            <div className={cn("flex items-start gap-3", isRTL && "flex-row-reverse")}>
               <Quote className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm leading-relaxed italic">
+                <p className={cn("text-sm leading-relaxed italic", isRTL && "text-right")}>
                   &ldquo;{highlight.quote}&rdquo;
                 </p>
 
                 {/* Context */}
                 {highlight.context && (
-                  <p className="text-sm text-muted-foreground mt-2">
+                  <p className={cn("text-sm text-muted-foreground mt-2", isRTL && "text-right")}>
                     {highlight.context}
                   </p>
                 )}
 
                 {/* Meta info */}
-                <div className="flex items-center gap-3 mt-3 flex-wrap">
+                <div className={cn("flex items-center gap-3 mt-3 flex-wrap", isRTL && "flex-row-reverse justify-end")}>
                   <Badge variant="secondary" className="gap-1">
                     {getImportanceIcon(highlight.importance)}
                     <span className="capitalize">{highlight.importance}</span>

@@ -86,11 +86,11 @@ export function InsightHub({ episodeId, initialTab = 'summary' }: InsightHubProp
 
       if (!insightsRes.ok) throw new Error('Failed to start insights generation');
 
-      // Also trigger quick summary generation
+      // Also trigger deep summary generation
       fetch(`/api/episodes/${episodeId}/summaries`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ level: 'quick' })
+        body: JSON.stringify({ level: 'deep' })
       });
 
       // Refresh data

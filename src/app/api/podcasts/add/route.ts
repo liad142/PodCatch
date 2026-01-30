@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { fetchPodcastFeed } from "@/lib/rss";
+import { getPodcastById } from "@/lib/apple-podcasts";
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,7 +37,52 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Fetch and parse the RSS feed
+    // Handle Apple Podcasts (format: apple:ID)
+    if (rss_url.startsWith("apple:")) {
+      const appleId = rss_url.replace("apple:", "");
+
+      // Fetch podcast details from Apple
+      const applePodcast = await getPodcastById(appleId);
+
+      if (!applePodcast) {
+        return NextResponse.json(
+          { error: "Apple podcast not found" },
+          { status: 404 }
+        );
+      }
+
+      // Insert podcast into Supabase (episodes will be fetched on-demand)
+      const { data: podcast, error: podcastError } = await supabase
+        .from("podcasts")
+        .insert({
+          title: applePodcast.name,
+          author: applePodcast.artistName || null,
+          description: applePodcast.description || null,
+          rss_feed_url: rss_url, // Keep the apple:ID format
+          image_url: applePodcast.artworkUrl || null,
+          language: "en",
+        })
+        .select()
+        .single();
+
+      if (podcastError) {
+        console.error("Error inserting Apple podcast:", podcastError);
+        return NextResponse.json(
+          { error: "Failed to save podcast" },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          podcast,
+          episodes: [], // Episodes are fetched on-demand from Apple API
+        },
+        { status: 201 }
+      );
+    }
+
+    // Fetch and parse regular RSS feed
     const { podcast: parsedPodcast, episodes: parsedEpisodes } =
       await fetchPodcastFeed(rss_url);
 

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Crimson_Text, Outfit } from "next/font/google";
 import "./globals.css";
 import { CountryProvider } from "@/contexts/CountryContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -9,6 +9,15 @@ import { QueueToast } from "@/components/QueueToast";
 import { Agentation } from "agentation";
 
 const inter = Inter({ subsets: ["latin"] });
+const crimsonText = Crimson_Text({ 
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  variable: "--font-crimson"
+});
+const outfit = Outfit({ 
+  subsets: ["latin"],
+  variable: "--font-outfit"
+});
 
 export const metadata: Metadata = {
   title: "PodCatch - AI-Powered Podcast Summaries",
@@ -22,7 +31,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.className} ${crimsonText.variable} ${outfit.variable}`}>
         <ThemeProvider>
           <CountryProvider>
             <SummarizeQueueProvider>

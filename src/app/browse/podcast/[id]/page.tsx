@@ -462,23 +462,12 @@ export default function PodcastPage({ params }: PageProps) {
                           const summaryInfo = getEpisodeSummaryInfo(episode);
                           const hasSummary = summaryInfo?.hasQuickSummary || summaryInfo?.hasDeepSummary;
 
-                          // If summary is ready, show View Summary button
-                          if (hasSummary && summaryInfo?.episodeId) {
-                            return (
-                              <Link href={`/episode/${summaryInfo.episodeId}/insights`}>
-                                <Button variant="default" size="sm">
-                                  <FileText className="h-4 w-4 mr-2" />
-                                  View Summary
-                                </Button>
-                              </Link>
-                            );
-                          }
-
-                          // If episode is in DB but summary not ready, show SummarizeButton
+                          // Always use SummarizeButton when episodeId exists
                           if (summaryInfo?.episodeId) {
                             return (
                               <SummarizeButton
                                 episodeId={summaryInfo.episodeId}
+                                initialStatus={hasSummary ? 'ready' : 'not_ready'}
                               />
                             );
                           }

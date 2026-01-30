@@ -22,6 +22,10 @@ const MAX_RETRIES = 1;
 const RETRY_DELAY = 2000;
 const POLL_INTERVAL = 2500;
 
+function logQueue(message: string, data?: Record<string, unknown>) {
+  console.log(`[QUEUE ${new Date().toISOString()}] ${message}`, data ? JSON.stringify(data) : '');
+}
+
 export function SummarizeQueueProvider({ children }: { children: React.ReactNode }) {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -57,14 +61,14 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
       if (!res.ok) throw new Error('Failed to fetch status');
 
       const data = await res.json();
-      const quickStatus = data.summaries?.quick?.status;
+      const deepStatus = data.summaries?.deep?.status;
       const transcriptStatus = data.transcript?.status;
 
-      if (quickStatus === 'ready') return 'ready';
-      if (quickStatus === 'failed' || transcriptStatus === 'failed') return 'failed';
-      if (quickStatus === 'summarizing') return 'summarizing';
-      if (transcriptStatus === 'transcribing' || quickStatus === 'transcribing') return 'transcribing';
-      if (quickStatus === 'queued' || transcriptStatus === 'queued') return 'transcribing';
+      if (deepStatus === 'ready') return 'ready';
+      if (deepStatus === 'failed' || transcriptStatus === 'failed') return 'failed';
+      if (deepStatus === 'summarizing') return 'summarizing';
+      if (transcriptStatus === 'transcribing' || deepStatus === 'transcribing') return 'transcribing';
+      if (deepStatus === 'queued' || transcriptStatus === 'queued') return 'transcribing';
 
       return 'transcribing';
     } catch {
@@ -93,20 +97,37 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
     setProcessingId(episodeId);
     updateQueueItem(episodeId, { state: 'transcribing' });
 
+    logQueue('Starting processing', { episodeId });
+    const startTime = Date.now();
+
     try {
+      logQueue('Sending POST request to start summarization...', { episodeId });
       const res = await fetch(`/api/episodes/${episodeId}/summaries`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ level: 'quick' })
+        body: JSON.stringify({ level: 'deep' })
+      });
+
+      logQueue('POST request returned', {
+        episodeId,
+        ok: res.ok,
+        status: res.status,
+        durationMs: Date.now() - startTime
       });
 
       if (!res.ok) throw new Error('Failed to start processing');
 
+      const responseData = await res.json();
+      logQueue('POST response data', { episodeId, responseData });
+
       const poll = async () => {
+        logQueue('Polling status...', { episodeId });
         const state = await pollStatus(episodeId);
+        logQueue('Poll result', { episodeId, state, totalDurationMs: Date.now() - startTime });
         updateQueueItem(episodeId, { state });
 
         if (state === 'ready') {
+          logQueue('Processing COMPLETE', { episodeId, totalDurationMs: Date.now() - startTime });
           setStats(prev => ({ ...prev, completed: prev.completed + 1 }));
           processingRef.current = false;
           setProcessingId(null);
@@ -115,12 +136,15 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
         }
 
         if (state === 'failed') {
+          logQueue('Processing FAILED', { episodeId, totalDurationMs: Date.now() - startTime });
           setQueue(currentQueue => {
             const item = currentQueue.find(i => i.episodeId === episodeId);
             if (item && item.retryCount < MAX_RETRIES) {
+              logQueue('Retrying...', { episodeId, retryCount: item.retryCount + 1 });
               updateQueueItem(episodeId, { retryCount: item.retryCount + 1, state: 'transcribing' });
               setTimeout(() => startProcessingEpisode(episodeId), RETRY_DELAY);
             } else {
+              logQueue('Max retries reached', { episodeId });
               setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
               processingRef.current = false;
               setProcessingId(null);
@@ -135,7 +159,12 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
       };
 
       pollingRef.current = setTimeout(poll, POLL_INTERVAL);
-    } catch {
+    } catch (err) {
+      logQueue('POST request FAILED', {
+        episodeId,
+        error: err instanceof Error ? err.message : String(err),
+        durationMs: Date.now() - startTime
+      });
       setQueue(currentQueue => {
         const item = currentQueue.find(i => i.episodeId === episodeId);
         if (item && item.retryCount < MAX_RETRIES) {

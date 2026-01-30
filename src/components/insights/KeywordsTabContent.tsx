@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,6 +8,15 @@ import { MiniLoadingAnimation } from "@/components/animations";
 import { cn } from "@/lib/utils";
 import type { KeywordItem } from "@/types/database";
 import { Tags, Sparkles } from "lucide-react";
+
+// Detect if text is primarily RTL (Hebrew, Arabic, etc.)
+function isRTLText(text: string): boolean {
+  const rtlChars = /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g;
+  const rtlMatches = (text.match(rtlChars) || []).length;
+  const latinChars = /[a-zA-Z]/g;
+  const latinMatches = (text.match(latinChars) || []).length;
+  return rtlMatches > latinMatches;
+}
 
 interface KeywordsTabContentProps {
   keywords: KeywordItem[] | undefined;
@@ -97,8 +106,15 @@ export function KeywordsTabContent({
     }
   };
 
+  // Detect RTL from keywords content
+  const isRTL = useMemo(() => {
+    if (!keywords) return false;
+    const allText = keywords.map(k => k.word).join(' ');
+    return isRTLText(allText);
+  }, [keywords]);
+
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-4" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Sort Controls */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-sm text-muted-foreground">Sort by:</span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -26,6 +26,7 @@ interface Episode {
   artworkUrl?: string;
   episodeNumber?: number;
   seasonNumber?: number;
+  isFromDb?: boolean;
 }
 
 interface SummaryAvailability {
@@ -46,19 +47,22 @@ export default function PodcastPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingEpisodes, setIsLoadingEpisodes] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [appleId, setAppleId] = useState<string | null>(null);
   const [summaryAvailability, setSummaryAvailability] = useState<Map<string, SummaryAvailability>>(new Map());
   const [importingEpisodeId, setImportingEpisodeId] = useState<string | null>(null);
 
   const { addToQueue } = useSummarizeQueue();
 
-  // Fetch podcast from DB
+  // Load podcast AND episodes together to avoid timing issues
   useEffect(() => {
-    async function fetchPodcast() {
+    async function loadAll() {
+      if (!podcastId) return;
+
       try {
         setIsLoading(true);
+        setIsLoadingEpisodes(true);
         setError(null);
 
+        // 1. Fetch podcast from DB
         const { data: podcastData, error: podcastError } = await supabase
           .from("podcasts")
           .select("*")
@@ -67,44 +71,84 @@ export default function PodcastPage() {
 
         if (podcastError) throw podcastError;
         setPodcast(podcastData);
-
-        // Check if this is an Apple podcast
-        if (podcastData.rss_feed_url?.startsWith('apple:')) {
-          setAppleId(podcastData.rss_feed_url.replace('apple:', ''));
-        }
-      } catch (err) {
-        console.error("Error fetching podcast:", err);
-        setError("Failed to load podcast");
-      } finally {
         setIsLoading(false);
+
+        // 2. Determine Apple ID directly (no separate state)
+        const isApplePodcast = podcastData.rss_feed_url?.startsWith('apple:');
+        const appleId = isApplePodcast
+          ? podcastData.rss_feed_url.replace('apple:', '')
+          : null;
+
+        console.log('[PodcastPage] Loading episodes', {
+          podcastId,
+          isApplePodcast,
+          appleId,
+          rss_feed_url: podcastData.rss_feed_url
+        });
+
+        // 3. Fetch episodes
+        if (appleId) {
+          // Fetch from Apple API
+          try {
+            const response = await fetch(`/api/apple/podcasts/${appleId}/episodes?limit=50`);
+            if (!response.ok) {
+              console.error('[PodcastPage] Apple API error:', response.status);
+              throw new Error('Failed to fetch from Apple');
+            }
+            const data = await response.json();
+            console.log('[PodcastPage] Apple episodes loaded:', data.episodes?.length);
+            setEpisodes(data.episodes || []);
+          } catch (appleErr) {
+            console.error('[PodcastPage] Apple fetch failed, trying local DB:', appleErr);
+            // Fallback to local DB
+            await fetchLocalEpisodes(podcastData);
+          }
+        } else {
+          // Not an Apple podcast - fetch from local DB
+          await fetchLocalEpisodes(podcastData);
+        }
+
+      } catch (err) {
+        console.error("[PodcastPage] Error loading podcast:", err);
+        setError("Failed to load podcast");
+        setIsLoading(false);
+      } finally {
+        setIsLoadingEpisodes(false);
       }
     }
 
-    if (podcastId) {
-      fetchPodcast();
+    async function fetchLocalEpisodes(podcastData: Podcast) {
+      const { data: dbEpisodes, error: dbError } = await supabase
+        .from('episodes')
+        .select('*')
+        .eq('podcast_id', podcastId)
+        .order('published_at', { ascending: false });
+
+      if (dbError) {
+        console.error('[PodcastPage] DB episodes error:', dbError);
+        setEpisodes([]);
+        return;
+      }
+
+      console.log('[PodcastPage] Local episodes loaded:', dbEpisodes?.length);
+
+      const mappedEpisodes: Episode[] = (dbEpisodes || []).map(ep => ({
+        id: ep.id,
+        podcastId: ep.podcast_id,
+        title: ep.title,
+        description: ep.description || '',
+        publishedAt: ep.published_at || ep.created_at,
+        duration: ep.duration_seconds || 0,
+        audioUrl: ep.audio_url,
+        artworkUrl: typeof podcastData.image_url === 'string' ? podcastData.image_url : undefined,
+        isFromDb: true,
+      }));
+
+      setEpisodes(mappedEpisodes);
     }
+
+    loadAll();
   }, [podcastId]);
-
-  // Fetch episodes from Apple API once we have the appleId
-  const fetchEpisodes = useCallback(async () => {
-    if (!appleId) return;
-
-    setIsLoadingEpisodes(true);
-    try {
-      const response = await fetch(`/api/apple/podcasts/${appleId}/episodes?limit=50`);
-      if (!response.ok) throw new Error('Failed to fetch episodes');
-      const data = await response.json();
-      setEpisodes(data.episodes || []);
-    } catch (err) {
-      console.error("Error fetching episodes:", err);
-    } finally {
-      setIsLoadingEpisodes(false);
-    }
-  }, [appleId]);
-
-  useEffect(() => {
-    fetchEpisodes();
-  }, [fetchEpisodes]);
 
   // Check for existing summaries
   useEffect(() => {
@@ -143,6 +187,12 @@ export default function PodcastPage() {
   const handleSummarize = async (episode: Episode) => {
     if (!podcast || !episode.audioUrl) return;
 
+    // If episode is from local DB, it already has the correct ID
+    if (episode.isFromDb) {
+      addToQueue(episode.id);
+      return;
+    }
+
     const availability = summaryAvailability.get(episode.audioUrl);
     if (availability?.episodeId) {
       addToQueue(availability.episodeId);
@@ -152,6 +202,11 @@ export default function PodcastPage() {
     setImportingEpisodeId(episode.id);
 
     try {
+      // Extract Apple ID from rss_feed_url
+      const appleId = podcast.rss_feed_url?.startsWith('apple:')
+        ? podcast.rss_feed_url.replace('apple:', '')
+        : podcastId;
+
       const response = await fetch('/api/episodes/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -165,7 +220,7 @@ export default function PodcastPage() {
             audioUrl: episode.audioUrl,
           },
           podcast: {
-            externalId: appleId || podcastId,
+            externalId: appleId,
             name: podcast.title,
             artistName: podcast.author || '',
             artworkUrl: typeof podcast.image_url === 'string' ? podcast.image_url : '',
@@ -200,6 +255,19 @@ export default function PodcastPage() {
   };
 
   const getEpisodeSummaryInfo = (episode: Episode) => {
+    // For local DB episodes, the episode.id IS the episodeId
+    if (episode.isFromDb) {
+      const info = episode.audioUrl ? summaryAvailability.get(episode.audioUrl) : null;
+      return {
+        audioUrl: episode.audioUrl || '',
+        episodeId: episode.id,
+        hasQuickSummary: info?.hasQuickSummary || false,
+        hasDeepSummary: info?.hasDeepSummary || false,
+        quickStatus: info?.quickStatus || null,
+        deepStatus: info?.deepStatus || null,
+      };
+    }
+
     if (!episode.audioUrl) return null;
     return summaryAvailability.get(episode.audioUrl) || null;
   };
@@ -227,9 +295,9 @@ export default function PodcastPage() {
         <main className="container mx-auto px-4 py-8">
           <div className="text-center py-12">
             <p className="text-destructive">{error}</p>
-            <Link href="/">
+            <Link href="/my-podcasts">
               <Button variant="outline" className="mt-4">
-                Return to Home
+                Return to My Podcasts
               </Button>
             </Link>
           </div>
@@ -243,7 +311,7 @@ export default function PodcastPage() {
       <Header />
       <main className="container mx-auto px-4 py-8">
         {/* Back Button */}
-        <Link href="/">
+        <Link href="/my-podcasts">
           <Button variant="ghost" className="mb-6 -ml-2">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to My Podcasts
@@ -349,16 +417,13 @@ export default function PodcastPage() {
                     </Card>
                   ))}
                 </div>
-              ) : !appleId ? (
-                <div className="text-center py-12 bg-muted/30 rounded-lg">
-                  <p className="text-muted-foreground">
-                    Episodes will be available when you start summarizing them.
-                  </p>
-                </div>
               ) : episodes.length === 0 ? (
                 <div className="text-center py-12 bg-muted/30 rounded-lg">
-                  <p className="text-muted-foreground">
+                  <p className="text-muted-foreground mb-2">
                     No episodes found.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    This might be a temporary issue. Try refreshing the page.
                   </p>
                 </div>
               ) : (
@@ -446,39 +511,30 @@ export default function PodcastPage() {
                                     </a>
                                   </Button>
                                 )}
-                                {/* Show SummarizeButton only if no summary ready */}
-                                {!hasSummary && (
-                                  summaryInfo?.episodeId ? (
-                                    <SummarizeButton episodeId={summaryInfo.episodeId} />
-                                  ) : (
-                                    <Button
-                                      variant="default"
-                                      size="sm"
-                                      onClick={() => handleSummarize(episode)}
-                                      disabled={importingEpisodeId === episode.id}
-                                    >
-                                      {importingEpisodeId === episode.id ? (
-                                        <>
-                                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                          Importing...
-                                        </>
-                                      ) : (
-                                        <>
-                                          <FileText className="h-4 w-4 mr-2" />
-                                          Summarize
-                                        </>
-                                      )}
-                                    </Button>
-                                  )
-                                )}
-                                {/* Show View button when summary is ready */}
-                                {hasSummary && summaryInfo?.episodeId && (
-                                  <Link href={`/episode/${summaryInfo.episodeId}/insights`}>
-                                    <Button variant="default" size="sm">
-                                      <FileText className="h-4 w-4 mr-2" />
-                                      View Summary
-                                    </Button>
-                                  </Link>
+                                {episode.isFromDb || summaryInfo?.episodeId ? (
+                                  <SummarizeButton
+                                    episodeId={episode.isFromDb ? episode.id : summaryInfo!.episodeId!}
+                                    initialStatus={hasSummary ? 'ready' : 'not_ready'}
+                                  />
+                                ) : (
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => handleSummarize(episode)}
+                                    disabled={importingEpisodeId === episode.id}
+                                  >
+                                    {importingEpisodeId === episode.id ? (
+                                      <>
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        Importing...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <FileText className="h-4 w-4 mr-2" />
+                                        Summarize
+                                      </>
+                                    )}
+                                  </Button>
                                 )}
                               </div>
                             </div>
@@ -494,9 +550,9 @@ export default function PodcastPage() {
         ) : (
           <div className="text-center py-12">
             <p className="text-muted-foreground">Podcast not found</p>
-            <Link href="/">
+            <Link href="/my-podcasts">
               <Button variant="outline" className="mt-4">
-                Return to Home
+                Return to My Podcasts
               </Button>
             </Link>
           </div>

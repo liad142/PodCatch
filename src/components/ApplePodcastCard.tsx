@@ -34,38 +34,31 @@ export function ApplePodcastCard({ podcast, priority = false, className }: Apple
   const handleLove = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (isAdding || isLoved) return;
-    
+
     setIsAdding(true);
     try {
-      // Fetch podcast details to get the feed URL
-      const response = await fetch(`/api/apple/podcasts/${podcast.id}`);
-      if (!response.ok) throw new Error('Failed to fetch podcast details');
-      const data = await response.json();
-      
-      const feedUrl = data.podcast?.feedUrl;
-      if (feedUrl) {
-        // Add podcast to My Podcasts using the existing API
-        const addResponse = await fetch('/api/podcasts/add', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rss_url: feedUrl }),
-        });
-        
-        if (addResponse.ok) {
+      // Save Apple podcasts with apple:ID format so the podcast page can fetch episodes
+      const appleRssUrl = `apple:${podcast.id}`;
+
+      // Add podcast to My Podcasts using the existing API
+      const addResponse = await fetch('/api/podcasts/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rss_url: appleRssUrl }),
+      });
+
+      if (addResponse.ok) {
+        setIsLoved(true);
+      } else {
+        const errorData = await addResponse.json();
+        // If already exists, mark as loved
+        if (errorData.error?.includes('already')) {
           setIsLoved(true);
         } else {
-          const errorData = await addResponse.json();
-          // If already exists, mark as loved
-          if (errorData.error?.includes('already')) {
-            setIsLoved(true);
-          } else {
-            console.error('Failed to add podcast:', errorData);
-          }
+          console.error('Failed to add podcast:', errorData);
         }
-      } else {
-        console.error('No feed URL found for podcast');
       }
     } catch (err) {
       console.error('Error adding podcast:', err);

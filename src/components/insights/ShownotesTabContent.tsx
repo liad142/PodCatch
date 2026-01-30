@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,6 +8,15 @@ import { MiniLoadingAnimation } from "@/components/animations";
 import { cn } from "@/lib/utils";
 import type { ShownotesSection } from "@/types/database";
 import { List, Check, Sparkles, Clock, ExternalLink, ChevronDown, ChevronRight, FileDown } from "lucide-react";
+
+// Detect if text is primarily RTL (Hebrew, Arabic, etc.)
+function isRTLText(text: string): boolean {
+  const rtlChars = /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g;
+  const rtlMatches = (text.match(rtlChars) || []).length;
+  const latinChars = /[a-zA-Z]/g;
+  const latinMatches = (text.match(latinChars) || []).length;
+  return rtlMatches > latinMatches;
+}
 
 interface ShownotesTabContentProps {
   shownotes: ShownotesSection[] | undefined;
@@ -82,6 +91,13 @@ export function ShownotesTabContent({
     return <MiniLoadingAnimation message="Generating shownotes..." />;
   }
 
+  // Detect RTL from shownotes content
+  const isRTL = useMemo(() => {
+    if (!shownotes) return false;
+    const allText = shownotes.map(s => s.title + ' ' + s.content).join(' ');
+    return isRTLText(allText);
+  }, [shownotes]);
+
   if (!shownotes || shownotes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[400px] text-center p-4">
@@ -99,7 +115,7 @@ export function ShownotesTabContent({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Header with actions */}
       <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-background z-10">
         <h3 className="font-semibold flex items-center gap-2">
@@ -148,22 +164,23 @@ export function ShownotesTabContent({
                 {/* Section Header */}
                 <button
                   className={cn(
-                    "w-full flex items-center gap-3 p-3 text-left hover:bg-muted/50 transition-colors",
-                    isExpanded && "border-b bg-muted/30"
+                    "w-full flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors",
+                    isExpanded && "border-b bg-muted/30",
+                    isRTL ? "text-right flex-row-reverse" : "text-left"
                   )}
                   onClick={() => toggleSection(i)}
                 >
                   {isExpanded ? (
                     <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                   ) : (
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <ChevronRight className={cn("h-4 w-4 shrink-0 text-muted-foreground", isRTL && "rotate-180")} />
                   )}
 
                   <span className="text-xs font-mono text-muted-foreground w-6 shrink-0">
                     {String(i + 1).padStart(2, '0')}
                   </span>
 
-                  <span className="font-medium flex-1 truncate">
+                  <span className={cn("font-medium flex-1 truncate", isRTL && "text-right")}>
                     {section.title}
                   </span>
 
@@ -178,16 +195,16 @@ export function ShownotesTabContent({
                 {/* Section Content */}
                 {isExpanded && (
                   <div className="p-4 space-y-3">
-                    <p className="text-sm text-muted-foreground leading-relaxed">
+                    <p className={cn("text-sm text-muted-foreground leading-relaxed", isRTL && "text-right")}>
                       {section.content}
                     </p>
 
                     {section.links && section.links.length > 0 && (
                       <div className="space-y-2 pt-2 border-t">
-                        <span className="text-xs font-semibold text-muted-foreground">
+                        <span className={cn("text-xs font-semibold text-muted-foreground", isRTL && "block text-right")}>
                           Related Links:
                         </span>
-                        <div className="flex flex-wrap gap-2">
+                        <div className={cn("flex flex-wrap gap-2", isRTL && "justify-end")}>
                           {section.links.map((link, j) => (
                             <a
                               key={j}

@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { QuickSummaryContent, DeepSummaryContent, SummaryStatus } from "@/types/database";
 import { Sparkles, CheckCircle, Clock, Loader2, RefreshCw, BookOpen, Lightbulb, Users, Tag, FileText, Link2 } from "lucide-react";
+
+// Detect if text is primarily RTL (Hebrew, Arabic, etc.)
+function isRTLText(text: string): boolean {
+  const rtlChars = /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g;
+  const rtlMatches = (text.match(rtlChars) || []).length;
+  const latinChars = /[a-zA-Z]/g;
+  const latinMatches = (text.match(latinChars) || []).length;
+  return rtlMatches > latinMatches;
+}
 
 interface SummaryTabContentProps {
   summaries: {
@@ -110,26 +119,32 @@ export function SummaryTabContent({ summaries, isLoading, onGenerate }: SummaryT
 }
 
 function QuickSummaryView({ content }: { content: QuickSummaryContent }) {
+  // Detect RTL from content
+  const isRTL = useMemo(() => {
+    const allText = [content.tldr, ...content.key_takeaways, content.who_is_this_for].join(' ');
+    return isRTLText(allText);
+  }, [content]);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* TL;DR */}
       <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
-        <div className="flex items-center gap-2 mb-2">
+        <div className={cn("flex items-center gap-2 mb-2", isRTL && "flex-row-reverse")}>
           <FileText className="h-4 w-4 text-primary" />
           <span className="font-semibold text-sm">TL;DR</span>
         </div>
-        <p className="text-sm leading-relaxed">{content.tldr}</p>
+        <p className={cn("text-sm leading-relaxed", isRTL && "text-right")}>{content.tldr}</p>
       </div>
 
       {/* Key Takeaways */}
       <div className="space-y-2">
-        <div className="flex items-center gap-2">
+        <div className={cn("flex items-center gap-2", isRTL && "flex-row-reverse")}>
           <Lightbulb className="h-4 w-4 text-yellow-500" />
           <span className="font-semibold text-sm">Key Takeaways</span>
         </div>
         <ul className="space-y-2">
           {content.key_takeaways.map((takeaway, i) => (
-            <li key={i} className="flex gap-2 text-sm">
+            <li key={i} className={cn("flex gap-2 text-sm", isRTL && "flex-row-reverse text-right")}>
               <span className="text-primary font-bold">•</span>
               <span>{takeaway}</span>
             </li>
@@ -139,15 +154,15 @@ function QuickSummaryView({ content }: { content: QuickSummaryContent }) {
 
       {/* Who is this for */}
       <div className="rounded-lg border p-4">
-        <div className="flex items-center gap-2 mb-2">
+        <div className={cn("flex items-center gap-2 mb-2", isRTL && "flex-row-reverse")}>
           <Users className="h-4 w-4 text-blue-500" />
           <span className="font-semibold text-sm">Who is this for?</span>
         </div>
-        <p className="text-sm text-muted-foreground">{content.who_is_this_for}</p>
+        <p className={cn("text-sm text-muted-foreground", isRTL && "text-right")}>{content.who_is_this_for}</p>
       </div>
 
       {/* Topics */}
-      <div className="flex flex-wrap gap-2">
+      <div className={cn("flex flex-wrap gap-2", isRTL && "justify-end")}>
         {content.topics.map((topic, i) => (
           <Badge key={i} variant="secondary" className="gap-1">
             <Tag className="h-3 w-3" />
@@ -160,31 +175,41 @@ function QuickSummaryView({ content }: { content: QuickSummaryContent }) {
 }
 
 function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
+  // Detect RTL from content
+  const isRTL = useMemo(() => {
+    const allText = [
+      content.tldr,
+      ...content.sections.flatMap(s => [s.title, s.summary, ...s.key_points]),
+      ...content.action_prompts.flatMap(a => [a.title, a.details])
+    ].join(' ');
+    return isRTLText(allText);
+  }, [content]);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* TL;DR */}
       <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
-        <div className="flex items-center gap-2 mb-2">
+        <div className={cn("flex items-center gap-2 mb-2", isRTL && "flex-row-reverse")}>
           <FileText className="h-4 w-4 text-primary" />
           <span className="font-semibold text-sm">TL;DR</span>
         </div>
-        <p className="text-sm leading-relaxed">{content.tldr}</p>
+        <p className={cn("text-sm leading-relaxed", isRTL && "text-right")}>{content.tldr}</p>
       </div>
 
       {/* Sections */}
       <div className="space-y-4">
-        <h3 className="font-semibold text-sm flex items-center gap-2">
+        <h3 className={cn("font-semibold text-sm flex items-center gap-2", isRTL && "flex-row-reverse")}>
           <BookOpen className="h-4 w-4" />
           Sections
         </h3>
         {content.sections.map((section, i) => (
           <div key={i} className="rounded-lg border p-4 space-y-2">
-            <h4 className="font-medium">{section.title}</h4>
-            <p className="text-sm text-muted-foreground">{section.summary}</p>
+            <h4 className={cn("font-medium", isRTL && "text-right")}>{section.title}</h4>
+            <p className={cn("text-sm text-muted-foreground", isRTL && "text-right")}>{section.summary}</p>
             {section.key_points.length > 0 && (
               <ul className="space-y-1 mt-2">
                 {section.key_points.map((point, j) => (
-                  <li key={j} className="flex gap-2 text-sm">
+                  <li key={j} className={cn("flex gap-2 text-sm", isRTL && "flex-row-reverse text-right")}>
                     <span className="text-primary">•</span>
                     <span>{point}</span>
                   </li>
@@ -198,13 +223,13 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
       {/* Resources */}
       {content.resources.length > 0 && (
         <div className="space-y-2">
-          <h3 className="font-semibold text-sm flex items-center gap-2">
+          <h3 className={cn("font-semibold text-sm flex items-center gap-2", isRTL && "flex-row-reverse")}>
             <Link2 className="h-4 w-4" />
             Resources
           </h3>
           <div className="space-y-2">
             {content.resources.map((resource, i) => (
-              <div key={i} className="flex items-center gap-2 text-sm p-2 rounded-lg hover:bg-muted/50">
+              <div key={i} className={cn("flex items-center gap-2 text-sm p-2 rounded-lg hover:bg-muted/50", isRTL && "flex-row-reverse")}>
                 <Badge variant="outline" className="text-xs">
                   {resource.type}
                 </Badge>
@@ -234,21 +259,24 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
       {/* Action Prompts */}
       {content.action_prompts.length > 0 && (
         <div className="space-y-2">
-          <h3 className="font-semibold text-sm flex items-center gap-2">
+          <h3 className={cn("font-semibold text-sm flex items-center gap-2", isRTL && "flex-row-reverse")}>
             <Lightbulb className="h-4 w-4 text-yellow-500" />
             Action Items
           </h3>
           {content.action_prompts.map((action, i) => (
-            <div key={i} className="rounded-lg border-l-4 border-l-primary bg-muted/30 p-3">
-              <h4 className="font-medium text-sm">{action.title}</h4>
-              <p className="text-sm text-muted-foreground mt-1">{action.details}</p>
+            <div key={i} className={cn(
+              "rounded-lg bg-muted/30 p-3",
+              isRTL ? "border-r-4 border-r-primary" : "border-l-4 border-l-primary"
+            )}>
+              <h4 className={cn("font-medium text-sm", isRTL && "text-right")}>{action.title}</h4>
+              <p className={cn("text-sm text-muted-foreground mt-1", isRTL && "text-right")}>{action.details}</p>
             </div>
           ))}
         </div>
       )}
 
       {/* Topics */}
-      <div className="flex flex-wrap gap-2 pt-2 border-t">
+      <div className={cn("flex flex-wrap gap-2 pt-2 border-t", isRTL && "justify-end")}>
         {content.topics.map((topic, i) => (
           <Badge key={i} variant="secondary" className="gap-1">
             <Tag className="h-3 w-3" />
