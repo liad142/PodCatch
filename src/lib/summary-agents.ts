@@ -13,7 +13,7 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const MODEL = 'claude-sonnet-4-5-20250514';
+const MODEL = 'claude-sonnet-4-20250514';
 
 function logWithTime(message: string, data?: Record<string, unknown>) {
   const timestamp = new Date().toISOString();
@@ -26,63 +26,167 @@ function logWithTime(message: string, data?: Record<string, unknown>) {
 
 const AGENT_A_SYSTEM = `You are an expert podcast analyst. Your job is to:
 1. Identify speakers by analyzing conversation patterns (introductions, greetings, name references)
-2. Group the transcript into logical topic blocks based on subject matter changes
+2. Divide the episode into logical time-based topic blocks
 3. Label each block with a descriptive title
 
-Respond ONLY with valid JSON. No markdown, no explanations.`;
+Respond ONLY with valid JSON. No markdown, no explanations. Keep your response concise.`;
 
-const AGENT_A_PROMPT = `Analyze this diarized podcast transcript and return a JSON object with this structure:
+const AGENT_A_PROMPT = `Analyze this podcast transcript SAMPLE and return a JSON object.
 
+Episode duration: {DURATION} minutes
+Total utterances: {TOTAL_UTTERANCES}
+Unique speakers detected: {SPEAKER_COUNT}
+
+Return this JSON structure:
 {
   "speakers": [
-    { "id": 0, "name": "John Smith", "role": "host" },
-    { "id": 1, "name": "Sarah Johnson", "role": "guest" }
+    { "id": 0, "name": "Host Name or Host", "role": "host" },
+    { "id": 1, "name": "Guest Name or Guest", "role": "guest" }
   ],
   "topicBlocks": [
     {
       "id": "block-1",
       "label": "Introduction and Welcome",
-      "utteranceIndices": [0, 1, 2, 3],
+      "startMinute": 0,
+      "endMinute": 5,
       "primarySpeaker": 0
+    },
+    {
+      "id": "block-2", 
+      "label": "Main Discussion Topic",
+      "startMinute": 5,
+      "endMinute": 30,
+      "primarySpeaker": 1
     }
   ]
 }
 
 RULES:
-- For speakers: Extract real names from the conversation if mentioned ("Hi John", "I'm Sarah", etc.)
-- If no name found, use "Host", "Guest 1", "Guest 2" based on speaking patterns
-- Role is "host" for the person who welcomes/guides, "guest" for interviewees, "unknown" otherwise
-- For topicBlocks: Group consecutive utterances that discuss the same topic
-- Create 3-10 blocks depending on episode length and topic diversity
-- utteranceIndices is an array of indices into the utterances array
-- primarySpeaker is the speaker ID who talks most in that block
+- Extract speaker names if mentioned ("Hi John", "I'm Sarah", "Thanks for having me, Mike")
+- If no name found, use "Host", "Guest 1", "Guest 2" based on patterns
+- Role: "host" welcomes/guides, "guest" is interviewed, "unknown" otherwise
+- Create 4-8 time-based blocks covering the full episode duration
+- Use startMinute/endMinute (integers) - blocks should cover 0 to {DURATION} minutes
 - Labels should be descriptive: "Discussion: AI in Healthcare", "Personal Story: Career Journey"
-- IMPORTANT: Respond in the SAME LANGUAGE as the transcript
+- Respond in the SAME LANGUAGE as the transcript
 
-Transcript (format: [index] Speaker X: text):
+Transcript sample (showing key moments):
 `;
+
+// Maximum characters to send to Agent A (to avoid truncation)
+const MAX_TRANSCRIPT_CHARS = 30000;
+
+/**
+ * Sample utterances intelligently to stay within token limits
+ * Takes utterances from beginning, middle sections, and end
+ */
+function sampleTranscript(utterances: Utterance[], maxChars: number): { sampled: Utterance[], indices: number[] } {
+  if (utterances.length === 0) return { sampled: [], indices: [] };
+  
+  const totalDuration = utterances[utterances.length - 1].end;
+  const numSections = 8; // Sample from 8 time sections
+  const sectionDuration = totalDuration / numSections;
+  
+  const sampled: Utterance[] = [];
+  const indices: number[] = [];
+  const seen = new Set<number>();
+  
+  // Take first few utterances (for speaker identification)
+  for (let i = 0; i < Math.min(20, utterances.length); i++) {
+    if (!seen.has(i)) {
+      sampled.push(utterances[i]);
+      indices.push(i);
+      seen.add(i);
+    }
+  }
+  
+  // Sample from each time section
+  for (let section = 0; section < numSections; section++) {
+    const sectionStart = section * sectionDuration;
+    const sectionEnd = (section + 1) * sectionDuration;
+    
+    // Find utterances in this section
+    const sectionUtterances = utterances
+      .map((u, i) => ({ u, i }))
+      .filter(({ u }) => u.start >= sectionStart && u.start < sectionEnd);
+    
+    // Take up to 10 utterances per section
+    const toTake = Math.min(10, sectionUtterances.length);
+    const step = Math.max(1, Math.floor(sectionUtterances.length / toTake));
+    
+    for (let j = 0; j < sectionUtterances.length && sampled.length < 150; j += step) {
+      const { u, i } = sectionUtterances[j];
+      if (!seen.has(i)) {
+        sampled.push(u);
+        indices.push(i);
+        seen.add(i);
+      }
+    }
+  }
+  
+  // Take last few utterances
+  for (let i = Math.max(0, utterances.length - 10); i < utterances.length; i++) {
+    if (!seen.has(i)) {
+      sampled.push(utterances[i]);
+      indices.push(i);
+      seen.add(i);
+    }
+  }
+  
+  // Sort by original order
+  const combined = sampled.map((u, idx) => ({ u, origIdx: indices[idx] }));
+  combined.sort((a, b) => a.origIdx - b.origIdx);
+  
+  return {
+    sampled: combined.map(c => c.u),
+    indices: combined.map(c => c.origIdx)
+  };
+}
 
 export async function analyzeTranscript(transcript: DiarizedTranscript): Promise<AnalysisResult> {
   logWithTime('Agent A (Analyst) starting', {
     utteranceCount: transcript.utterances.length,
-    speakerCount: transcript.speakerCount
+    speakerCount: transcript.speakerCount,
+    durationMinutes: Math.round(transcript.duration / 60)
   });
 
   const startTime = Date.now();
+  const durationMinutes = Math.round(transcript.duration / 60);
 
-  // Format transcript for the prompt
-  const formattedTranscript = transcript.utterances
-    .map((u, i) => `[${i}] Speaker ${u.speaker}: ${u.text}`)
-    .join('\n');
+  // Sample transcript to stay within limits
+  const { sampled } = sampleTranscript(transcript.utterances, MAX_TRANSCRIPT_CHARS);
+  
+  logWithTime('Transcript sampled for Agent A', {
+    originalCount: transcript.utterances.length,
+    sampledCount: sampled.length
+  });
+
+  // Format sampled transcript with timestamps
+  const formattedTranscript = sampled
+    .map(u => {
+      const mins = Math.floor(u.start / 60);
+      const secs = Math.floor(u.start % 60);
+      return `[${mins}:${secs.toString().padStart(2, '0')}] Speaker ${u.speaker}: ${u.text}`;
+    })
+    .join('\n')
+    .substring(0, MAX_TRANSCRIPT_CHARS);
+
+  const prompt = AGENT_A_PROMPT
+    .replace(/{DURATION}/g, String(durationMinutes))
+    .replace('{TOTAL_UTTERANCES}', String(transcript.utterances.length))
+    .replace('{SPEAKER_COUNT}', String(transcript.speakerCount))
+    + formattedTranscript;
 
   try {
+    logWithTime('Sending to Claude...', { promptLength: prompt.length });
+    
     const message = await anthropic.messages.create({
       model: MODEL,
-      max_tokens: 4000,
+      max_tokens: 2000, // Reduced - we only need a small JSON response
       system: AGENT_A_SYSTEM,
       messages: [{
         role: 'user',
-        content: AGENT_A_PROMPT + formattedTranscript
+        content: prompt
       }]
     });
 
@@ -91,40 +195,54 @@ export async function analyzeTranscript(transcript: DiarizedTranscript): Promise
       throw new Error('Unexpected response type from Agent A');
     }
 
+    logWithTime('Claude response received', { 
+      responseLength: textContent.text.length,
+      stopReason: message.stop_reason 
+    });
+
     // Extract JSON from response
     let jsonText = textContent.text.trim();
     if (!jsonText.startsWith('{')) {
       const match = jsonText.match(/\{[\s\S]*\}/);
       if (match) jsonText = match[0];
-      else throw new Error('No JSON found in Agent A response');
+      else {
+        logWithTime('No JSON found in response', { response: textContent.text.substring(0, 500) });
+        throw new Error('No JSON found in Agent A response');
+      }
     }
 
     const parsed = JSON.parse(jsonText);
 
     // Transform to our types
-    const speakers: SpeakerInfo[] = parsed.speakers.map((s: { id: number; name: string; role: string }) => ({
+    const speakers: SpeakerInfo[] = (parsed.speakers || []).map((s: { id: number; name: string; role: string }) => ({
       id: s.id,
       name: s.name || `Speaker ${s.id}`,
       role: (['host', 'guest', 'unknown'].includes(s.role) ? s.role : 'unknown') as SpeakerInfo['role'],
     }));
 
-    const topicBlocks: TopicBlock[] = parsed.topicBlocks.map((block: {
+    // Convert time-based blocks to utterance-based blocks
+    const topicBlocks: TopicBlock[] = (parsed.topicBlocks || []).map((block: {
       id: string;
       label: string;
-      utteranceIndices: number[];
+      startMinute: number;
+      endMinute: number;
       primarySpeaker: number
     }) => {
-      const blockUtterances = block.utteranceIndices
-        .map((idx: number) => transcript.utterances[idx])
-        .filter(Boolean);
+      const startSec = (block.startMinute || 0) * 60;
+      const endSec = (block.endMinute || durationMinutes) * 60;
+      
+      // Find all utterances in this time range
+      const blockUtterances = transcript.utterances.filter(
+        u => u.start >= startSec && u.start < endSec
+      );
 
       return {
         id: block.id,
         label: block.label,
         utterances: blockUtterances,
-        primarySpeaker: block.primarySpeaker,
-        startTime: blockUtterances[0]?.start || 0,
-        endTime: blockUtterances[blockUtterances.length - 1]?.end || 0,
+        primarySpeaker: block.primarySpeaker ?? 0,
+        startTime: startSec,
+        endTime: endSec,
       };
     });
 
@@ -133,6 +251,7 @@ export async function analyzeTranscript(transcript: DiarizedTranscript): Promise
       durationMs: duration,
       speakersFound: speakers.length,
       blocksCreated: topicBlocks.length,
+      totalUtterancesAssigned: topicBlocks.reduce((sum, b) => sum + b.utterances.length, 0)
     });
 
     return { speakers, topicBlocks };

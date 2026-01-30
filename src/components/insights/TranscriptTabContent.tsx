@@ -12,11 +12,9 @@ import {
   ScrollText,
   User,
   Mic,
-  Edit3,
   Filter
 } from "lucide-react";
 import { TranscriptMessage } from "./TranscriptMessage";
-import { SpeakerIdentifier } from "./SpeakerIdentifier";
 import type { ParsedTranscriptSegment, SpeakerInfo } from "@/types/transcript";
 
 interface TranscriptTabContentProps {
@@ -33,7 +31,6 @@ export function TranscriptTabContent({
   const [searchQuery, setSearchQuery] = useState("");
   const [copied, setCopied] = useState(false);
   const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
-  const [isIdentifying, setIsIdentifying] = useState(false);
   const [speakers, setSpeakers] = useState<Map<string, SpeakerInfo>>(new Map());
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -52,49 +49,94 @@ export function TranscriptTabContent({
   };
 
   // Parse transcript into segments with speaker detection
+  // Then merge consecutive segments from the same speaker for better readability
   const segments = useMemo<ParsedTranscriptSegment[]>(() => {
     if (!transcript) return [];
 
-    // Parse the transcript looking for patterns
+    // Step 1: Parse each line
     const lines = transcript.split('\n').filter(line => line.trim());
-    const parsed: ParsedTranscriptSegment[] = [];
+    const rawSegments: { speaker: string; text: string; timestamp?: string }[] = [];
 
     let currentSpeaker = 'Unknown Speaker';
-    let segmentId = 0;
 
     for (const line of lines) {
-      // Match timestamp format [00:00] or (00:00) at start of line
-      const timestampMatch = line.match(/^[\[\(](\d{1,2}:\d{2}(?::\d{2})?)[\]\)]\s*/);
-      // Match speaker pattern: "Speaker Name:" at start (after optional timestamp)
-      const speakerMatch = line.match(/^(?:[\[\(]\d{1,2}:\d{2}(?::\d{2})?[\]\)]\s*)?([A-Z][^:]{1,30}):\s*(.+)/);
-
       let timestamp: string | undefined;
-      let text: string;
+      let speaker: string | undefined;
+      let text: string = line;
 
-      if (timestampMatch) {
-        timestamp = timestampMatch[1];
-        text = line.substring(timestampMatch[0].length);
+      // Format 1: [timestamp] [Speaker Name] text (our format from Deepgram)
+      const format1Match = line.match(/^\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*\[([^\]]+)\]\s*(.+)/);
+      
+      // Format 2: [timestamp] Speaker Name: text (alternative format)
+      const format2Match = line.match(/^\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*([^:\[\]]+):\s*(.+)/);
+      
+      // Format 3: Speaker Name: text (no timestamp)
+      const format3Match = line.match(/^([A-Z][^:\[\]]{1,30}):\s*(.+)/);
+
+      if (format1Match) {
+        timestamp = format1Match[1];
+        speaker = format1Match[2].trim();
+        text = format1Match[3].trim();
+      } else if (format2Match) {
+        timestamp = format2Match[1];
+        speaker = format2Match[2].trim();
+        text = format2Match[3].trim();
+      } else if (format3Match) {
+        speaker = format3Match[1].trim();
+        text = format3Match[2].trim();
       } else {
-        text = line;
+        const timestampOnly = line.match(/^\[(\d{1,2}:\d{2}(?::\d{2})?)\]\s*(.+)/);
+        if (timestampOnly) {
+          timestamp = timestampOnly[1];
+          text = timestampOnly[2].trim();
+        }
       }
 
-      if (speakerMatch) {
-        currentSpeaker = speakerMatch[1].trim();
-        text = speakerMatch[2];
+      if (speaker) {
+        currentSpeaker = speaker;
       }
 
       if (text.trim()) {
-        parsed.push({
-          id: `segment-${segmentId++}`,
+        rawSegments.push({
           speaker: currentSpeaker,
           text: text.trim(),
-          timestamp,
-          isRTL: isRTLText(text)
+          timestamp
         });
       }
     }
 
-    return parsed;
+    // Step 2: Merge consecutive segments from the same speaker
+    // This makes transcripts much more readable (full paragraphs instead of fragments)
+    const merged: ParsedTranscriptSegment[] = [];
+    let segmentId = 0;
+
+    for (let i = 0; i < rawSegments.length; i++) {
+      const seg = rawSegments[i];
+      const lastMerged = merged[merged.length - 1];
+
+      // Merge if same speaker and previous segment exists
+      // Keep them separate only if there's a speaker change
+      if (lastMerged && lastMerged.speaker === seg.speaker) {
+        // Append text to previous segment
+        lastMerged.text += ' ' + seg.text;
+      } else {
+        // New speaker - create new segment
+        merged.push({
+          id: `segment-${segmentId++}`,
+          speaker: seg.speaker,
+          text: seg.text,
+          timestamp: seg.timestamp,
+          isRTL: isRTLText(seg.text)
+        });
+      }
+    }
+
+    // Update RTL detection for merged text
+    merged.forEach(seg => {
+      seg.isRTL = isRTLText(seg.text);
+    });
+
+    return merged;
   }, [transcript]);
 
   const uniqueSpeakers = useMemo(() => {
@@ -105,16 +147,31 @@ export function TranscriptTabContent({
 
   useEffect(() => {
     const speakerMap = new Map<string, SpeakerInfo>();
+    // Vibrant, distinct colors for speakers (similar to podcast app designs)
     const colors = [
-      '#FF6B9D', '#4ECDC4', '#FFE66D', '#95E1D3',
-      '#C7CEEA', '#FF8B94', '#A8E6CF', '#FFD3B6',
+      '#0D9488', // Teal (like Cal Newport example)
+      '#8B5CF6', // Purple
+      '#F59E0B', // Amber
+      '#EC4899', // Pink
+      '#10B981', // Emerald
+      '#3B82F6', // Blue
+      '#EF4444', // Red
+      '#6366F1', // Indigo
+      '#14B8A6', // Cyan
+      '#F97316', // Orange
     ];
 
     uniqueSpeakers.forEach((speaker, index) => {
+      // Get first letter of first and last name if available
+      const nameParts = speaker.split(' ').filter(p => p.length > 0);
+      const avatar = nameParts.length >= 2 
+        ? `${nameParts[0].charAt(0)}${nameParts[nameParts.length - 1].charAt(0)}`.toUpperCase()
+        : speaker.charAt(0).toUpperCase();
+
       speakerMap.set(speaker, {
         name: speaker,
         color: colors[index % colors.length],
-        avatar: speaker.charAt(0).toUpperCase()
+        avatar: avatar
       });
     });
 
@@ -159,16 +216,6 @@ export function TranscriptTabContent({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  };
-
-  const handleSpeakerUpdate = (oldName: string, newName: string) => {
-    const updatedSpeakers = new Map(speakers);
-    const speakerInfo = updatedSpeakers.get(oldName);
-    if (speakerInfo) {
-      updatedSpeakers.delete(oldName);
-      updatedSpeakers.set(newName, { ...speakerInfo, name: newName });
-      setSpeakers(updatedSpeakers);
-    }
   };
 
   if (isLoading) {
@@ -268,16 +315,6 @@ export function TranscriptTabContent({
         <div className="flex gap-2">
           <Button
             variant="outline"
-            size="sm"
-            onClick={() => setIsIdentifying(!isIdentifying)}
-            className="h-12 px-5 rounded-full border-2 hover:bg-indigo-500 hover:text-white hover:border-indigo-500 transition-all"
-          >
-            <Edit3 size={16} className="mr-2" />
-            <span className="font-medium">Identify Speakers</span>
-          </Button>
-
-          <Button
-            variant="outline"
             size="icon"
             onClick={handleCopy}
             title="Copy transcript"
@@ -342,15 +379,6 @@ export function TranscriptTabContent({
             })}
           </div>
         </div>
-      )}
-
-      {/* Speaker Identifier Modal */}
-      {isIdentifying && (
-        <SpeakerIdentifier
-          speakers={Array.from(speakers.values())}
-          onUpdate={handleSpeakerUpdate}
-          onClose={() => setIsIdentifying(false)}
-        />
       )}
 
       {/* Messages */}

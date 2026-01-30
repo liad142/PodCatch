@@ -1,9 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { supabase } from "./supabase";
-import { transcribeFromUrl, formatTranscriptWithTimestamps } from "./deepgram";
-import { runSubAgentPipeline } from "./summary-agents";
+import { transcribeFromUrl, formatTranscriptWithTimestamps, formatTranscriptWithSpeakerNames } from "./deepgram";
 import type { DiarizedTranscript } from "@/types/deepgram";
-import type { FinalSummary } from "@/types/summary-agents";
 import type {
   SummaryLevel,
   SummaryStatus,
@@ -19,6 +17,122 @@ const anthropic = new Anthropic({
 function logWithTime(message: string, data?: Record<string, unknown>) {
   const timestamp = new Date().toISOString();
   console.log(`[SUMMARY-SERVICE ${timestamp}] ${message}`, data ? JSON.stringify(data) : '');
+}
+
+// Speaker identification types
+export interface IdentifiedSpeaker {
+  id: number;
+  name: string;
+  role: 'host' | 'guest' | 'unknown';
+}
+
+const SPEAKER_ID_PROMPT = `Analyze this podcast transcript and identify the speakers.
+
+Return ONLY a JSON object with this structure:
+{
+  "speakers": [
+    { "id": 0, "name": "John Smith", "role": "host" },
+    { "id": 1, "name": "Sarah Johnson", "role": "guest" }
+  ]
+}
+
+RULES:
+- Look for introductions: "Hi, I'm...", "Welcome to...", "Thanks for having me...", "My name is..."
+- Look for names mentioned: "Thanks John", "So Sarah, tell us...", "As Mike said..."
+- Role "host" = person who welcomes, introduces, asks questions
+- Role "guest" = person being interviewed, sharing expertise
+- Role "unknown" = can't determine
+- If no name found, use descriptive names like "Host", "Guest", "Interviewer", "Expert"
+- IMPORTANT: If the transcript is in Hebrew/Spanish/etc., names should still be extracted in their original form
+- Always return valid JSON starting with { and ending with }
+
+Transcript sample:
+`;
+
+/**
+ * Use Claude to identify speaker names from transcript
+ */
+export async function identifySpeakers(transcript: DiarizedTranscript): Promise<IdentifiedSpeaker[]> {
+  logWithTime('identifySpeakers starting', { 
+    speakerCount: transcript.speakerCount,
+    utteranceCount: transcript.utterances.length 
+  });
+
+  const startTime = Date.now();
+
+  // Sample the beginning of the transcript (first 5 minutes) where introductions usually happen
+  // Plus some from the middle and end for context
+  const fiveMinutes = 5 * 60;
+  const beginningUtterances = transcript.utterances.filter(u => u.start < fiveMinutes);
+  
+  // Also get some samples from middle (for name mentions)
+  const middleStart = transcript.duration / 3;
+  const middleEnd = (transcript.duration / 3) * 2;
+  const middleUtterances = transcript.utterances
+    .filter(u => u.start >= middleStart && u.start < middleEnd)
+    .slice(0, 20);
+
+  const sampleUtterances = [...beginningUtterances, ...middleUtterances];
+  
+  // Format for Claude
+  const formattedSample = sampleUtterances
+    .map(u => `[Speaker ${u.speaker}]: ${u.text}`)
+    .join('\n')
+    .substring(0, 15000); // Limit to ~15k chars
+
+  try {
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      system: "You are a JSON-only response bot. Return ONLY valid JSON.",
+      messages: [{
+        role: "user",
+        content: SPEAKER_ID_PROMPT + formattedSample
+      }]
+    });
+
+    const textContent = message.content[0];
+    if (textContent.type !== 'text') {
+      throw new Error('Unexpected response type');
+    }
+
+    // Parse JSON
+    let jsonText = textContent.text.trim();
+    if (!jsonText.startsWith('{')) {
+      const match = jsonText.match(/\{[\s\S]*\}/);
+      if (match) jsonText = match[0];
+      else throw new Error('No JSON found');
+    }
+
+    const parsed = JSON.parse(jsonText);
+    const speakers: IdentifiedSpeaker[] = (parsed.speakers || []).map((s: { id: number; name: string; role: string }) => ({
+      id: s.id,
+      name: s.name || `Speaker ${s.id}`,
+      role: (['host', 'guest', 'unknown'].includes(s.role) ? s.role : 'unknown') as IdentifiedSpeaker['role'],
+    }));
+
+    const duration = Date.now() - startTime;
+    logWithTime('identifySpeakers completed', { 
+      durationMs: duration,
+      identifiedSpeakers: speakers.map(s => ({ id: s.id, name: s.name, role: s.role }))
+    });
+
+    return speakers;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    logWithTime('identifySpeakers FAILED', { error: errorMsg });
+    
+    // Return default speaker names on failure
+    const defaultSpeakers: IdentifiedSpeaker[] = [];
+    for (let i = 0; i < transcript.speakerCount; i++) {
+      defaultSpeakers.push({
+        id: i,
+        name: i === 0 ? 'Host' : `Guest ${i}`,
+        role: i === 0 ? 'host' : 'guest'
+      });
+    }
+    return defaultSpeakers;
+  }
 }
 
 // System message to enforce JSON-only responses
@@ -86,26 +200,6 @@ Rules:
 
 Transcript:
 `;
-
-/**
- * Transform FinalSummary from sub-agent pipeline to DeepSummaryContent format
- */
-function transformFinalSummaryToDeep(summary: FinalSummary): DeepSummaryContent {
-  return {
-    tldr: summary.tldr,
-    sections: summary.sections.map(s => ({
-      title: s.title,
-      summary: s.summary,
-      key_points: s.keyPoints,
-    })),
-    resources: [],
-    action_prompts: summary.actionItems.map(item => ({
-      title: item.split(':')[0] || item,
-      details: item,
-    })),
-    topics: summary.topics,
-  };
-}
 
 export async function ensureTranscript(episodeId: string, audioUrl: string, language = 'en'): Promise<{
   status: TranscriptStatus;
@@ -175,15 +269,41 @@ export async function ensureTranscript(episodeId: string, audioUrl: string, lang
   try {
     logWithTime('Starting transcription via Deepgram...');
     const transcribeStart = Date.now();
-    const diarizedTranscript = await transcribeFromUrl(audioUrl);
+    // Pass language to Deepgram only for non-English content (let Deepgram auto-detect for 'en')
+    const transcriptLanguage = language !== 'en' ? language : undefined;
+    const diarizedTranscript = await transcribeFromUrl(audioUrl, transcriptLanguage);
     const formattedText = formatTranscriptWithTimestamps(diarizedTranscript);
     logWithTime('Transcription completed', {
       durationMs: Date.now() - transcribeStart,
       durationSec: ((Date.now() - transcribeStart) / 1000).toFixed(1),
       textLength: formattedText.length,
       utteranceCount: diarizedTranscript.utterances.length,
-      speakerCount: diarizedTranscript.speakerCount
+      speakerCount: diarizedTranscript.speakerCount,
+      detectedLanguage: diarizedTranscript.detectedLanguage
     });
+
+    // Check if transcription produced any content
+    if (!diarizedTranscript.fullText || diarizedTranscript.fullText.trim().length === 0) {
+      const errorMsg = 'Transcription returned empty - audio may be unsupported or corrupted';
+      logWithTime('Transcription returned empty content', { 
+        utteranceCount: diarizedTranscript.utterances.length,
+        fullTextLength: diarizedTranscript.fullText?.length || 0
+      });
+      await supabase
+        .from('transcripts')
+        .update({ status: 'failed', error_message: errorMsg })
+        .eq('episode_id', episodeId)
+        .eq('language', language);
+      return { status: 'failed', error: errorMsg };
+    }
+
+    // Identify speakers using LLM
+    logWithTime('Identifying speakers with LLM...');
+    const speakers = await identifySpeakers(diarizedTranscript);
+    diarizedTranscript.speakers = speakers;
+
+    // Re-format transcript with identified speaker names
+    const formattedTextWithNames = formatTranscriptWithSpeakerNames(diarizedTranscript);
 
     logWithTime('Saving transcript to DB...');
     const saveStart = Date.now();
@@ -191,7 +311,7 @@ export async function ensureTranscript(episodeId: string, audioUrl: string, lang
       .from('transcripts')
       .update({
         status: 'ready',
-        full_text: formattedText,
+        full_text: formattedTextWithNames,
         diarized_json: diarizedTranscript,
         provider: 'deepgram'
       })
@@ -200,7 +320,7 @@ export async function ensureTranscript(episodeId: string, audioUrl: string, lang
     logWithTime('Transcript saved', { durationMs: Date.now() - saveStart });
 
     logWithTime('ensureTranscript completed successfully', { totalDurationMs: Date.now() - startTime });
-    return { status: 'ready', text: formattedText, transcript: diarizedTranscript };
+    return { status: 'ready', text: formattedTextWithNames, transcript: diarizedTranscript };
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'Transcription failed';
     logWithTime('Transcription FAILED', { error: errorMsg, totalDurationMs: Date.now() - startTime });
@@ -219,10 +339,10 @@ export async function generateSummaryForLevel(
   level: SummaryLevel,
   transcriptText: string,
   language = 'en',
-  diarizedTranscript?: DiarizedTranscript
+  _diarizedTranscript?: DiarizedTranscript // Keep for future use, not used in simple approach
 ): Promise<{ status: SummaryStatus; content?: QuickSummaryContent | DeepSummaryContent; error?: string }> {
   const startTime = Date.now();
-  logWithTime('generateSummaryForLevel started', { episodeId, level, language, transcriptLength: transcriptText.length, hasDiarizedTranscript: !!diarizedTranscript });
+  logWithTime('generateSummaryForLevel started', { episodeId, level, language, transcriptLength: transcriptText.length });
 
   // Update status to summarizing
   logWithTime('Updating status to summarizing...');
@@ -234,71 +354,65 @@ export async function generateSummaryForLevel(
     .eq('language', language);
 
   try {
-    let content: QuickSummaryContent | DeepSummaryContent;
+    // Simple approach: Single Claude call for both quick and deep summaries
+    // Claude Sonnet has 200k context window - can handle full transcripts
+    const prompt = level === 'quick' ? QUICK_PROMPT : DEEP_PROMPT;
+    
+    // Use up to 150k characters of transcript (leaves room for prompt and response)
+    const maxTranscriptChars = 150000;
+    const truncatedTranscript = transcriptText.length > maxTranscriptChars 
+      ? transcriptText.substring(0, maxTranscriptChars) + '\n\n[... transcript truncated for length ...]'
+      : transcriptText;
+    
+    const inputLength = (prompt + truncatedTranscript).length;
+    logWithTime('Calling Anthropic API...', { 
+      model: 'claude-sonnet-4-20250514', 
+      inputLength,
+      transcriptTruncated: transcriptText.length > maxTranscriptChars
+    });
 
-    // For deep summaries with diarized data, use sub-agent pipeline
-    if (level === 'deep' && diarizedTranscript) {
-      logWithTime('Using sub-agent pipeline for deep summary...', {
-        utteranceCount: diarizedTranscript.utterances.length,
-        speakerCount: diarizedTranscript.speakerCount
-      });
+    const apiStart = Date.now();
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: level === 'quick' ? 2000 : 8000, // Increased for deep summaries
+      system: SYSTEM_MESSAGE,
+      messages: [{
+        role: "user",
+        content: prompt + truncatedTranscript
+      }]
+    });
+    
+    logWithTime('Anthropic API completed', {
+      durationMs: Date.now() - apiStart,
+      durationSec: ((Date.now() - apiStart) / 1000).toFixed(1),
+      inputTokens: message.usage?.input_tokens,
+      outputTokens: message.usage?.output_tokens,
+      stopReason: message.stop_reason
+    });
 
-      const apiStart = Date.now();
-      const finalSummary = await runSubAgentPipeline(diarizedTranscript);
-      logWithTime('Sub-agent pipeline completed', {
-        durationMs: Date.now() - apiStart,
-        durationSec: ((Date.now() - apiStart) / 1000).toFixed(1),
-        sectionsGenerated: finalSummary.sections.length,
-        topicsCount: finalSummary.topics.length
-      });
-
-      content = transformFinalSummaryToDeep(finalSummary);
-    } else {
-      // For quick summaries or when no diarized data, use traditional Claude call
-      const prompt = level === 'quick' ? QUICK_PROMPT : DEEP_PROMPT;
-      const inputLength = (prompt + transcriptText.substring(0, 100000)).length;
-      logWithTime('Calling Anthropic API...', { model: 'claude-sonnet-4-5-20250514', inputLength });
-
-      const apiStart = Date.now();
-      const message = await anthropic.messages.create({
-        model: "claude-sonnet-4-5-20250514",
-        max_tokens: level === 'quick' ? 1500 : 4000,
-        system: SYSTEM_MESSAGE,
-        messages: [{
-          role: "user",
-          content: prompt + transcriptText.substring(0, 100000)
-        }]
-      });
-      logWithTime('Anthropic API completed', {
-        durationMs: Date.now() - apiStart,
-        durationSec: ((Date.now() - apiStart) / 1000).toFixed(1),
-        inputTokens: message.usage?.input_tokens,
-        outputTokens: message.usage?.output_tokens
-      });
-
-      const textContent = message.content[0];
-      if (textContent.type !== 'text') {
-        throw new Error('Unexpected response type');
-      }
-
-      logWithTime('Parsing JSON response...');
-
-      // Try to extract JSON from the response (in case model added text before/after)
-      let jsonText = textContent.text.trim();
-
-      // If response doesn't start with {, try to find JSON in the response
-      if (!jsonText.startsWith('{')) {
-        const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          logWithTime('Extracted JSON from wrapped response');
-          jsonText = jsonMatch[0];
-        } else {
-          throw new Error('No JSON object found in response');
-        }
-      }
-
-      content = JSON.parse(jsonText);
+    const textContent = message.content[0];
+    if (textContent.type !== 'text') {
+      throw new Error('Unexpected response type');
     }
+
+    logWithTime('Parsing JSON response...', { responseLength: textContent.text.length });
+
+    // Try to extract JSON from the response (in case model added text before/after)
+    let jsonText = textContent.text.trim();
+
+    // If response doesn't start with {, try to find JSON in the response
+    if (!jsonText.startsWith('{')) {
+      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        logWithTime('Extracted JSON from wrapped response');
+        jsonText = jsonMatch[0];
+      } else {
+        logWithTime('No JSON found in response', { responsePreview: textContent.text.substring(0, 500) });
+        throw new Error('No JSON object found in response');
+      }
+    }
+
+    const content = JSON.parse(jsonText) as QuickSummaryContent | DeepSummaryContent;
 
     logWithTime('Saving summary to DB...');
     const saveStart = Date.now();

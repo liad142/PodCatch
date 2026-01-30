@@ -48,6 +48,10 @@ export interface DeepgramResponse {
   };
 }
 
+export interface DeepgramChannelWithLanguage extends DeepgramChannel {
+  detected_language?: string;
+}
+
 // Transformed types for our application
 export interface Utterance {
   start: number;
@@ -57,11 +61,19 @@ export interface Utterance {
   confidence: number;
 }
 
+export interface IdentifiedSpeaker {
+  id: number;
+  name: string;
+  role: 'host' | 'guest' | 'unknown';
+}
+
 export interface DiarizedTranscript {
   utterances: Utterance[];
   fullText: string;
   duration: number;
   speakerCount: number;
+  detectedLanguage?: string; // e.g., 'he', 'en', 'es'
+  speakers?: IdentifiedSpeaker[]; // Identified speaker names from LLM
 }
 
 // Error type
