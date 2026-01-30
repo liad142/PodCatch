@@ -64,6 +64,7 @@ RULES:
 - Only include links in shownotes if explicitly mentioned with full URLs.
 - No hallucinated content - extract only what's in the transcript.
 - Keep quotes concise but meaningful (1-3 sentences max).
+- CRITICAL: Write ALL content (keywords, highlights, shownotes, mindmap labels) in the SAME LANGUAGE as the transcript - whether Hebrew, Spanish, French, Japanese, Arabic, or any other language. Match the transcript language exactly.
 
 Transcript:
 `;
@@ -84,8 +85,9 @@ export async function generateInsights(
 
   try {
     const message = await anthropic.messages.create({
-      model: "claude-3-5-haiku-20241022",
+      model: "claude-sonnet-4-5-20250514",
       max_tokens: 4000,
+      system: "You are a JSON-only response bot. Respond with ONLY valid JSON. CRITICAL: Detect the language of the transcript and respond in THE SAME LANGUAGE - whether Hebrew, Spanish, French, Japanese, Arabic, or any other language. Match exactly.",
       messages: [{
         role: "user",
         content: INSIGHTS_PROMPT + transcriptText.substring(0, 100000)
