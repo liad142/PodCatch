@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Parser from 'rss-parser';
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@/lib/supabase';
 
 const RSSHUB_BASE_URL = process.env.RSSHUB_BASE_URL || 'http://localhost:1200';
 const CACHE_TTL_MINUTES = 30;
@@ -36,12 +36,6 @@ interface RSSItem {
 
 const parser = new Parser();
 
-function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY!;
-  return createClient(url, key);
-}
-
 /**
  * Extract video ID from YouTube URL
  */
@@ -64,7 +58,7 @@ function extractVideoId(url: string): string | null {
  */
 async function getCachedResponse(cacheKey: string): Promise<TrendingVideo[] | null> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = createServerClient();
     const { data, error } = await supabase
       .from('rsshub_cache')
       .select('response_data, expires_at')
@@ -91,7 +85,7 @@ async function getCachedResponse(cacheKey: string): Promise<TrendingVideo[] | nu
  */
 async function setCachedResponse(cacheKey: string, data: TrendingVideo[]): Promise<void> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = createServerClient();
     const expiresAt = new Date(Date.now() + CACHE_TTL_MINUTES * 60 * 1000);
 
     await supabase.from('rsshub_cache').upsert({

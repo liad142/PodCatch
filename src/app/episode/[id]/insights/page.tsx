@@ -1,31 +1,25 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
-import { InsightHub } from "@/components/InsightHub";
+import { EpisodeSmartFeed } from "@/components/insights/EpisodeSmartFeed";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase";
-import type { Episode, Podcast, InsightTab } from "@/types/database";
-import { ArrowLeft, Clock, Calendar, Play, ExternalLink } from "lucide-react";
+import type { Episode, Podcast } from "@/types/database";
+import { ArrowLeft, Clock, Calendar } from "lucide-react";
+import { PlayButton } from "@/components/PlayButton";
 
 interface EpisodeData extends Episode {
   podcast?: Podcast;
 }
 
-const validTabs: InsightTab[] = ['summary', 'mindmap', 'transcript', 'keywords', 'highlights', 'shownotes'];
-
 export default function EpisodeInsightsPage() {
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const episodeId = params.id as string;
-
-  // Get initial tab from URL query parameter
-  const tabParam = searchParams.get('tab') as InsightTab | null;
-  const initialTab: InsightTab = tabParam && validTabs.includes(tabParam) ? tabParam : 'summary';
 
   const [episode, setEpisode] = useState<EpisodeData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -187,21 +181,20 @@ export default function EpisodeInsightsPage() {
                       {formatDuration(episode.duration_seconds)}
                     </Badge>
                   )}
-                  <a
-                    href={episode.audio_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex"
-                  >
-                    <Badge
+                  {episode.audio_url && episode.podcast && (
+                    <PlayButton
+                      track={{
+                        id: episode.id,
+                        title: episode.title,
+                        artist: episode.podcast.title || episode.podcast.author || 'Unknown',
+                        artworkUrl: episode.podcast.image_url || '',
+                        audioUrl: episode.audio_url,
+                        duration: episode.duration_seconds || undefined,
+                      }}
+                      size="sm"
                       variant="outline"
-                      className="gap-1 font-normal hover:bg-muted cursor-pointer"
-                    >
-                      <Play className="h-3 w-3" />
-                      Listen
-                      <ExternalLink className="h-2.5 w-2.5" />
-                    </Badge>
-                  </a>
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -209,9 +202,9 @@ export default function EpisodeInsightsPage() {
         </div>
       </div>
 
-      {/* Insight Hub */}
-      <div className="flex-1 flex flex-col">
-        {episodeId && <InsightHub episodeId={episodeId} initialTab={initialTab} />}
+      {/* Smart Feed */}
+      <div className="flex-1 py-6">
+        {episode && <EpisodeSmartFeed episode={episode} />}
       </div>
     </div>
   );

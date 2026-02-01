@@ -1,22 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Use service role key for reading from database
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const secretKey = process.env.SUPABASE_SECRET_KEY!;
-
-  if (!secretKey) {
-    throw new Error('SUPABASE_SECRET_KEY is required');
-  }
-
-  return createClient(url, secretKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
-}
+import { createServerClient } from '@/lib/supabase';
 
 interface CheckSummariesRequest {
   audioUrls: string[];
@@ -51,7 +34,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = getSupabase();
+    const supabase = createServerClient();
 
     // Find episodes by audio URLs
     const { data: episodes, error: episodesError } = await supabase

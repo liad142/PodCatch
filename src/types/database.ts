@@ -7,6 +7,7 @@ export interface Podcast {
   image_url: string | null;
   language: string;
   created_at: string;
+  latest_episode_date: string | null;
 }
 
 export interface Episode {
@@ -189,4 +190,18 @@ export interface EpisodeInsightsResponse {
     quick?: SummaryData;
     deep?: SummaryData;
   };
+}
+
+// Podcast Subscription Types
+export interface PodcastSubscription {
+  id: string;
+  user_id: string;
+  podcast_id: string;
+  created_at: string;
+  last_viewed_at: string;
+}
+
+export interface PodcastWithSubscription extends Podcast {
+  subscription?: PodcastSubscription;
+  has_new_episodes?: boolean;
 }

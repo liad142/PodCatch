@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 
 // Navigation configuration - easy to edit
 const NAV_ITEMS = [
-  { label: 'Discover', href: '/browse', icon: Compass },
+  { label: 'Discover', href: '/discover', icon: Compass },
   { label: 'My Podcasts', href: '/my-podcasts', icon: Radio },
   { label: 'Feed', href: '/feed', icon: Rss },
   { label: 'Episode Summaries', href: '/summaries', icon: FileText },

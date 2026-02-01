@@ -1,22 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Use service role key for writing to database
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const secretKey = process.env.SUPABASE_SECRET_KEY!;
-
-  if (!secretKey) {
-    throw new Error('SUPABASE_SECRET_KEY is required');
-  }
-
-  return createClient(url, secretKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
-}
+import { createServerClient } from '@/lib/supabase';
 
 interface ImportEpisodeRequest {
   episode: {
@@ -48,7 +31,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = getSupabase();
+    const supabase = createServerClient();
 
     // Check if podcast exists by external ID stored in rss_feed_url
     // We use a convention: apple:podcastId as rss_feed_url for imported podcasts
@@ -153,6 +136,28 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to create episode' },
         { status: 500 }
       );
+    }
+
+    // Update podcast's latest_episode_date for "new episode" badge
+    if (episode.publishedAt) {
+      const publishedDate = new Date(episode.publishedAt).toISOString();
+
+      // Only update if this episode is newer than the current latest
+      const { data: currentPodcast } = await supabase
+        .from('podcasts')
+        .select('latest_episode_date')
+        .eq('id', podcastId)
+        .single();
+
+      const shouldUpdate = !currentPodcast?.latest_episode_date ||
+        new Date(publishedDate) > new Date(currentPodcast.latest_episode_date);
+
+      if (shouldUpdate) {
+        await supabase
+          .from('podcasts')
+          .update({ latest_episode_date: publishedDate })
+          .eq('id', podcastId);
+      }
     }
 
     return NextResponse.json({

@@ -12,9 +12,10 @@ import { cn } from "@/lib/utils";
 interface PodcastCardProps {
   podcast: Podcast & { episode_count?: number };
   onRemove?: (id: string) => void;
+  hasNewEpisodes?: boolean;
 }
 
-export function PodcastCard({ podcast, onRemove }: PodcastCardProps) {
+export function PodcastCard({ podcast, onRemove, hasNewEpisodes }: PodcastCardProps) {
   const [isRemoving, setIsRemoving] = useState(false);
 
   const handleRemove = async (e: React.MouseEvent) => {
@@ -86,6 +87,12 @@ export function PodcastCard({ podcast, onRemove }: PodcastCardProps) {
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
                 <Mic2 className="h-16 w-16 text-primary/40" />
+              </div>
+            )}
+            {/* NEW Badge */}
+            {hasNewEpisodes && (
+              <div className="absolute top-2 left-2 bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                NEW
               </div>
             )}
             {/* Remove Button */}

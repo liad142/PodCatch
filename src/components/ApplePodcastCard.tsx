@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Heart } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { cn } from '@/lib/utils';
 
 export interface ApplePodcast {
@@ -27,43 +28,27 @@ interface ApplePodcastCardProps {
 }
 
 export function ApplePodcastCard({ podcast, priority = false, className }: ApplePodcastCardProps) {
-  const [isLoved, setIsLoved] = useState(false);
-  const [isAdding, setIsAdding] = useState(false);
+  const { isSubscribed, subscribe, unsubscribe } = useSubscription();
+  const [isLoading, setIsLoading] = useState(false);
   const imageUrl = podcast.artworkUrl?.replace('100x100', '400x400') || '/placeholder-podcast.png';
+
+  const subscribed = isSubscribed(podcast.id.toString());
 
   const handleLove = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (isAdding || isLoved) return;
+    if (isLoading) return;
+    setIsLoading(true);
 
-    setIsAdding(true);
     try {
-      // Save Apple podcasts with apple:ID format so the podcast page can fetch episodes
-      const appleRssUrl = `apple:${podcast.id}`;
-
-      // Add podcast to My Podcasts using the existing API
-      const addResponse = await fetch('/api/podcasts/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rss_url: appleRssUrl }),
-      });
-
-      if (addResponse.ok) {
-        setIsLoved(true);
+      if (subscribed) {
+        await unsubscribe(podcast.id.toString());
       } else {
-        const errorData = await addResponse.json();
-        // If already exists, mark as loved
-        if (errorData.error?.includes('already')) {
-          setIsLoved(true);
-        } else {
-          console.error('Failed to add podcast:', errorData);
-        }
+        await subscribe(podcast.id.toString());
       }
-    } catch (err) {
-      console.error('Error adding podcast:', err);
     } finally {
-      setIsAdding(false);
+      setIsLoading(false);
     }
   };
 
@@ -81,8 +66,8 @@ export function ApplePodcastCard({ podcast, priority = false, className }: Apple
             unoptimized={imageUrl.includes('mzstatic.com')}
           />
           {podcast.contentAdvisoryRating === 'Explicit' && (
-            <Badge 
-              variant="secondary" 
+            <Badge
+              variant="secondary"
               className="absolute top-2 left-2 bg-red-500/90 text-white text-xs px-1.5 py-0.5"
             >
               E
@@ -91,23 +76,17 @@ export function ApplePodcastCard({ podcast, priority = false, className }: Apple
           {/* Love Button */}
           <button
             onClick={handleLove}
-            disabled={isAdding || isLoved}
-            className={cn(
-              'absolute top-2 right-2 p-1.5 rounded-full transition-all duration-200',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-              isLoved
+            disabled={isLoading}
+            className={`absolute top-2 right-2 p-2 rounded-full transition-all ${
+              isLoading ? 'opacity-50 cursor-not-allowed' : ''
+            } ${
+              subscribed
                 ? 'bg-red-500 text-white'
-                : 'bg-black/50 text-white hover:bg-red-500 hover:scale-110',
-              isAdding && 'opacity-50 cursor-wait'
-            )}
-            aria-label={isLoved ? 'Added to My Podcasts' : 'Add to My Podcasts'}
+                : 'bg-black/50 hover:bg-black/70 text-white'
+            }`}
+            title={subscribed ? 'Remove from My Podcasts' : 'Add to My Podcasts'}
           >
-            <Heart 
-              className={cn(
-                'h-4 w-4 transition-all',
-                isLoved && 'fill-current'
-              )} 
-            />
+            <Heart className={`w-5 h-5 ${subscribed ? 'fill-current' : ''}`} />
           </button>
         </div>
         <CardContent className="p-3 space-y-1">

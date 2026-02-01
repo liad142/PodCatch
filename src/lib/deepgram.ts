@@ -7,28 +7,66 @@ import type {
 
 const deepgram = createClient(process.env.DEEPGRAM_API_KEY!);
 
+const isDev = process.env.NODE_ENV === 'development';
+
 function logWithTime(message: string, data?: Record<string, unknown>) {
-  const timestamp = new Date().toISOString();
-  console.log(`[DEEPGRAM ${timestamp}] ${message}`, data ? JSON.stringify(data) : '');
+  if (isDev) {
+    const timestamp = new Date().toISOString();
+    console.log(`[DEEPGRAM ${timestamp}] ${message}`, data ? JSON.stringify(data) : '');
+  }
+}
+
+// Audio file extensions that indicate direct URLs (no redirects needed)
+const DIRECT_AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.wav', '.ogg', '.flac', '.aac', '.opus'];
+
+/**
+ * Check if URL appears to be a direct audio file (no tracking redirect needed)
+ */
+function isDirectAudioUrl(url: string): boolean {
+  const urlLower = url.toLowerCase();
+  // Check file extension
+  if (DIRECT_AUDIO_EXTENSIONS.some(ext => urlLower.includes(ext))) {
+    // Make sure it's not a tracking URL that contains the extension in the path
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname.toLowerCase();
+    if (DIRECT_AUDIO_EXTENSIONS.some(ext => pathname.endsWith(ext))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
  * Follow redirects to get the final audio URL
  * Many podcast URLs go through tracking services that Deepgram can't fetch
+ * Optimized: skips redirect following for direct audio URLs and uses timeouts
  */
-async function resolveAudioUrl(url: string, maxRedirects = 10): Promise<string> {
+async function resolveAudioUrl(url: string, maxRedirects = 5): Promise<string> {
+  // Skip redirect following for direct audio URLs (common case)
+  if (isDirectAudioUrl(url)) {
+    logWithTime('URL appears to be direct audio, skipping redirect resolution');
+    return url;
+  }
+
   let currentUrl = url;
   let redirectCount = 0;
+  const REDIRECT_TIMEOUT = 3000; // 3 second timeout per redirect
 
   while (redirectCount < maxRedirects) {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), REDIRECT_TIMEOUT);
+
       const response = await fetch(currentUrl, {
         method: 'HEAD',
         redirect: 'manual', // Don't auto-follow, we want to track
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       // Check if it's a redirect (3xx status)
       if (response.status >= 300 && response.status < 400) {
@@ -37,26 +75,37 @@ async function resolveAudioUrl(url: string, maxRedirects = 10): Promise<string> 
           logWithTime('Redirect without location header, using current URL');
           break;
         }
-        
+
         // Handle relative URLs
-        currentUrl = location.startsWith('http') 
-          ? location 
+        currentUrl = location.startsWith('http')
+          ? location
           : new URL(location, currentUrl).toString();
-        
+
         redirectCount++;
         logWithTime(`Following redirect ${redirectCount}`, { to: currentUrl.substring(0, 80) + '...' });
+
+        // If we've resolved to a direct audio URL, stop here
+        if (isDirectAudioUrl(currentUrl)) {
+          logWithTime('Resolved to direct audio URL, stopping redirect chain');
+          break;
+        }
       } else {
         // Not a redirect, we're done
         break;
       }
     } catch (error) {
-      logWithTime('Error resolving URL, using original', { error: String(error) });
+      // On timeout or error, use current URL and continue
+      if (error instanceof Error && error.name === 'AbortError') {
+        logWithTime('Redirect request timed out, using current URL');
+      } else {
+        logWithTime('Error resolving URL, using current', { error: String(error) });
+      }
       break;
     }
   }
 
   if (redirectCount > 0) {
-    logWithTime(`Resolved URL after ${redirectCount} redirects`, { 
+    logWithTime(`Resolved URL after ${redirectCount} redirects`, {
       original: url.substring(0, 60) + '...',
       resolved: currentUrl.substring(0, 60) + '...'
     });
@@ -288,7 +337,7 @@ export function formatTranscriptWithSpeakerNames(transcript: DiarizedTranscript)
         start: u.start,
         texts: [u.text]
       };
-    } else {
+    } else if (currentBlock) {
       currentBlock.texts.push(u.text);
     }
     

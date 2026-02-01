@@ -4,8 +4,11 @@ import "./globals.css";
 import { CountryProvider } from "@/contexts/CountryContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { SummarizeQueueProvider } from "@/contexts/SummarizeQueueContext";
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 import { Sidebar } from "@/components/Sidebar";
 import { QueueToast } from "@/components/QueueToast";
+import { StickyAudioPlayer } from "@/components/StickyAudioPlayer";
 import { Agentation } from "agentation";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -35,15 +38,20 @@ export default function RootLayout({
         <ThemeProvider>
           <CountryProvider>
             <SummarizeQueueProvider>
-              <div className="min-h-screen bg-background">
-                <Sidebar />
-                <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen">
-                  <div className="max-w-7xl mx-auto">
-                    {children}
+              <SubscriptionProvider>
+                <AudioPlayerProvider>
+                  <div className="min-h-screen bg-background">
+                    <Sidebar />
+                    <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen pb-24">
+                      <div className="max-w-7xl mx-auto">
+                        {children}
+                      </div>
+                    </main>
                   </div>
-                </main>
-              </div>
-              <QueueToast />
+                  <QueueToast />
+                  <StickyAudioPlayer />
+                </AudioPlayerProvider>
+              </SubscriptionProvider>
             </SummarizeQueueProvider>
           </CountryProvider>
         </ThemeProvider>

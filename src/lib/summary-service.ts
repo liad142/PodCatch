@@ -14,9 +14,13 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+const isDev = process.env.NODE_ENV === 'development';
+
 function logWithTime(message: string, data?: Record<string, unknown>) {
-  const timestamp = new Date().toISOString();
-  console.log(`[SUMMARY-SERVICE ${timestamp}] ${message}`, data ? JSON.stringify(data) : '');
+  if (isDev) {
+    const timestamp = new Date().toISOString();
+    console.log(`[SUMMARY-SERVICE ${timestamp}] ${message}`, data ? JSON.stringify(data) : '');
+  }
 }
 
 // Speaker identification types

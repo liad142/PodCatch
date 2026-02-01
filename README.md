@@ -11,7 +11,6 @@ A modern podcast and YouTube content aggregator with AI-powered summaries.
 - Country-specific top charts (US, Israel, and 13 more countries)
 - Episode fetching via RSS feeds (RSSHub or direct)
 - Smart caching for API responses
-- **Note:** Originally planned for Spotify, pivoted to Apple Podcasts due to Spotify API restrictions
 
 ### ✅ Feature #2: RSSHub YouTube Integration
 - **Follow YouTube Channels**: Add channels by URL, channel ID, or @handle
@@ -100,8 +99,7 @@ PodCatch/
 │   │   ├── api/              # API routes
 │   │   │   ├── feed/         # Unified feed endpoints
 │   │   │   ├── youtube/      # YouTube channel management
-│   │   │   ├── apple/        # Apple Podcasts API endpoints (NEW)
-│   │   │   ├── spotify/      # Spotify API endpoints (deprecated)
+│   │   │   ├── apple/        # Apple Podcasts API endpoints
 │   │   │   ├── podcasts/     # Podcast endpoints
 │   │   │   └── episodes/     # Episode endpoints
 │   │   ├── browse/           # Discovery pages
@@ -117,15 +115,11 @@ PodCatch/
 │   ├── lib/
 │   │   ├── rsshub.ts         # RSSHub client & rate limiting
 │   │   ├── rsshub-db.ts      # YouTube DB operations
-│   │   ├── apple-podcasts.ts # Apple Podcasts client (NEW)
-│   │   ├── spotify-api.ts    # Spotify API client (deprecated)
-│   │   ├── spotify-db.ts     # Spotify DB operations
-│   │   ├── spotify-cache.ts  # Spotify caching layer
+│   │   ├── apple-podcasts.ts # Apple Podcasts client
 │   │   └── supabase.ts       # Supabase client
 │   ├── types/
 │   │   ├── rsshub.ts         # YouTube/RSSHub types
-│   │   ├── apple-podcasts.ts # Apple Podcasts types (NEW)
-│   │   ├── spotify.ts        # Spotify types (deprecated)
+│   │   ├── apple-podcasts.ts # Apple Podcasts types
 │   │   └── database.ts       # Database types
 │   └── db/
 │       └── migrations/
@@ -147,7 +141,6 @@ PodCatch/
 - Node.js 18+ and npm
 - Supabase account (or local Supabase setup)
 - Docker (for self-hosted RSSHub - recommended)
-- Spotify API credentials (for podcast features)
 
 ### 2. Install Dependencies
 ```bash
@@ -166,10 +159,6 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 # RSSHub (for YouTube and Apple Podcasts RSS feeds)
 RSSHUB_BASE_URL=http://localhost:1200
 
-# Spotify (deprecated - now using Apple Podcasts)
-# SPOTIFY_CLIENT_ID=your_spotify_client_id
-# SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
-
 # Optional: YouTube API key for better RSSHub rate limits
 YOUTUBE_API_KEY=your_youtube_api_key_here
 
@@ -182,8 +171,8 @@ ANTHROPIC_API_KEY=your_anthropic_api_key
 Run migrations in Supabase SQL editor in order:
 
 ```bash
-1. src/db/migrations/001_spotify_schema.sql      # Base schema
-2. src/db/migrations/002_spotify_cache_update.sql # Cache updates
+1. src/db/migrations/001_spotify_schema.sql      # Base schema (legacy)
+2. src/db/migrations/002_spotify_cache_update.sql # Cache updates (legacy)
 3. src/db/migrations/003_rsshub_youtube.sql      # YouTube integration
 4. src/db/migrations/004_multi_level_summaries.sql # AI summaries
 5. src/db/migrations/005_insights_level.sql      # Insights hub
@@ -274,13 +263,6 @@ npm start
   - Body: `{ type: 'keywords' | 'highlights' | 'mindmap' | 'shownotes' }`
 - `GET /api/episodes/[id]/insights` - Get all insights for an episode
 
-### Spotify Integration (Deprecated)
-- `GET /api/spotify/categories` - Get podcast categories
-- `GET /api/spotify/categories/[id]/shows` - Get shows in category
-- `GET /api/spotify/search` - Search podcasts
-- `GET /api/spotify/shows/[id]` - Get show details
-- `GET /api/spotify/shows/[id]/episodes` - Get show episodes
-
 ## Database Schema
 
 ### Core Tables
@@ -297,24 +279,18 @@ npm start
 - `feed_items` - Unified content storage (YouTube + future podcasts)
 - `rsshub_cache` - Temporary RSS feed cache (30min TTL)
 
-### Spotify Tables (Legacy)
-- `spotify_shows` - Cached podcast metadata
-- `spotify_episodes` - Cached episode data
-- `spotify_categories` - Category information
-- `category_shows` - Category-show relationships
-
 ## Development
 
 ### Testing
 ```bash
 # Run tests
-npm test
-
-# Run tests with coverage
-npm run test:coverage
+npx vitest run
 
 # Run tests in watch mode
-npm run test:watch
+npx vitest
+
+# Run tests with coverage
+npx vitest run --coverage
 ```
 
 ### Type Checking
@@ -468,11 +444,7 @@ ISC
 **Database:**
 - `003_rsshub_youtube.sql` - Schema for YouTube integration
 
-### 2025-01-25 - Feature #1 Update: Apple Podcasts (Replaced Spotify)
-**Changed:**
-- Switched from Spotify API to iTunes Search API + RSSHub
-- Reason: Spotify is no longer allowing new app creation
-
+### 2025-01-25 - Feature #1: Apple Podcasts Discovery
 **Added:**
 - `src/lib/apple-podcasts.ts` - iTunes API + RSSHub client
 - `src/types/apple-podcasts.ts` - TypeScript types
@@ -483,12 +455,37 @@ ISC
 - Top charts by country (15 countries)
 - Episode fetching via RSS feeds
 
-**Deprecated:**
-- Spotify API integration (kept for reference)
+### 2026-02-01 - Sticky Audio Player ("Mini Player")
+**Added:**
+- `StickyAudioPlayer.tsx` - Spotify-style glassmorphic audio player fixed at bottom of viewport
+- `AudioPlayerContext.tsx` - Global audio state management (play/pause/seek/volume/playbackRate)
+- `PlayButton.tsx` - Reusable play button component with multiple variants (primary, outline, ghost, overlay)
+- `slider.tsx` - Custom Shadcn-style slider component for progress & volume
+- Installed `react-use` dependency for audio hook utilities
 
-### 2025-01-XX - Feature #1: Spotify Integration (Original)
-- Spotify podcast discovery
-- Category browsing
-- Podcast search
-- Episode listing
-- Caching layer for Spotify API
+**Features:**
+- Glassmorphic design with `bg-black/90 backdrop-blur-xl` and violet/purple gradient accents
+- Responsive layout: adapts to desktop sidebar offset and mobile viewports
+- Glowing progress bar with interactive seek functionality
+- Playback controls: Skip -15s, Play/Pause, Skip +15s
+- Playback speed toggle (0.5x to 2x)
+- Volume slider with mute toggle (desktop only)
+- Expandable panel for detailed controls on mobile
+- Playing indicator animation on album art
+- Persists across all pages (Discovery Feed, etc.)
+
+**Integration:**
+- Updated `layout.tsx` with AudioPlayerProvider wrapper
+- Added `pb-24` padding to main content to prevent player overlap
+- Integrated `PlayButton` into `InsightCard.tsx` (hover overlay + action button)
+- Replaced native audio links in all podcast/episode pages
+
+**Documentation:**
+- `docs/sticky-audio-player.md` - Full audio player implementation guide
+- `docs/ai-prompts-reference.md` - All AI prompts used in summarization system
+
+### 2026-01-31 - Codebase Cleanup
+**Removed:**
+- All deprecated Spotify integration code (API routes, libraries, types, components)
+- Unused MSW mock handlers
+- Stale documentation and completed plans

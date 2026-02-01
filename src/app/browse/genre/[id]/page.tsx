@@ -109,7 +109,7 @@ export default function GenrePage({ params }: PageProps) {
       {/* Header */}
       <section className="bg-gradient-to-b from-primary/10 to-transparent py-8">
         <div className="container mx-auto px-4">
-          <Link href="/browse">
+          <Link href="/discover">
             <Button variant="ghost" size="sm" className="mb-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Discover

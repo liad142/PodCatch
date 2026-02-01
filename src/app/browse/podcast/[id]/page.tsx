@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback, use } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Apple, Play, Clock, Calendar, ExternalLink, Loader2, FileText } from 'lucide-react';
+import { ArrowLeft, Apple, Clock, Calendar, ExternalLink, Loader2, FileText } from 'lucide-react';
 import { SummarizeButton } from '@/components/SummarizeButton';
+import { InlinePlayButton } from '@/components/PlayButton';
 import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -235,8 +236,8 @@ export default function PodcastPage({ params }: PageProps) {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-destructive mb-4">{error}</p>
-          <Link href="/browse">
-            <Button>Back to Browse</Button>
+          <Link href="/discover">
+            <Button>Back to Discover</Button>
           </Link>
         </div>
       </div>
@@ -248,10 +249,10 @@ export default function PodcastPage({ params }: PageProps) {
       {/* Header with Podcast Info */}
       <section className="bg-gradient-to-b from-primary/10 to-transparent py-8">
         <div className="container mx-auto px-4">
-          <Link href="/browse">
+          <Link href="/discover">
             <Button variant="ghost" size="sm" className="mb-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Browse
+              Back to Discover
             </Button>
           </Link>
 
@@ -442,21 +443,17 @@ export default function PodcastPage({ params }: PageProps) {
                       </p>
 
                       <div className="flex gap-2 mt-2">
-                        {episode.audioUrl && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            asChild
-                          >
-                            <a
-                              href={episode.audioUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <Play className="h-4 w-4 mr-2" />
-                              Play Episode
-                            </a>
-                          </Button>
+                        {episode.audioUrl && podcast && (
+                          <InlinePlayButton
+                            track={{
+                              id: episode.id,
+                              title: episode.title,
+                              artist: podcast.name,
+                              artworkUrl: episode.artworkUrl || podcast.artworkUrl,
+                              audioUrl: episode.audioUrl,
+                              duration: episode.duration,
+                            }}
+                          />
                         )}
                         {(() => {
                           const summaryInfo = getEpisodeSummaryInfo(episode);

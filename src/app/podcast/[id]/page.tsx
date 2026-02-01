@@ -12,8 +12,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
 import { useSummarizeQueue } from "@/contexts/SummarizeQueueContext";
 import { SummarizeButton } from "@/components/SummarizeButton";
+import { InlinePlayButton } from "@/components/PlayButton";
 import type { Podcast } from "@/types/database";
-import { ArrowLeft, Mic2, Calendar, Globe, Rss, Clock, Play, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, Mic2, Calendar, Globe, Rss, Clock, FileText, Loader2 } from "lucide-react";
 
 interface Episode {
   id: string;
@@ -148,6 +149,25 @@ export default function PodcastPage() {
     }
 
     loadAll();
+  }, [podcastId]);
+
+  // Mark subscription as viewed (clears "NEW" badge)
+  useEffect(() => {
+    const TEMP_USER_ID = 'anonymous-user';
+
+    const updateLastViewed = async () => {
+      if (!podcastId) return;
+
+      try {
+        await fetch(`/api/subscriptions/${podcastId}?userId=${TEMP_USER_ID}`, {
+          method: 'PATCH',
+        });
+      } catch (error) {
+        // Silently fail - user might not be subscribed to this podcast
+      }
+    };
+
+    updateLastViewed();
   }, [podcastId]);
 
   // Check for existing summaries
@@ -499,17 +519,17 @@ export default function PodcastPage() {
                               </p>
 
                               <div className="flex gap-2 mt-2">
-                                {episode.audioUrl && (
-                                  <Button variant="ghost" size="sm" asChild>
-                                    <a
-                                      href={episode.audioUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      <Play className="h-4 w-4 mr-2" />
-                                      Play Episode
-                                    </a>
-                                  </Button>
+                                {episode.audioUrl && podcast && (
+                                  <InlinePlayButton
+                                    track={{
+                                      id: episode.id,
+                                      title: episode.title,
+                                      artist: podcast.title || podcast.author || 'Unknown',
+                                      artworkUrl: episode.artworkUrl || podcast.image_url || '',
+                                      audioUrl: episode.audioUrl,
+                                      duration: episode.duration,
+                                    }}
+                                  />
                                 )}
                                 {episode.isFromDb || summaryInfo?.episodeId ? (
                                   <SummarizeButton

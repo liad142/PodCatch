@@ -4,7 +4,7 @@
  */
 
 import Parser from 'rss-parser';
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@/lib/supabase';
 
 const RSSHUB_BASE_URL = process.env.RSSHUB_BASE_URL || 'http://localhost:1200';
 const CACHE_TTL_MINUTES = 30;
@@ -138,10 +138,7 @@ export function parseYouTubeInput(input: string): {
  */
 async function getCachedResponse(cacheKey: string): Promise<RSSHubFeed | null> {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = createServerClient();
 
     const { data, error } = await supabase
       .from('rsshub_cache')
@@ -170,10 +167,7 @@ async function getCachedResponse(cacheKey: string): Promise<RSSHubFeed | null> {
  */
 async function setCachedResponse(cacheKey: string, data: RSSHubFeed): Promise<void> {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = createServerClient();
 
     const expiresAt = new Date(Date.now() + CACHE_TTL_MINUTES * 60 * 1000);
 

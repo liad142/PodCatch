@@ -20,10 +20,21 @@ export function useSummarizeQueueOptional() {
 
 const MAX_RETRIES = 1;
 const RETRY_DELAY = 2000;
-const POLL_INTERVAL = 2500;
+
+// Exponential backoff polling intervals (ms)
+const POLL_INTERVALS = {
+  initial: 2000,      // First poll after 2s
+  transcribing: 5000, // During transcription, poll every 5s
+  summarizing: 3000,  // During summarization, poll every 3s
+  max: 15000,         // Maximum interval
+};
+
+const isDev = process.env.NODE_ENV === 'development';
 
 function logQueue(message: string, data?: Record<string, unknown>) {
-  console.log(`[QUEUE ${new Date().toISOString()}] ${message}`, data ? JSON.stringify(data) : '');
+  if (isDev) {
+    console.log(`[QUEUE ${new Date().toISOString()}] ${message}`, data ? JSON.stringify(data) : '');
+  }
 }
 
 export function SummarizeQueueProvider({ children }: { children: React.ReactNode }) {
@@ -120,8 +131,24 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
       const responseData = await res.json();
       logQueue('POST response data', { episodeId, responseData });
 
+      let pollCount = 0;
+
+      const getNextPollInterval = (currentState: QueueItemState): number => {
+        // Use state-based intervals with slight exponential increase
+        const baseInterval = currentState === 'transcribing'
+          ? POLL_INTERVALS.transcribing
+          : currentState === 'summarizing'
+            ? POLL_INTERVALS.summarizing
+            : POLL_INTERVALS.initial;
+
+        // Add small exponential backoff after many polls (cap at max)
+        const backoffMultiplier = Math.min(1 + (pollCount * 0.1), 2);
+        return Math.min(baseInterval * backoffMultiplier, POLL_INTERVALS.max);
+      };
+
       const poll = async () => {
-        logQueue('Polling status...', { episodeId });
+        pollCount++;
+        logQueue('Polling status...', { episodeId, pollCount });
         const state = await pollStatus(episodeId);
         logQueue('Poll result', { episodeId, state, totalDurationMs: Date.now() - startTime });
         updateQueueItem(episodeId, { state });
@@ -155,10 +182,12 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
           return;
         }
 
-        pollingRef.current = setTimeout(poll, POLL_INTERVAL);
+        const nextInterval = getNextPollInterval(state);
+        logQueue('Scheduling next poll', { episodeId, nextInterval });
+        pollingRef.current = setTimeout(poll, nextInterval);
       };
 
-      pollingRef.current = setTimeout(poll, POLL_INTERVAL);
+      pollingRef.current = setTimeout(poll, POLL_INTERVALS.initial);
     } catch (err) {
       logQueue('POST request FAILED', {
         episodeId,

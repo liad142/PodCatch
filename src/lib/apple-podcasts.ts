@@ -4,7 +4,7 @@
  */
 
 import Parser from 'rss-parser';
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@/lib/supabase';
 import {
   ApplePodcast,
   AppleEpisode,
@@ -77,22 +77,10 @@ export function extractApplePodcastId(url: string): string | null {
 }
 
 /**
- * Get Supabase client for caching
+ * Get Supabase client for caching (uses singleton for connection pooling)
  */
 function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const secretKey = process.env.SUPABASE_SECRET_KEY!;
-  
-  if (!secretKey) {
-    throw new Error('SUPABASE_SECRET_KEY is required for caching operations');
-  }
-  
-  return createClient(url, secretKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
+  return createServerClient();
 }
 
 /**

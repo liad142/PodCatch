@@ -2,18 +2,11 @@
  * Database functions for RSSHub YouTube integration
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@/lib/supabase';
 
-// Lazy initialization of Supabase client to avoid build-time errors
+// Use singleton server client for connection pooling
 function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SECRET_KEY;
-  
-  if (!url || !key) {
-    throw new Error('Supabase credentials missing. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY in .env.local');
-  }
-  
-  return createClient(url, key);
+  return createServerClient();
 }
 
 export interface YouTubeChannel {

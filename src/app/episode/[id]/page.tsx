@@ -16,11 +16,11 @@ import {
   Calendar,
   Clock,
   ExternalLink,
-  Play,
   FileText,
   Brain,
 } from "lucide-react";
 import { SummarizeButton } from "@/components/SummarizeButton";
+import { InlinePlayButton } from "@/components/PlayButton";
 
 interface EpisodeData extends Episode {
   podcast?: Podcast;
@@ -203,17 +203,18 @@ export default function EpisodePage() {
                   )}
 
                   <div className="flex flex-wrap gap-3 pt-2">
-                    <a
-                      href={episode.audio_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button variant="outline" size="sm">
-                        <Play className="mr-2 h-4 w-4" />
-                        Listen to Episode
-                        <ExternalLink className="ml-2 h-3 w-3" />
-                      </Button>
-                    </a>
+                    {episode.audio_url && episode.podcast && (
+                      <InlinePlayButton
+                        track={{
+                          id: episode.id,
+                          title: episode.title,
+                          artist: episode.podcast.title || episode.podcast.author || 'Unknown',
+                          artworkUrl: episode.podcast.image_url || '',
+                          audioUrl: episode.audio_url,
+                          duration: episode.duration_seconds || undefined,
+                        }}
+                      />
+                    )}
                     <Link href={`/episode/${episodeId}/insights`}>
                       <Button size="sm">
                         <Brain className="mr-2 h-4 w-4" />

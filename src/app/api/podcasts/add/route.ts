@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
         .order("published_at", { ascending: false });
 
       return NextResponse.json({
+        id: existingPodcast.id,
         podcast: existingPodcast,
         episodes: episodes || [],
         message: "Podcast already exists",
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(
         {
+          id: podcast.id,
           podcast,
           episodes: [], // Episodes are fetched on-demand from Apple API
         },
@@ -127,6 +129,7 @@ export async function POST(request: NextRequest) {
       console.error("Error inserting episodes:", episodesError);
       // Podcast was created but episodes failed - still return podcast
       return NextResponse.json({
+        id: podcast.id,
         podcast,
         episodes: [],
         warning: "Podcast saved but some episodes failed to save",
@@ -135,6 +138,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
+        id: podcast.id,
         podcast,
         episodes: episodes || [],
       },

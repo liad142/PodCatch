@@ -25,7 +25,7 @@ export function Header() {
         </Link>
         <nav className="ml-auto flex items-center space-x-2">
           <Button
-            variant={isActive("/") && !pathname.startsWith("/browse") ? "default" : "ghost"}
+            variant={isActive("/") && !pathname.startsWith("/discover") ? "default" : "ghost"}
             size="sm"
             asChild
           >
@@ -35,11 +35,11 @@ export function Header() {
             </Link>
           </Button>
           <Button
-            variant={isActive("/browse") ? "default" : "ghost"}
+            variant={isActive("/discover") ? "default" : "ghost"}
             size="sm"
             asChild
           >
-            <Link href="/browse" className="flex items-center gap-2">
+            <Link href="/discover" className="flex items-center gap-2">
               <Compass className="h-4 w-4" />
               <span className="hidden sm:inline">Discover</span>
             </Link>
