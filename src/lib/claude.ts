@@ -1,8 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
+const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
 export interface SummaryResult {
   summary: string;
@@ -16,13 +15,7 @@ export interface SummaryResult {
 }
 
 export async function generateSummary(transcript: string): Promise<SummaryResult> {
-  const message = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20250924",
-    max_tokens: 2000,
-    messages: [
-      {
-        role: "user",
-        content: `Analyze this podcast transcript and provide:
+  const prompt = `Analyze this podcast transcript and provide:
 1. A 200-300 word summary
 2. 5-7 key takeaways
 3. Extracted resources (GitHub repos, books, tools, websites mentioned)
@@ -40,22 +33,26 @@ Return as JSON only, no markdown:
 }
 
 Transcript:
-${transcript.substring(0, 100000)}`,
-      },
-    ],
-  });
+${transcript.substring(0, 100000)}`;
 
-  const textContent = message.content[0];
-  if (textContent.type !== "text") {
-    throw new Error("Unexpected response type from Claude");
-  }
+  const result = await model.generateContent(prompt);
+  const response = result.response;
+  const text = response.text();
 
   try {
-    return JSON.parse(textContent.text) as SummaryResult;
+    // Extract JSON from response if wrapped in markdown
+    let jsonText = text.trim();
+    if (!jsonText.startsWith('{')) {
+      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[0];
+      }
+    }
+    return JSON.parse(jsonText) as SummaryResult;
   } catch {
     // If JSON parsing fails, create a structured response from the text
     return {
-      summary: textContent.text,
+      summary: text,
       key_points: [],
       resources: {
         github_repos: [],

@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from "./supabase";
 import { ensureTranscript } from "./summary-service";
 import type {
@@ -10,8 +10,12 @@ import type {
   MindmapNode
 } from "@/types/database";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
+const model = genAI.getGenerativeModel({ 
+  model: "gemini-3-flash-preview",
+  generationConfig: {
+    responseMimeType: "application/json"
+  }
 });
 
 // Prompt for generating all insights at once
@@ -84,23 +88,15 @@ export async function generateInsights(
     .eq('language', language);
 
   try {
-    const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 4000,
-      system: "You are a JSON-only response bot. Respond with ONLY valid JSON. CRITICAL: Detect the language of the transcript and respond in THE SAME LANGUAGE - whether Hebrew, Spanish, French, Japanese, Arabic, or any other language. Match exactly.",
-      messages: [{
-        role: "user",
-        content: INSIGHTS_PROMPT + transcriptText.substring(0, 100000)
-      }]
-    });
-
-    const textContent = message.content[0];
-    if (textContent.type !== 'text') {
-      throw new Error('Unexpected response type');
-    }
+    const systemPrompt = "You are a JSON-only response bot. Respond with ONLY valid JSON. CRITICAL: Detect the language of the transcript and respond in THE SAME LANGUAGE - whether Hebrew, Spanish, French, Japanese, Arabic, or any other language. Match exactly.";
+    const fullPrompt = systemPrompt + "\n\n" + INSIGHTS_PROMPT + transcriptText.substring(0, 100000);
+    
+    const result = await model.generateContent(fullPrompt);
+    const response = result.response;
+    const text = response.text();
 
     // Parse and validate the response
-    const rawContent = JSON.parse(textContent.text);
+    const rawContent = JSON.parse(text);
 
     // Ensure required fields exist with defaults
     const content: InsightsContent = {
@@ -197,17 +193,19 @@ function validateMindmap(mindmap: unknown): MindmapNode {
 export async function requestInsights(
   episodeId: string,
   audioUrl: string,
-  language = 'en'
+  language = 'en',
+  transcriptUrl?: string  // NEW: Optional RSS transcript URL for FREE transcription
 ): Promise<{ status: InsightStatus; content?: InsightsContent }> {
 
-  // Check existing insights
-  const { data: existing } = await supabase
+  // Check existing insights (look in any language first)
+  const { data: existingList } = await supabase
     .from('summaries')
     .select('*')
     .eq('episode_id', episodeId)
     .eq('level', 'insights')
-    .eq('language', language)
-    .single();
+    .order('created_at', { ascending: false });
+
+  const existing = existingList?.[0] || null;
 
   if (existing) {
     if (existing.status === 'ready' && existing.content_json) {
@@ -219,7 +217,7 @@ export async function requestInsights(
     // If failed or not_ready, we'll try again
   }
 
-  // Create insights record as queued
+  // Create insights record as queued (with requested language initially)
   await supabase
     .from('summaries')
     .upsert({
@@ -230,8 +228,8 @@ export async function requestInsights(
       updated_at: new Date().toISOString()
     }, { onConflict: 'episode_id,level,language' });
 
-  // Ensure transcript exists
-  const transcriptResult = await ensureTranscript(episodeId, audioUrl, language);
+  // Ensure transcript exists (passing transcriptUrl for FREE transcription if available)
+  const transcriptResult = await ensureTranscript(episodeId, audioUrl, language, transcriptUrl);
 
   if (transcriptResult.status !== 'ready' || !transcriptResult.text) {
     const insightStatus: InsightStatus = transcriptResult.status === 'failed' ? 'failed' : 'transcribing';
@@ -248,31 +246,37 @@ export async function requestInsights(
     return { status: insightStatus };
   }
 
-  // Generate the insights
+  // Generate insights (language is known from RSS feed)
   return generateInsights(episodeId, transcriptResult.text, language);
 }
 
 export async function getInsightsStatus(episodeId: string, language = 'en') {
-  const { data: transcript } = await supabase
+  // First, try to find a transcript for this episode in ANY language
+  // This handles auto-detected languages (e.g., Hebrew detected from English request)
+  const { data: transcripts } = await supabase
     .from('transcripts')
     .select('status, language, full_text')
     .eq('episode_id', episodeId)
-    .eq('language', language)
-    .single();
+    .order('created_at', { ascending: false });
 
+  // Use the first (most recent) transcript, or fall back to requested language lookup
+  const transcript = transcripts?.[0] || null;
+  const actualLanguage = transcript?.language || language;
+
+  // Now fetch insights and summaries with the actual language
   const { data: insights } = await supabase
     .from('summaries')
     .select('*')
     .eq('episode_id', episodeId)
     .eq('level', 'insights')
-    .eq('language', language)
+    .eq('language', actualLanguage)
     .single();
 
   const { data: summaries } = await supabase
     .from('summaries')
     .select('*')
     .eq('episode_id', episodeId)
-    .eq('language', language)
+    .eq('language', actualLanguage)
     .in('level', ['quick', 'deep']);
 
   const quick = summaries?.find(s => s.level === 'quick');
@@ -282,6 +286,7 @@ export async function getInsightsStatus(episodeId: string, language = 'en') {
     episodeId,
     transcript_status: transcript?.status || 'not_started',
     transcript_text: transcript?.status === 'ready' ? transcript.full_text : undefined,
+    detected_language: actualLanguage,
     insights: insights ? {
       status: insights.status as InsightStatus,
       content: insights.status === 'ready' ? insights.content_json as InsightsContent : undefined,

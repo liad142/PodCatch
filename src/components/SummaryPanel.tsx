@@ -237,61 +237,63 @@ function QuickSummaryView({
 
   return (
     <div className="space-y-6">
-      {/* TL;DR */}
+      {/* Hook Headline */}
+      {summary.hook_headline && (
+        <Card className="border-primary/50">
+          <CardContent className="pt-6">
+            <h2 className="text-xl font-bold">{summary.hook_headline}</h2>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Executive Brief */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            TL;DR
+            Executive Brief
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-foreground">{summary.tldr}</p>
+          <p className="text-foreground">{summary.executive_brief}</p>
         </CardContent>
       </Card>
 
-      {/* Key Takeaways */}
-      {summary.key_takeaways && summary.key_takeaways.length > 0 && (
-        <Card>
+      {/* Golden Nugget */}
+      {summary.golden_nugget && (
+        <Card className="bg-yellow-50 dark:bg-yellow-900/10 border-yellow-200 dark:border-yellow-800">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Lightbulb className="h-4 w-4" />
-              Key Takeaways
+              <Sparkles className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
+              ✨ Golden Nugget
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-2">
-              {summary.key_takeaways.map((point, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <ChevronRight className="h-4 w-4 mt-0.5 text-primary shrink-0" />
-                  <span>{point}</span>
-                </li>
-              ))}
-            </ul>
+            <p className="text-foreground italic">{summary.golden_nugget}</p>
           </CardContent>
         </Card>
       )}
 
-      {/* Who is this for */}
-      {summary.who_is_this_for && (
+      {/* Perfect For */}
+      {summary.perfect_for && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Target className="h-4 w-4" />
-              Who is this for?
+              Perfect For
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-foreground">{summary.who_is_this_for}</p>
+            <p className="text-foreground">{summary.perfect_for}</p>
           </CardContent>
         </Card>
       )}
 
-      {/* Topics */}
-      {summary.topics && summary.topics.length > 0 && (
+      {/* Tags */}
+      {summary.tags && summary.tags.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {summary.topics.map((topic, i) => (
-            <Badge key={i} variant="secondary">{topic}</Badge>
+          {summary.tags.map((tag, i) => (
+            <Badge key={i} variant="secondary">{tag}</Badge>
           ))}
         </div>
       )}
@@ -358,42 +360,41 @@ function DeepSummaryView({
 
   return (
     <div className="space-y-6">
-      {/* TL;DR */}
+      {/* Comprehensive Overview */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            TL;DR
+            Comprehensive Overview
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-foreground">{summary.tldr}</p>
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            {summary.comprehensive_overview.split('\n').map((paragraph, i) => (
+              <p key={i} className="mb-3 last:mb-0">{paragraph}</p>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Sections */}
-      {summary.sections && summary.sections.length > 0 && (
+      {/* Core Concepts */}
+      {summary.core_concepts && summary.core_concepts.length > 0 && (
         <div className="space-y-4">
           <h3 className="font-semibold flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            Breakdown
+            <Lightbulb className="h-4 w-4" />
+            Core Concepts
           </h3>
-          {summary.sections.map((section, i) => (
+          {summary.core_concepts.map((concept, i) => (
             <Card key={i}>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">{section.title}</CardTitle>
+                <CardTitle className="text-base text-primary">{concept.concept}</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-muted-foreground">{section.summary}</p>
-                {section.key_points && section.key_points.length > 0 && (
-                  <ul className="space-y-1">
-                    {section.key_points.map((point, j) => (
-                      <li key={j} className="flex items-start gap-2 text-sm">
-                        <ChevronRight className="h-4 w-4 mt-0.5 text-primary shrink-0" />
-                        <span>{point}</span>
-                      </li>
-                    ))}
-                  </ul>
+              <CardContent className="space-y-2">
+                <p className="text-muted-foreground">{concept.explanation}</p>
+                {concept.quote_reference && (
+                  <blockquote className="border-l-4 border-primary/30 pl-4 italic text-sm">
+                    "{concept.quote_reference}"
+                  </blockquote>
                 )}
               </CardContent>
             </Card>
@@ -401,76 +402,65 @@ function DeepSummaryView({
         </div>
       )}
 
-      {/* Resources */}
-      {summary.resources && summary.resources.length > 0 && (
-        <Card>
+      {/* Chronological Breakdown */}
+      {summary.chronological_breakdown && summary.chronological_breakdown.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="font-semibold flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Episode Flow
+          </h3>
+          {summary.chronological_breakdown.map((section, i) => (
+            <Card key={i}>
+              <CardContent className="pt-4 space-y-2">
+                <Badge variant="outline" className="text-xs">
+                  {section.timestamp_description}
+                </Badge>
+                <p className="text-sm">{section.content}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Contrarian Views */}
+      {summary.contrarian_views && summary.contrarian_views.length > 0 && (
+        <Card className="bg-purple-50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <LinkIcon className="h-4 w-4" />
-              Resources Mentioned
+              <Sparkles className="h-4 w-4 text-purple-500" />
+              Contrarian Views & Insights
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-3">
-              {summary.resources.map((resource, i) => (
-                <li key={i} className="flex items-start gap-3">
-                  <Badge variant="outline" className="shrink-0 text-xs">
-                    {resource.type}
-                  </Badge>
-                  <div>
-                    {resource.url ? (
-                      <a
-                        href={resource.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline flex items-center gap-1"
-                      >
-                        {resource.label}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    ) : (
-                      <span className="font-medium">{resource.label}</span>
-                    )}
-                    {resource.notes && (
-                      <p className="text-sm text-muted-foreground mt-0.5">{resource.notes}</p>
-                    )}
-                  </div>
-                </li>
+            <ul className="space-y-2">
+              {summary.contrarian_views.map((view, i) => (
+                <li key={i} className="text-sm">{view}</li>
               ))}
             </ul>
           </CardContent>
         </Card>
       )}
 
-      {/* Action Prompts */}
-      {summary.action_prompts && summary.action_prompts.length > 0 && (
+      {/* Actionable Takeaways */}
+      {summary.actionable_takeaways && summary.actionable_takeaways.length > 0 && (
         <Card className="border-primary/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Target className="h-4 w-4 text-primary" />
-              Action Items
+              Actionable Takeaways
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-4">
-              {summary.action_prompts.map((action, i) => (
-                <li key={i}>
-                  <p className="font-medium">{action.title}</p>
-                  <p className="text-sm text-muted-foreground mt-1">{action.details}</p>
+            <ul className="space-y-3">
+              {summary.actionable_takeaways.map((action, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="text-primary font-bold">{i + 1}.</span>
+                  <p className="text-sm flex-1">{action}</p>
                 </li>
               ))}
             </ul>
           </CardContent>
         </Card>
-      )}
-
-      {/* Topics */}
-      {summary.topics && summary.topics.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {summary.topics.map((topic, i) => (
-            <Badge key={i} variant="secondary">{topic}</Badge>
-          ))}
-        </div>
       )}
     </div>
   );

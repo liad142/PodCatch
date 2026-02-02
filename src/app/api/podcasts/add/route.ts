@@ -89,6 +89,10 @@ export async function POST(request: NextRequest) {
       await fetchPodcastFeed(rss_url);
 
     // Insert podcast into Supabase
+    // Use language extracted from RSS feed, fallback to 'en' if not found
+    const podcastLanguage = parsedPodcast.language || "en";
+    console.log(`[ADD-PODCAST] Extracted language from RSS: ${podcastLanguage}`);
+    
     const { data: podcast, error: podcastError } = await supabase
       .from("podcasts")
       .insert({
@@ -97,7 +101,7 @@ export async function POST(request: NextRequest) {
         description: parsedPodcast.description || null,
         rss_feed_url: rss_url,
         image_url: parsedPodcast.image_url || null,
-        language: "en", // Default to English, could be extracted from feed
+        language: podcastLanguage,  // Use language from RSS feed
       })
       .select()
       .single();
@@ -111,6 +115,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert episodes into Supabase
+    // Include transcript_url for FREE transcription (Priority A in the waterfall)
     const episodesToInsert = parsedEpisodes.map((episode) => ({
       podcast_id: podcast.id,
       title: episode.title,
@@ -118,6 +123,8 @@ export async function POST(request: NextRequest) {
       audio_url: episode.audio_url,
       duration_seconds: episode.duration_seconds || null,
       published_at: episode.published_at || null,
+      transcript_url: episode.transcript_url || null,  // RSS transcript URL for FREE transcription
+      transcript_language: episode.transcript_language || null,
     }));
 
     const { data: episodes, error: episodesError } = await supabase

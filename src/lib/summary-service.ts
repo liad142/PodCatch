@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from "./supabase";
 import { transcribeFromUrl, formatTranscriptWithTimestamps, formatTranscriptWithSpeakerNames } from "./deepgram";
 import type { DiarizedTranscript } from "@/types/deepgram";
@@ -10,9 +10,26 @@ import type {
   DeepSummaryContent
 } from "@/types/database";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
+
+// Model selection: Flash for Quick, Pro for Deep analysis
+function getModelForLevel(level: SummaryLevel) {
+  if (level === 'deep') {
+    return genAI.getGenerativeModel({ 
+      model: "gemini-3-pro-preview",
+      generationConfig: {
+        responseMimeType: "application/json"
+      }
+    });
+  } else {
+    return genAI.getGenerativeModel({ 
+      model: "gemini-3-flash-preview",
+      generationConfig: {
+        responseMimeType: "application/json"
+      }
+    });
+  }
+}
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -85,23 +102,23 @@ export async function identifySpeakers(transcript: DiarizedTranscript): Promise<
     .substring(0, 15000); // Limit to ~15k chars
 
   try {
-    const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
-      system: "You are a JSON-only response bot. Return ONLY valid JSON.",
-      messages: [{
-        role: "user",
-        content: SPEAKER_ID_PROMPT + formattedSample
-      }]
+    const systemPrompt = "You are a JSON-only response bot. Return ONLY valid JSON.";
+    const fullPrompt = systemPrompt + "\n\n" + SPEAKER_ID_PROMPT + formattedSample;
+    
+    // Use Flash model for speaker identification (fast, cheap task)
+    const speakerModel = genAI.getGenerativeModel({ 
+      model: "gemini-3-flash-preview",
+      generationConfig: {
+        responseMimeType: "application/json"
+      }
     });
-
-    const textContent = message.content[0];
-    if (textContent.type !== 'text') {
-      throw new Error('Unexpected response type');
-    }
+    
+    const result = await speakerModel.generateContent(fullPrompt);
+    const response = result.response;
+    const text = response.text();
 
     // Parse JSON
-    let jsonText = textContent.text.trim();
+    let jsonText = text.trim();
     if (!jsonText.startsWith('{')) {
       const match = jsonText.match(/\{[\s\S]*\}/);
       if (match) jsonText = match[0];
@@ -145,74 +162,277 @@ const SYSTEM_MESSAGE = `You are a JSON-only response bot. You MUST respond with 
 CRITICAL: You MUST detect the language of the transcript and respond in THE SAME LANGUAGE. This works for ANY language - Hebrew, Spanish, French, German, Japanese, Arabic, Portuguese, Russian, Chinese, or any other. Match the transcript language exactly.`;
 
 // QUICK summary prompt - returns QuickSummaryContent JSON
-const QUICK_PROMPT = `Return ONLY a JSON object (no text, no markdown) with this exact structure:
+const QUICK_PROMPT = `You are a senior editor at a top-tier media outlet (like The Economist or TechCrunch).
+Your goal is to write a "Teaser Card" that compels the user to consume the full content.
+
+Return ONLY a JSON object with this exact structure:
 
 {
-  "tldr": "2 sentences maximum summarizing the main point",
-  "key_takeaways": ["takeaway 1", "takeaway 2", "takeaway 3", "takeaway 4", "takeaway 5"],
-  "who_is_this_for": "1 sentence describing the ideal listener",
-  "topics": ["topic1", "topic2", "topic3"]
+  "hook_headline": "A punchy, provocative 5-10 word headline that captures the essence. NOT 'Summary of episode'.",
+  
+  "executive_brief": "2-3 sharp sentences (max 60 words). Don't describe *what* they talked about, describe the *insight* revealed. Start directly with the core conflict or idea.",
+  
+  "golden_nugget": "The single most surprising or valuable fact/quote from the episode. The 'I didn't know that' moment.",
+  
+  "perfect_for": "Specific audience targeting. E.g., 'Founders raising capital' instead of 'Business people'.",
+  
+  "tags": ["tag1", "tag2", "tag3"]
 }
 
-Rules:
-- Start response with { and end with }
-- No markdown in the JSON values
-- 5-7 key_takeaways
-- 3-5 topics (1-2 words each)
-- IMPORTANT: Write ALL content (tldr, takeaways, topics, etc.) in the SAME LANGUAGE as the transcript - whether Hebrew, Spanish, French, Japanese, Arabic, or any other language.
-
-Transcript:
+RULES:
+1. **Language**: CRITICAL - Write ALL content in the SAME LANGUAGE as the transcript.
+2. **No Passive Voice**: Avoid "In this episode it is discussed...". Say "The host argues that...".
+3. **Curiosity Gap**: The headline and brief should create curiosity.
+4. **Specifics over Generalities**: Use specific numbers or names if available in the text.
 `;
 
 // DEEP summary prompt - returns DeepSummaryContent JSON
-const DEEP_PROMPT = `Return ONLY a JSON object (no text, no markdown) with this exact structure:
+const DEEP_PROMPT = `You are an expert Ghostwriter and Analyst with a PhD in the subject matter of the transcript.
+Your goal is to write a comprehensive "Executive Briefing" that completely substitutes the need to listen to the episode.
+
+Return ONLY a JSON object with this exact structure:
 
 {
-  "tldr": "2 sentences maximum summarizing the main point",
-  "sections": [
+  "comprehensive_overview": "A detailed, multi-paragraph essay (400-600 words) summarizing the entire episode. capturing the nuance, the debate, and the narrative arc. Do NOT be brief.",
+  
+  "core_concepts": [
     {
-      "title": "Section title describing the topic",
-      "summary": "2-4 sentences summarizing this section",
-      "key_points": ["point 1", "point 2"]
+      "concept": "Name of the concept/argument",
+      "explanation": "Detailed explanation of what was discussed regarding this concept.",
+      "quote_reference": "A short relevant quote if available (optional)"
     }
   ],
-  "resources": [
+
+  "chronological_breakdown": [
     {
-      "type": "repo|link|tool|person|paper|other",
-      "label": "Human readable name",
-      "url": "https://... (only if actually mentioned)",
-      "notes": "Optional context"
+      "timestamp_description": "e.g., 'The Opening Argument' or 'The Middle East Discussion'",
+      "content": "A meaty paragraph (100-150 words) detailing exactly what was said in this section. Include specific examples given by speakers."
     }
   ],
-  "action_prompts": [
-    {
-      "title": "Action title",
-      "details": "Concrete next step with clear instructions"
-    }
+
+  "contrarian_views": [
+    "List specific points where speakers disagreed or presented counter-intuitive ideas."
   ],
-  "topics": ["topic1", "topic2"]
+
+  "actionable_takeaways": [
+    "Concrete advice or future predictions made in the episode."
+  ]
 }
 
-Rules:
-- Start response with { and end with }
-- 3-6 sections based on content flow
-- Only include resources actually mentioned (omit url field if not stated)
-- 2-4 practical action prompts
-- 3-5 topics
-- No markdown in values, no hallucinated URLs
-- IMPORTANT: Write ALL content (tldr, sections, resources, action prompts, topics) in the SAME LANGUAGE as the transcript - whether Hebrew, Spanish, French, Japanese, Arabic, or any other language.
-
-Transcript:
+RULES:
+1. **Length is Virtue**: Do NOT summarize briefly. Provide depth. The user wants to read this for 10 minutes.
+2. **Language**: CRITICAL - Write ALL content in the SAME LANGUAGE as the transcript (e.g., Hebrew for Hebrew podcasts).
+3. **Tone**: Professional, analytical, but engaging. Avoid robotic phrasing like "The speakers discussed...". Instead, write directly: "Israel's geopolitical situation is shifting because..."
+4. **Format**: Use Markdown formatting inside the JSON strings (e.g., **bold** for emphasis) to make the text readable.
+5. **No Fluff**: Do not say "In this interesting episode...". Dive straight into the content.
 `;
 
-export async function ensureTranscript(episodeId: string, audioUrl: string, language = 'en'): Promise<{
+
+/**
+ * Fetch transcript text from a URL (supports SRT, VTT, plain text formats)
+ * This is the FREE option - no Deepgram costs!
+ */
+async function fetchTranscriptFromUrl(transcriptUrl: string): Promise<string | null> {
+  logWithTime('Attempting to fetch transcript from RSS URL (FREE)', { url: transcriptUrl.substring(0, 100) });
+  
+  try {
+    const response = await fetch(transcriptUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+      signal: AbortSignal.timeout(30000), // 30 second timeout
+    });
+
+    if (!response.ok) {
+      logWithTime('Transcript fetch failed', { status: response.status, statusText: response.statusText });
+      return null;
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    const text = await response.text();
+
+    if (!text || text.trim().length < 50) {
+      logWithTime('Transcript too short or empty', { length: text?.length });
+      return null;
+    }
+
+    // Parse based on content type or file extension
+    let parsed: string;
+    if (contentType.includes('srt') || transcriptUrl.toLowerCase().endsWith('.srt')) {
+      parsed = parseSrtToText(text);
+    } else if (contentType.includes('vtt') || transcriptUrl.toLowerCase().endsWith('.vtt')) {
+      parsed = parseVttToText(text);
+    } else if (contentType.includes('json') || transcriptUrl.toLowerCase().endsWith('.json')) {
+      parsed = parseJsonTranscript(text);
+    } else {
+      // Assume plain text - just clean it up
+      parsed = text.trim();
+    }
+
+    logWithTime('Transcript fetched and parsed successfully (FREE)', { 
+      originalLength: text.length, 
+      parsedLength: parsed.length,
+      format: contentType || 'unknown'
+    });
+
+    return parsed;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    logWithTime('Transcript fetch error', { error: errorMsg });
+    return null;
+  }
+}
+
+/**
+ * Parse SRT format to plain text
+ * SRT format: sequential number, timestamp line, text lines, blank line
+ */
+function parseSrtToText(srt: string): string {
+  const lines = srt.split('\n');
+  const textLines: string[] = [];
+  let skipNext = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    // Skip sequence numbers (just digits)
+    if (/^\d+$/.test(trimmed)) {
+      continue;
+    }
+    
+    // Skip timestamp lines (00:00:00,000 --> 00:00:00,000)
+    if (/^\d{2}:\d{2}:\d{2}[,\.]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[,\.]\d{3}/.test(trimmed)) {
+      continue;
+    }
+
+    // Skip empty lines
+    if (trimmed === '') {
+      continue;
+    }
+
+    // This is actual text content
+    textLines.push(trimmed);
+  }
+
+  return textLines.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Parse VTT format to plain text
+ * VTT format similar to SRT but with WEBVTT header
+ */
+function parseVttToText(vtt: string): string {
+  const lines = vtt.split('\n');
+  const textLines: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    // Skip WEBVTT header and metadata
+    if (trimmed.startsWith('WEBVTT') || trimmed.startsWith('NOTE') || trimmed.startsWith('STYLE')) {
+      continue;
+    }
+
+    // Skip cue identifiers (if present)
+    if (/^[\w-]+$/.test(trimmed) && !trimmed.includes(' ')) {
+      continue;
+    }
+
+    // Skip timestamp lines (00:00:00.000 --> 00:00:00.000)
+    if (/^\d{2}:\d{2}[:\.]?\d{0,2}[,\.]?\d{0,3}\s*-->\s*\d{2}:\d{2}[:\.]?\d{0,2}[,\.]?\d{0,3}/.test(trimmed)) {
+      continue;
+    }
+
+    // Skip empty lines
+    if (trimmed === '') {
+      continue;
+    }
+
+    // Strip VTT tags like <v Speaker Name>, <c>, </c>, etc.
+    const cleanedLine = trimmed
+      .replace(/<v\s+[^>]+>/gi, '')  // Voice tags
+      .replace(/<\/v>/gi, '')
+      .replace(/<c[^>]*>/gi, '')     // Class tags
+      .replace(/<\/c>/gi, '')
+      .replace(/<[^>]+>/g, '')       // Any other tags
+      .trim();
+
+    if (cleanedLine) {
+      textLines.push(cleanedLine);
+    }
+  }
+
+  return textLines.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Parse JSON transcript formats (various schemas)
+ */
+function parseJsonTranscript(json: string): string {
+  try {
+    const data = JSON.parse(json);
+    
+    // Handle array of segments
+    if (Array.isArray(data)) {
+      return data
+        .map((item: unknown) => {
+          if (typeof item === 'string') return item;
+          if (typeof item === 'object' && item !== null) {
+            const obj = item as Record<string, unknown>;
+            return obj.text || obj.transcript || obj.content || '';
+          }
+          return '';
+        })
+        .filter(Boolean)
+        .join(' ');
+    }
+
+    // Handle object with segments/utterances array
+    if (data.segments || data.utterances || data.results) {
+      const segments = data.segments || data.utterances || data.results;
+      if (Array.isArray(segments)) {
+        return segments
+          .map((s: unknown) => {
+            if (typeof s === 'object' && s !== null) {
+              const obj = s as Record<string, unknown>;
+              return obj.text || obj.transcript || '';
+            }
+            return '';
+          })
+          .filter(Boolean)
+          .join(' ');
+      }
+    }
+
+    // Handle object with direct text/transcript field
+    if (data.text) return String(data.text);
+    if (data.transcript) return String(data.transcript);
+
+    // Fallback - stringify and clean
+    return JSON.stringify(data);
+  } catch {
+    return json; // Return as-is if not valid JSON
+  }
+}
+
+export async function ensureTranscript(
+  episodeId: string,
+  audioUrl: string,
+  language = 'en',
+  transcriptUrl?: string  // NEW: Optional RSS transcript URL (FREE option!)
+): Promise<{
   status: TranscriptStatus;
   text?: string;
   transcript?: DiarizedTranscript;
   error?: string;
 }> {
   const startTime = Date.now();
-  logWithTime('ensureTranscript started', { episodeId, audioUrl: audioUrl.substring(0, 80) + '...', language });
+  logWithTime('ensureTranscript started', { 
+    episodeId, 
+    audioUrl: audioUrl.substring(0, 80) + '...', 
+    language,
+    hasTranscriptUrl: !!transcriptUrl 
+  });
 
   // Check if transcript exists
   logWithTime('Checking for existing transcript...');
@@ -271,60 +491,111 @@ export async function ensureTranscript(episodeId: string, audioUrl: string, lang
     .eq('language', language);
 
   try {
-    logWithTime('Starting transcription via Deepgram...');
-    const transcribeStart = Date.now();
-    // Pass language to Deepgram only for non-English content (let Deepgram auto-detect for 'en')
-    const transcriptLanguage = language !== 'en' ? language : undefined;
-    const diarizedTranscript = await transcribeFromUrl(audioUrl, transcriptLanguage);
-    const formattedText = formatTranscriptWithTimestamps(diarizedTranscript);
-    logWithTime('Transcription completed', {
-      durationMs: Date.now() - transcribeStart,
-      durationSec: ((Date.now() - transcribeStart) / 1000).toFixed(1),
-      textLength: formattedText.length,
-      utteranceCount: diarizedTranscript.utterances.length,
-      speakerCount: diarizedTranscript.speakerCount,
-      detectedLanguage: diarizedTranscript.detectedLanguage
-    });
+    let transcriptText: string | null = null;
+    let provider = 'deepgram';
+    let diarizedTranscript: DiarizedTranscript | null = null;
 
-    // Check if transcription produced any content
-    if (!diarizedTranscript.fullText || diarizedTranscript.fullText.trim().length === 0) {
-      const errorMsg = 'Transcription returned empty - audio may be unsupported or corrupted';
-      logWithTime('Transcription returned empty content', { 
-        utteranceCount: diarizedTranscript.utterances.length,
-        fullTextLength: diarizedTranscript.fullText?.length || 0
-      });
-      await supabase
-        .from('transcripts')
-        .update({ status: 'failed', error_message: errorMsg })
-        .eq('episode_id', episodeId)
-        .eq('language', language);
-      return { status: 'failed', error: errorMsg };
+    // ============================================
+    // PRIORITY A: Try to fetch transcript from RSS URL (FREE!)
+    // ============================================
+    if (transcriptUrl) {
+      logWithTime('PRIORITY A: Attempting FREE transcript fetch from RSS URL...');
+      transcriptText = await fetchTranscriptFromUrl(transcriptUrl);
+      
+      if (transcriptText && transcriptText.length > 100) {
+        provider = 'rss-transcript';
+        logWithTime('SUCCESS: Got FREE transcript from RSS!', { 
+          textLength: transcriptText.length,
+          saved: 'Deepgram API costs'
+        });
+        
+        // Create a simple diarized transcript structure for RSS transcripts
+        diarizedTranscript = {
+          utterances: [{
+            start: 0,
+            end: 0,
+            speaker: 0,
+            text: transcriptText,
+            confidence: 1.0
+          }],
+          fullText: transcriptText,
+          duration: 0,
+          speakerCount: 1,
+          detectedLanguage: language
+        };
+      } else {
+        logWithTime('PRIORITY A FAILED: RSS transcript fetch failed or too short, falling back to Deepgram');
+      }
     }
 
-    // Identify speakers using LLM
-    logWithTime('Identifying speakers with LLM...');
-    const speakers = await identifySpeakers(diarizedTranscript);
-    diarizedTranscript.speakers = speakers;
+    // ============================================
+    // PRIORITY B: Use Deepgram with explicit language (if no RSS transcript)
+    // ============================================
+    if (!transcriptText) {
+      logWithTime('PRIORITY B: Starting transcription via Deepgram with explicit language...');
+      const transcribeStart = Date.now();
+      
+      // ALWAYS pass language explicitly to Deepgram - this avoids paying for language detection
+      // and improves transcription accuracy
+      logWithTime('Passing explicit language to Deepgram', { language });
+      diarizedTranscript = await transcribeFromUrl(audioUrl, language);
+      
+      const formattedText = formatTranscriptWithTimestamps(diarizedTranscript);
+      logWithTime('Deepgram transcription completed', {
+        durationMs: Date.now() - transcribeStart,
+        durationSec: ((Date.now() - transcribeStart) / 1000).toFixed(1),
+        textLength: formattedText.length,
+        utteranceCount: diarizedTranscript.utterances.length,
+        speakerCount: diarizedTranscript.speakerCount,
+        detectedLanguage: diarizedTranscript.detectedLanguage
+      });
 
-    // Re-format transcript with identified speaker names
-    const formattedTextWithNames = formatTranscriptWithSpeakerNames(diarizedTranscript);
+      // Check if transcription produced any content
+      if (!diarizedTranscript.fullText || diarizedTranscript.fullText.trim().length === 0) {
+        const errorMsg = 'Transcription returned empty - audio may be unsupported or corrupted';
+        logWithTime('Transcription returned empty content', { 
+          utteranceCount: diarizedTranscript.utterances.length,
+          fullTextLength: diarizedTranscript.fullText?.length || 0
+        });
+        await supabase
+          .from('transcripts')
+          .update({ status: 'failed', error_message: errorMsg })
+          .eq('episode_id', episodeId)
+          .eq('language', language);
+        return { status: 'failed', error: errorMsg };
+      }
 
-    logWithTime('Saving transcript to DB...');
+      // Identify speakers using LLM
+      logWithTime('Identifying speakers with LLM...');
+      const speakers = await identifySpeakers(diarizedTranscript);
+      diarizedTranscript.speakers = speakers;
+
+      // Re-format transcript with identified speaker names
+      transcriptText = formatTranscriptWithSpeakerNames(diarizedTranscript);
+    }
+
+    // Save transcript to DB (language is known from RSS feed)
+    logWithTime('Saving transcript to DB...', { provider, language });
     const saveStart = Date.now();
     await supabase
       .from('transcripts')
       .update({
         status: 'ready',
-        full_text: formattedTextWithNames,
+        full_text: transcriptText,
         diarized_json: diarizedTranscript,
-        provider: 'deepgram'
+        provider
       })
       .eq('episode_id', episodeId)
       .eq('language', language);
     logWithTime('Transcript saved', { durationMs: Date.now() - saveStart });
 
-    logWithTime('ensureTranscript completed successfully', { totalDurationMs: Date.now() - startTime });
-    return { status: 'ready', text: formattedTextWithNames, transcript: diarizedTranscript };
+    logWithTime('ensureTranscript completed successfully', { 
+      totalDurationMs: Date.now() - startTime,
+      language,
+      provider,
+      wasFree: provider === 'rss-transcript'
+    });
+    return { status: 'ready', text: transcriptText, transcript: diarizedTranscript || undefined };
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'Transcription failed';
     logWithTime('Transcription FAILED', { error: errorMsg, totalDurationMs: Date.now() - startTime });
@@ -358,8 +629,10 @@ export async function generateSummaryForLevel(
     .eq('language', language);
 
   try {
-    // Simple approach: Single Claude call for both quick and deep summaries
-    // Claude Sonnet has 200k context window - can handle full transcripts
+    // Get the appropriate model based on level
+    // Deep uses Pro (more capable), Quick uses Flash (faster, cheaper)
+    const selectedModel = getModelForLevel(level);
+    const modelName = level === 'deep' ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
     const prompt = level === 'quick' ? QUICK_PROMPT : DEEP_PROMPT;
     
     // Use up to 150k characters of transcript (leaves room for prompt and response)
@@ -369,40 +642,30 @@ export async function generateSummaryForLevel(
       : transcriptText;
     
     const inputLength = (prompt + truncatedTranscript).length;
-    logWithTime('Calling Anthropic API...', { 
-      model: 'claude-sonnet-4-20250514', 
+    logWithTime(`Generating ${level.toUpperCase()} Summary via Gemini...`, { 
+      model: modelName,
+      level,
       inputLength,
       transcriptTruncated: transcriptText.length > maxTranscriptChars
     });
 
     const apiStart = Date.now();
-    const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: level === 'quick' ? 2000 : 8000, // Increased for deep summaries
-      system: SYSTEM_MESSAGE,
-      messages: [{
-        role: "user",
-        content: prompt + truncatedTranscript
-      }]
-    });
+    const fullPrompt = SYSTEM_MESSAGE + "\n\n" + prompt + truncatedTranscript;
     
-    logWithTime('Anthropic API completed', {
+    const result = await selectedModel.generateContent(fullPrompt);
+    const response = result.response;
+    const text = response.text();
+    
+    logWithTime(`Gemini API completed for ${level.toUpperCase()} Summary`, {
+      model: modelName,
       durationMs: Date.now() - apiStart,
-      durationSec: ((Date.now() - apiStart) / 1000).toFixed(1),
-      inputTokens: message.usage?.input_tokens,
-      outputTokens: message.usage?.output_tokens,
-      stopReason: message.stop_reason
+      durationSec: ((Date.now() - apiStart) / 1000).toFixed(1)
     });
 
-    const textContent = message.content[0];
-    if (textContent.type !== 'text') {
-      throw new Error('Unexpected response type');
-    }
-
-    logWithTime('Parsing JSON response...', { responseLength: textContent.text.length });
+    logWithTime('Parsing JSON response...', { responseLength: text.length });
 
     // Try to extract JSON from the response (in case model added text before/after)
-    let jsonText = textContent.text.trim();
+    let jsonText = text.trim();
 
     // If response doesn't start with {, try to find JSON in the response
     if (!jsonText.startsWith('{')) {
@@ -411,7 +674,7 @@ export async function generateSummaryForLevel(
         logWithTime('Extracted JSON from wrapped response');
         jsonText = jsonMatch[0];
       } else {
-        logWithTime('No JSON found in response', { responsePreview: textContent.text.substring(0, 500) });
+        logWithTime('No JSON found in response', { responsePreview: text.substring(0, 500) });
         throw new Error('No JSON object found in response');
       }
     }
@@ -432,19 +695,11 @@ export async function generateSummaryForLevel(
       .eq('language', language);
     logWithTime('Summary saved', { durationMs: Date.now() - saveStart });
 
-    // Auto-generate Quick summary if we just completed a Deep summary
-    if (level === 'deep') {
-      logWithTime('Auto-generating Quick summary from completed Deep summary...');
-      generateQuickFromDeep(episodeId, content as DeepSummaryContent, language)
-        .then(result => {
-          logWithTime('Auto-generated Quick summary', { status: result.status });
-        })
-        .catch(error => {
-          logWithTime('Auto-generation of Quick summary failed', { error });
-        });
-    }
-
-    logWithTime('generateSummaryForLevel completed successfully', { totalDurationMs: Date.now() - startTime });
+    logWithTime('generateSummaryForLevel completed successfully', { 
+      level,
+      totalDurationMs: Date.now() - startTime,
+      totalDurationSec: ((Date.now() - startTime) / 1000).toFixed(1)
+    });
     return { status: 'ready', content };
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'Summary generation failed';
@@ -460,85 +715,15 @@ export async function generateSummaryForLevel(
   }
 }
 
-/**
- * Generate a Quick summary by deriving it from an existing Deep summary
- * This is much faster than generating from scratch as it doesn't require Claude API call
- */
-async function generateQuickFromDeep(
-  episodeId: string,
-  deepContent: DeepSummaryContent,
-  language = 'en'
-): Promise<{ status: SummaryStatus; content?: QuickSummaryContent; error?: string }> {
-  const startTime = Date.now();
-  logWithTime('Deriving Quick summary from Deep summary', { episodeId, language });
-
-  try {
-    // Extract key takeaways from sections (take first 2 key points from each section, up to 7 total)
-    const keyTakeaways: string[] = [];
-    for (const section of deepContent.sections) {
-      if (keyTakeaways.length >= 7) break;
-      const pointsToAdd = section.key_points.slice(0, Math.min(2, 7 - keyTakeaways.length));
-      keyTakeaways.push(...pointsToAdd);
-    }
-
-    // Derive "who is this for" from the first section's summary or tldr
-    const whoIsThisFor = deepContent.sections[0]?.summary ||
-                         `Anyone interested in: ${deepContent.topics.slice(0, 2).join(', ')}`;
-
-    // Create Quick summary content
-    const quickContent: QuickSummaryContent = {
-      tldr: deepContent.tldr,
-      key_takeaways: keyTakeaways.length > 0 ? keyTakeaways : ['Check the deep summary for detailed insights'],
-      who_is_this_for: whoIsThisFor,
-      topics: deepContent.topics
-    };
-
-    // Save to database
-    await supabase
-      .from('summaries')
-      .upsert({
-        episode_id: episodeId,
-        level: 'quick',
-        language,
-        status: 'ready',
-        content_json: quickContent,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'episode_id,level,language' });
-
-    logWithTime('Quick summary derived successfully', {
-      episodeId,
-      keyTakeawaysCount: quickContent.key_takeaways.length,
-      topicsCount: quickContent.topics.length,
-      durationMs: Date.now() - startTime
-    });
-
-    return { status: 'ready', content: quickContent };
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Failed to derive quick summary';
-    logWithTime('Quick summary derivation FAILED', { error: errorMsg, durationMs: Date.now() - startTime });
-
-    await supabase
-      .from('summaries')
-      .update({
-        status: 'failed',
-        error_message: errorMsg
-      })
-      .eq('episode_id', episodeId)
-      .eq('level', 'quick')
-      .eq('language', language);
-
-    return { status: 'failed', error: errorMsg };
-  }
-}
-
 export async function requestSummary(
   episodeId: string,
   level: SummaryLevel,
   audioUrl: string,
-  language = 'en'
+  language = 'en',
+  transcriptUrl?: string  // NEW: Optional RSS transcript URL for FREE transcription
 ): Promise<{ status: SummaryStatus; content?: QuickSummaryContent | DeepSummaryContent }> {
   const startTime = Date.now();
-  logWithTime('=== requestSummary STARTED ===', { episodeId, level, language });
+  logWithTime('=== requestSummary STARTED ===', { episodeId, level, language, hasTranscriptUrl: !!transcriptUrl });
 
   // Check existing summary
   logWithTime('Checking for existing summary...');
@@ -565,24 +750,6 @@ export async function requestSummary(
     // If failed or not_ready, we'll try again
   }
 
-  // FAST PATH: If requesting Quick summary and Deep summary exists, derive from Deep
-  if (level === 'quick') {
-    logWithTime('Checking for existing Deep summary to derive Quick from...');
-    const { data: deepSummary } = await supabase
-      .from('summaries')
-      .select('*')
-      .eq('episode_id', episodeId)
-      .eq('level', 'deep')
-      .eq('language', language)
-      .single();
-
-    if (deepSummary?.status === 'ready' && deepSummary.content_json) {
-      logWithTime('Found ready Deep summary, deriving Quick summary...');
-      return await generateQuickFromDeep(episodeId, deepSummary.content_json as DeepSummaryContent, language);
-    }
-    logWithTime('No ready Deep summary found, proceeding with normal generation');
-  }
-
   // Create summary record as queued
   logWithTime('Creating summary record (queued)...');
   await supabase
@@ -596,8 +763,8 @@ export async function requestSummary(
     }, { onConflict: 'episode_id,level,language' });
 
   // Ensure transcript exists (this is blocking for now, could be async)
-  logWithTime('Calling ensureTranscript...');
-  const transcriptResult = await ensureTranscript(episodeId, audioUrl, language);
+  logWithTime('Calling ensureTranscript...', { hasTranscriptUrl: !!transcriptUrl });
+  const transcriptResult = await ensureTranscript(episodeId, audioUrl, language, transcriptUrl);
   logWithTime('ensureTranscript returned', { status: transcriptResult.status, hasText: !!transcriptResult.text, hasTranscript: !!transcriptResult.transcript, error: transcriptResult.error });
 
   if (transcriptResult.status !== 'ready' || !transcriptResult.text) {
@@ -618,8 +785,8 @@ export async function requestSummary(
     return { status: summaryStatus };
   }
 
-  // Generate the summary with diarized transcript if available
-  logWithTime('Calling generateSummaryForLevel...');
+  // Generate the summary (language is known from RSS feed)
+  logWithTime('Calling generateSummaryForLevel...', { language });
   const result = await generateSummaryForLevel(
     episodeId,
     level,
@@ -627,29 +794,40 @@ export async function requestSummary(
     language,
     transcriptResult.transcript
   );
-  logWithTime('=== requestSummary ENDED ===', { status: result.status, totalDurationMs: Date.now() - startTime, totalDurationSec: ((Date.now() - startTime) / 1000).toFixed(1) });
+  logWithTime('=== requestSummary ENDED ===', { 
+    status: result.status, 
+    language,
+    totalDurationMs: Date.now() - startTime, 
+    totalDurationSec: ((Date.now() - startTime) / 1000).toFixed(1) 
+  });
   return result;
 }
 
 export async function getSummariesStatus(episodeId: string, language = 'en') {
-  const { data: transcript } = await supabase
+  // Find transcript in ANY language for this episode (handles auto-detected languages)
+  const { data: transcripts } = await supabase
     .from('transcripts')
     .select('status, language')
     .eq('episode_id', episodeId)
-    .eq('language', language)
-    .single();
+    .order('created_at', { ascending: false });
 
+  const transcript = transcripts?.[0] || null;
+  const actualLanguage = transcript?.language || language;
+
+  // Fetch summaries with the actual language
   const { data: summaries } = await supabase
     .from('summaries')
     .select('*')
     .eq('episode_id', episodeId)
-    .eq('language', language);
+    .eq('language', actualLanguage)
+    .in('level', ['quick', 'deep']);
 
   const quick = summaries?.find(s => s.level === 'quick');
   const deep = summaries?.find(s => s.level === 'deep');
 
   return {
     episodeId,
+    detected_language: actualLanguage,
     transcript: transcript ? { status: transcript.status, language: transcript.language } : null,
     summaries: {
       quick: quick ? {

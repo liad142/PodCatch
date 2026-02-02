@@ -7,15 +7,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.71.2",
     "@deepgram/sdk": "^4.11.3",
+    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.91.1",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^25.0.10",

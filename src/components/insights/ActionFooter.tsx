@@ -21,11 +21,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import type { Episode, Podcast, DeepSummaryActionPrompt } from "@/types/database";
+import type { Episode, Podcast } from "@/types/database";
 
 interface ActionFooterProps {
   episode: Episode & { podcast?: Podcast };
-  actionPrompts?: DeepSummaryActionPrompt[];
+  actionPrompts?: string[];
 }
 
 export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
@@ -188,22 +188,12 @@ export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
                       <div className="flex-1 min-w-0">
                         <p
                           className={cn(
-                            "font-medium text-sm",
+                            "text-sm leading-relaxed",
                             isChecked && "line-through text-muted-foreground"
                           )}
                         >
-                          {action.title}
+                          {action}
                         </p>
-                        {action.details && (
-                          <p
-                            className={cn(
-                              "text-xs text-muted-foreground mt-0.5",
-                              isChecked && "line-through"
-                            )}
-                          >
-                            {action.details}
-                          </p>
-                        )}
                       </div>
                     </div>
                   </motion.button>

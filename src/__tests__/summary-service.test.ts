@@ -23,69 +23,80 @@ describe('Summary Service Types', () => {
 });
 
 describe('QuickSummaryContent Structure', () => {
-  it('should have required fields', () => {
+  it('should have required fields for new schema', () => {
     const quickSummary = {
-      tldr: 'This is a test summary',
-      key_takeaways: ['Point 1', 'Point 2', 'Point 3'],
-      who_is_this_for: 'Developers interested in testing',
-      topics: ['testing', 'vitest', 'typescript'],
+      hook_headline: 'Breaking: AI Transforms Podcasting',
+      executive_brief: 'New AI tools are revolutionizing how podcasts are created and consumed. This changes everything for content creators.',
+      golden_nugget: 'Over 70% of podcast listeners now use AI-powered discovery tools to find new content.',
+      perfect_for: 'Podcast creators and audio content strategists',
+      tags: ['AI', 'podcasting', 'content-creation'],
     };
 
-    expect(quickSummary.tldr).toBeDefined();
-    expect(quickSummary.key_takeaways).toBeInstanceOf(Array);
-    expect(quickSummary.key_takeaways.length).toBeGreaterThan(0);
-    expect(quickSummary.who_is_this_for).toBeDefined();
-    expect(quickSummary.topics).toBeInstanceOf(Array);
+    expect(quickSummary.hook_headline).toBeDefined();
+    expect(quickSummary.executive_brief).toBeDefined();
+    expect(quickSummary.golden_nugget).toBeDefined();
+    expect(quickSummary.perfect_for).toBeDefined();
+    expect(quickSummary.tags).toBeInstanceOf(Array);
+    expect(quickSummary.tags.length).toBeGreaterThan(0);
   });
 });
 
 describe('DeepSummaryContent Structure', () => {
-  it('should have required fields', () => {
+  it('should have required fields for new schema', () => {
     const deepSummary = {
-      tldr: 'This is a deep summary',
-      sections: [
+      comprehensive_overview: 'This episode explores the revolutionary impact of AI on podcasting. The discussion covers multiple aspects including content creation, distribution, and audience engagement. Key themes include the democratization of podcast production through AI tools, the ethical implications of synthetic voices, and the future of audio content consumption.',
+      core_concepts: [
         {
-          title: 'Introduction',
-          summary: 'Overview of the topic',
-          key_points: ['Key point 1', 'Key point 2'],
+          concept: 'AI-Powered Content Generation',
+          explanation: 'Modern AI tools can now generate podcast scripts, edit audio, and even create synthetic voices that are indistinguishable from human speakers.',
+          quote_reference: 'The future of podcasting is not replacing humans, but augmenting their creativity.',
         },
       ],
-      resources: [
+      chronological_breakdown: [
         {
-          type: 'repo' as const,
-          label: 'Test Repository',
-          url: 'https://github.com/test/repo',
+          timestamp_description: 'Introduction to AI in Podcasting',
+          content: 'The episode opens with a discussion of how AI has transformed the podcasting landscape over the past two years. The hosts explore various tools and platforms that have emerged, with specific examples of successful AI-augmented shows.',
         },
       ],
-      action_prompts: [
-        {
-          title: 'First Action',
-          details: 'Do this thing first',
-        },
+      contrarian_views: [
+        'Despite the hype, many podcasters find that AI tools actually increase their workload initially',
+        'The best podcasts still rely primarily on human creativity and storytelling',
       ],
-      topics: ['deep', 'analysis'],
+      actionable_takeaways: [
+        'Start by using AI for transcription and show notes before moving to content generation',
+        'Test synthetic voices for ad reads but maintain authentic human voice for main content',
+        'Build a workflow that combines AI efficiency with human editorial oversight',
+      ],
     };
 
-    expect(deepSummary.tldr).toBeDefined();
-    expect(deepSummary.sections).toBeInstanceOf(Array);
-    expect(deepSummary.sections[0].title).toBeDefined();
-    expect(deepSummary.sections[0].summary).toBeDefined();
-    expect(deepSummary.sections[0].key_points).toBeInstanceOf(Array);
-    expect(deepSummary.resources).toBeInstanceOf(Array);
-    expect(deepSummary.action_prompts).toBeInstanceOf(Array);
-    expect(deepSummary.topics).toBeInstanceOf(Array);
+    expect(deepSummary.comprehensive_overview).toBeDefined();
+    expect(deepSummary.comprehensive_overview.length).toBeGreaterThan(50);
+    
+    expect(deepSummary.core_concepts).toBeInstanceOf(Array);
+    expect(deepSummary.core_concepts[0].concept).toBeDefined();
+    expect(deepSummary.core_concepts[0].explanation).toBeDefined();
+    
+    expect(deepSummary.chronological_breakdown).toBeInstanceOf(Array);
+    expect(deepSummary.chronological_breakdown[0].timestamp_description).toBeDefined();
+    expect(deepSummary.chronological_breakdown[0].content).toBeDefined();
+    
+    expect(deepSummary.contrarian_views).toBeInstanceOf(Array);
+    expect(deepSummary.actionable_takeaways).toBeInstanceOf(Array);
   });
 
-  it('should allow resources without URL', () => {
-    const resource: { type: 'person'; label: string; notes: string; url?: string } = {
-      type: 'person',
-      label: 'John Doe',
-      notes: 'Expert in the field',
+  it('should allow optional quote_reference in core concepts', () => {
+    const concept: { 
+      concept: string; 
+      explanation: string; 
+      quote_reference?: string;
+    } = {
+      concept: 'Test Concept',
+      explanation: 'This is a test explanation',
     };
 
-    expect(resource.url).toBeUndefined();
-    expect(resource.label).toBe('John Doe');
-    expect(resource.type).toBe('person');
+    expect(concept.quote_reference).toBeUndefined();
+    expect(concept.concept).toBe('Test Concept');
+    expect(concept.explanation).toBe('This is a test explanation');
   });
 });
 
@@ -115,12 +126,18 @@ describe('Idempotency', () => {
   it('should return existing summary when ready', () => {
     const existingSummary = {
       status: 'ready',
-      content_json: { tldr: 'Existing summary' },
+      content_json: { 
+        hook_headline: 'Existing headline',
+        executive_brief: 'Existing brief',
+        golden_nugget: 'Existing nugget',
+        perfect_for: 'Existing audience',
+        tags: ['existing']
+      },
     };
 
     // Simulate idempotent check
     if (existingSummary.status === 'ready' && existingSummary.content_json) {
-      expect(existingSummary.content_json.tldr).toBe('Existing summary');
+      expect(existingSummary.content_json.hook_headline).toBe('Existing headline');
     }
   });
 
@@ -176,7 +193,13 @@ describe('API Response Structures', () => {
       summaries: {
         quick: {
           status: 'ready',
-          content: { tldr: 'Quick summary' },
+          content: { 
+            hook_headline: 'Test Headline',
+            executive_brief: 'Test brief',
+            golden_nugget: 'Test nugget',
+            perfect_for: 'Test audience',
+            tags: ['test']
+          },
           updatedAt: '2024-01-15T10:30:00Z',
         },
         deep: {
@@ -197,7 +220,13 @@ describe('API Response Structures', () => {
       episodeId: 'ep123',
       level: 'quick',
       status: 'ready',
-      content: { tldr: 'Generated summary' },
+      content: { 
+        hook_headline: 'Generated headline',
+        executive_brief: 'Generated brief',
+        golden_nugget: 'Generated nugget',
+        perfect_for: 'Generated audience',
+        tags: ['generated']
+      },
     };
 
     expect(response.episodeId).toBeDefined();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requestSummary, getSummariesStatus } from "@/lib/summary-service";
+import { fetchPodcastFeed } from "@/lib/rss";
 import type { SummaryLevel } from "@/types/database";
 
 interface RouteParams {
@@ -33,15 +34,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const body = await request.json();
     const level: SummaryLevel = body.level || 'quick';
-    const language = body.language || 'en';
 
-    logWithTime('POST request received', { episodeId: id, level, language });
+    logWithTime('POST request received', { episodeId: id, level });
 
-    // Get episode to find audio URL
-    logWithTime('Fetching episode from DB...');
+    // Get episode with podcast info - language comes from RSS feed
+    logWithTime('Fetching episode and podcast from DB...');
     const { data: episode, error: episodeError } = await supabase
       .from('episodes')
-      .select('audio_url')
+      .select(`
+        audio_url,
+        transcript_url,
+        podcasts!inner (id, language, rss_feed_url)
+      `)
       .eq('id', id)
       .single();
 
@@ -50,8 +54,64 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Episode not found' }, { status: 404 });
     }
 
-    logWithTime('Episode found, calling requestSummary...', { audioUrl: episode.audio_url?.substring(0, 50) + '...' });
-    const result = await requestSummary(id, level, episode.audio_url, language);
+    // Self-healing language detection:
+    // If language is missing or 'en' (might be old default), fetch from RSS to verify
+    const podcastData = episode.podcasts as unknown as { id: string; language: string | null; rss_feed_url: string } | null;
+    let language = podcastData?.language;
+    
+    if (!language || language === 'en') {
+      // Language might be wrong/missing - fetch from RSS to verify
+      logWithTime('Language missing or default, fetching from RSS...', { 
+        currentLanguage: language,
+        rssUrl: podcastData?.rss_feed_url?.substring(0, 50) 
+      });
+      
+      try {
+        if (podcastData?.rss_feed_url && !podcastData.rss_feed_url.startsWith('apple:')) {
+          const { podcast: rssPodcast } = await fetchPodcastFeed(podcastData.rss_feed_url);
+          const rssLanguage = rssPodcast.language;
+          
+          if (rssLanguage && rssLanguage !== language) {
+            // Found different language in RSS - update DB and use it
+            logWithTime('Found language in RSS, updating DB...', { 
+              oldLanguage: language, 
+              newLanguage: rssLanguage 
+            });
+            
+            await supabase
+              .from('podcasts')
+              .update({ language: rssLanguage })
+              .eq('id', podcastData.id);
+            
+            language = rssLanguage;
+          } else {
+            language = rssLanguage || 'en';
+          }
+        }
+      } catch (rssError) {
+        logWithTime('Failed to fetch RSS for language, using fallback', { 
+          error: rssError instanceof Error ? rssError.message : String(rssError) 
+        });
+        language = language || 'en';
+      }
+    }
+    
+    logWithTime('Using language', { language, source: language === podcastData?.language ? 'database' : 'rss-refresh' });
+
+    logWithTime('Episode found, calling requestSummary...', { 
+      audioUrl: episode.audio_url?.substring(0, 50) + '...',
+      transcriptUrl: episode.transcript_url ? 'YES (FREE!)' : 'NO',
+      language
+    });
+    
+    // Pass transcript URL for FREE transcription (Priority A)
+    const result = await requestSummary(
+      id, 
+      level, 
+      episode.audio_url, 
+      language,
+      episode.transcript_url || undefined  // Priority A: FREE transcript from RSS
+    );
 
     logWithTime('POST request completed', {
       episodeId: id,

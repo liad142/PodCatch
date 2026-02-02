@@ -93,12 +93,21 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
 
       if (!insightsRes.ok) throw new Error("Failed to start insights generation");
 
-      // Also trigger deep summary generation
-      fetch(`/api/episodes/${episode.id}/summaries`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ level: "deep" }),
-      });
+      // Trigger BOTH Quick and Deep summary generation in parallel
+      // Quick Summary is shown in the Hero section
+      // Deep Summary provides the detailed analysis
+      Promise.all([
+        fetch(`/api/episodes/${episode.id}/summaries`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ level: "quick" }),
+        }),
+        fetch(`/api/episodes/${episode.id}/summaries`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ level: "deep" }),
+        }),
+      ]);
 
       await fetchData();
     } catch (err) {
@@ -200,6 +209,7 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
           <InsightHero
             episode={episode}
             quickSummary={summaries.quick}
+            deepSummary={summaries.deep}
             isGenerating={isGenerating}
           />
         </section>
@@ -237,7 +247,7 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
         <section data-section="actions">
           <ActionFooter
             episode={episode}
-            actionPrompts={(summaries.deep?.content as DeepSummaryContent | undefined)?.action_prompts}
+            actionPrompts={(summaries.deep?.content as DeepSummaryContent | undefined)?.actionable_takeaways}
           />
         </section>
       </div>

@@ -19,6 +19,8 @@ export interface Episode {
   duration_seconds: number | null;
   published_at: string | null;
   created_at: string;
+  transcript_url: string | null;      // From RSS <podcast:transcript> tag (FREE transcription!)
+  transcript_language: string | null;  // Language code from transcript tag or channel language
 }
 
 export interface Transcript {
@@ -57,10 +59,11 @@ export type SummaryLevel = 'quick' | 'deep';
 
 // Quick summary content structure
 export interface QuickSummaryContent {
-  tldr: string;
-  key_takeaways: string[];
-  who_is_this_for: string;
-  topics: string[];
+  hook_headline: string;   // New field!
+  executive_brief: string; // Was 'tldr'
+  golden_nugget: string;   // The "Wow" factor
+  perfect_for: string;     // More specific target audience
+  tags: string[];
 }
 
 // Deep summary content structure
@@ -83,11 +86,18 @@ export interface DeepSummaryActionPrompt {
 }
 
 export interface DeepSummaryContent {
-  tldr: string;
-  sections: DeepSummarySection[];
-  resources: DeepSummaryResource[];
-  action_prompts: DeepSummaryActionPrompt[];
-  topics: string[];
+  comprehensive_overview: string; // This is the new long summary
+  core_concepts: Array<{
+    concept: string;
+    explanation: string;
+    quote_reference?: string;
+  }>;
+  chronological_breakdown: Array<{
+    timestamp_description: string;
+    content: string;
+  }>;
+  contrarian_views: string[];
+  actionable_takeaways: string[];
 }
 
 // Extended transcript with status

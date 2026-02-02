@@ -226,23 +226,22 @@ export async function transcribeFromUrl(
 
     // Step 2: Configure Deepgram options
     // Using whisper-large for best multilingual transcription
-    // - Supports 50+ languages with auto-detection
-    // - detect_language=true ensures transcription in ORIGINAL language (no translation)
-    // - Good speaker diarization
-    // Future: Could add logic to choose model based on detected language
+    // Language comes from RSS feed - we trust it completely
     const config: Record<string, unknown> = {
       model: 'whisper-large',
       diarize: true,
       utterances: true,
       smart_format: true,
       punctuate: true,
-      detect_language: true, // IMPORTANT: Keeps original language, prevents translation to English
+      detect_language: false, // Language is known from RSS feed
     };
     
-    // If language is explicitly provided, use it and disable auto-detection
+    // Always use the provided language (comes from podcast RSS feed)
     if (language) {
       config.language = language;
-      config.detect_language = false;
+    } else {
+      // Fallback to English if somehow no language provided
+      config.language = 'en';
     }
 
     logWithTime('Sending to Deepgram API...', config);
