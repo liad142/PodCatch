@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Heart } from 'lucide-react';
@@ -27,7 +27,7 @@ interface ApplePodcastCardProps {
   className?: string;
 }
 
-export function ApplePodcastCard({ podcast, priority = false, className }: ApplePodcastCardProps) {
+export const ApplePodcastCard = React.memo(function ApplePodcastCard({ podcast, priority = false, className }: ApplePodcastCardProps) {
   const { isSubscribed, subscribe, unsubscribe } = useSubscription();
   const [isLoading, setIsLoading] = useState(false);
   const imageUrl = podcast.artworkUrl?.replace('100x100', '400x400') || '/placeholder-podcast.png';
@@ -54,7 +54,7 @@ export function ApplePodcastCard({ podcast, priority = false, className }: Apple
 
   return (
     <Link href={`/browse/podcast/${podcast.id}`} className={cn('block group', className)}>
-      <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-card/50 backdrop-blur border-0 shadow-sm">
+      <Card variant="glass" className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
         <div className="relative aspect-square overflow-hidden bg-muted">
           <Image
             src={imageUrl}
@@ -105,4 +105,4 @@ export function ApplePodcastCard({ podcast, priority = false, className }: Apple
       </Card>
     </Link>
   );
-}
+});

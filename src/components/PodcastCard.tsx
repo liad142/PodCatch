@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -15,7 +15,7 @@ interface PodcastCardProps {
   hasNewEpisodes?: boolean;
 }
 
-export function PodcastCard({ podcast, onRemove, hasNewEpisodes }: PodcastCardProps) {
+export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, hasNewEpisodes }: PodcastCardProps) {
   const [isRemoving, setIsRemoving] = useState(false);
 
   const handleRemove = async (e: React.MouseEvent) => {
@@ -72,7 +72,7 @@ export function PodcastCard({ podcast, onRemove, hasNewEpisodes }: PodcastCardPr
 
   return (
     <Link href={`/podcast/${podcast.id}`}>
-      <Card className="group h-full overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 cursor-pointer">
+      <Card variant="glass" className="group h-full overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 cursor-pointer">
         <CardHeader className="p-0">
           <div className="relative aspect-square w-full overflow-hidden bg-muted">
             {imageUrl ? (
@@ -141,4 +141,4 @@ export function PodcastCard({ podcast, onRemove, hasNewEpisodes }: PodcastCardPr
       </Card>
     </Link>
   );
-}
+});

@@ -4,7 +4,7 @@
  */
 
 import Parser from 'rss-parser';
-import { createServerClient } from '@/lib/supabase';
+import { getCached, setCached, CacheKeys, CacheTTL, checkRateLimit as redisRateLimit } from '@/lib/cache';
 import {
   ApplePodcast,
   AppleEpisode,
@@ -17,8 +17,8 @@ import {
 
 const ITUNES_API_BASE = 'https://itunes.apple.com';
 const RSSHUB_BASE_URL = process.env.RSSHUB_BASE_URL || 'http://localhost:1200';
-const CACHE_TTL_MINUTES = 360; // 6 hours cache for Apple Podcasts top charts
-const SEARCH_CACHE_TTL_MINUTES = 30; // 30 minutes cache for search results
+// Rate limiting is handled by Redis via @/lib/cache
+const MAX_FEED_SIZE = 50 * 1024 * 1024; // 50MB limit for XML feeds (large podcasts with 500+ episodes)
 
 interface RSSHubFeed {
   title: string;
@@ -76,57 +76,7 @@ export function extractApplePodcastId(url: string): string | null {
   return null;
 }
 
-/**
- * Get Supabase client for caching (uses singleton for connection pooling)
- */
-function getSupabase() {
-  return createServerClient();
-}
-
-/**
- * Get cached response or null if expired/missing
- */
-async function getCachedResponse<T>(cacheKey: string): Promise<T | null> {
-  try {
-    const supabase = getSupabase();
-    const { data, error } = await supabase
-      .from('rsshub_cache')
-      .select('response_data, expires_at')
-      .eq('cache_key', cacheKey)
-      .single();
-
-    if (error || !data) return null;
-
-    const expiresAt = new Date(data.expires_at);
-    if (expiresAt < new Date()) {
-      await supabase.from('rsshub_cache').delete().eq('cache_key', cacheKey);
-      return null;
-    }
-
-    return data.response_data as T;
-  } catch (err) {
-    console.error('Apple Podcasts cache read error:', err);
-    return null;
-  }
-}
-
-/**
- * Cache response
- */
-async function setCachedResponse<T>(cacheKey: string, data: T, ttlMinutes = CACHE_TTL_MINUTES): Promise<void> {
-  try {
-    const supabase = getSupabase();
-    const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
-
-    await supabase.from('rsshub_cache').upsert({
-      cache_key: cacheKey,
-      response_data: data,
-      expires_at: expiresAt.toISOString(),
-    });
-  } catch (err) {
-    console.error('Apple Podcasts cache write error:', err);
-  }
-}
+// Cache functions are now imported from @/lib/cache
 
 /**
  * Transform iTunes podcast to our format
@@ -155,10 +105,10 @@ export async function searchPodcasts(
   country: string = 'us',
   limit: number = 20
 ): Promise<ApplePodcast[]> {
-  const cacheKey = `apple:search:${country}:${term}:${limit}`;
-  
+  const cacheKey = CacheKeys.searchPodcasts(country, term, limit);
+
   // Check cache
-  const cached = await getCachedResponse<ApplePodcast[]>(cacheKey);
+  const cached = await getCached<ApplePodcast[]>(cacheKey);
   if (cached) return cached;
 
   try {
@@ -178,7 +128,7 @@ export async function searchPodcasts(
     const podcasts = data.results.map(transformITunesPodcast);
 
     // Cache for 30 minutes (search results)
-    await setCachedResponse(cacheKey, podcasts, SEARCH_CACHE_TTL_MINUTES);
+    await setCached(cacheKey, podcasts, CacheTTL.SEARCH);
 
     return podcasts;
   } catch (err) {
@@ -195,10 +145,10 @@ export async function getTopPodcasts(
   limit: number = 20,
   genreId?: string
 ): Promise<ApplePodcast[]> {
-  const cacheKey = `apple:top:${country}:${genreId || 'all'}:${limit}`;
-  
+  const cacheKey = CacheKeys.topPodcasts(country, genreId, limit);
+
   // Check cache
-  const cached = await getCachedResponse<ApplePodcast[]>(cacheKey);
+  const cached = await getCached<ApplePodcast[]>(cacheKey);
   if (cached) return cached;
 
   try {
@@ -234,7 +184,7 @@ export async function getTopPodcasts(
     }));
 
     // Cache for 6 hours (top charts)
-    await setCachedResponse(cacheKey, podcasts, CACHE_TTL_MINUTES);
+    await setCached(cacheKey, podcasts, CacheTTL.TOP_PODCASTS);
 
     return podcasts;
   } catch (err) {
@@ -258,10 +208,10 @@ export async function getPodcastsByGenre(
  * Get podcast details by ID using iTunes Lookup API
  */
 export async function getPodcastById(podcastId: string, country: string = 'us'): Promise<ApplePodcast | null> {
-  const cacheKey = `apple:podcast:${podcastId}:${country}`;
-  
-  // Check cache
-  const cached = await getCachedResponse<ApplePodcast>(cacheKey);
+  const cacheKey = CacheKeys.podcastDetails(podcastId, country);
+
+  // Check Redis cache
+  const cached = await getCached<ApplePodcast>(cacheKey);
   if (cached) return cached;
 
   try {
@@ -282,8 +232,8 @@ export async function getPodcastById(podcastId: string, country: string = 'us'):
 
     const podcast = transformITunesPodcast(data.results[0]);
 
-    // Cache for 24 hours
-    await setCachedResponse(cacheKey, podcast, 24 * 60);
+    // Cache in Redis (persistent, shared across instances)
+    await setCached(cacheKey, podcast, CacheTTL.PODCAST_DETAILS);
 
     return podcast;
   } catch (err) {
@@ -297,7 +247,7 @@ export async function getPodcastById(podcastId: string, country: string = 'us'):
  */
 function parseDuration(duration: string | undefined): number {
   if (!duration) return 0;
-  
+
   // Format: HH:MM:SS or MM:SS or seconds
   const parts = duration.split(':').map(Number);
   if (parts.length === 3) {
@@ -316,10 +266,10 @@ export async function getPodcastEpisodes(
   feedUrl?: string,
   limit: number = 20
 ): Promise<AppleEpisode[]> {
-  const cacheKey = `apple:episodes:${podcastId}:${limit}`;
-  
-  // Check cache
-  const cached = await getCachedResponse<AppleEpisode[]>(cacheKey);
+  const cacheKey = CacheKeys.podcastEpisodes(podcastId, limit);
+
+  // Check Redis cache (shared across all instances)
+  const cached = await getCached<AppleEpisode[]>(cacheKey);
   if (cached) return cached;
 
   try {
@@ -333,7 +283,14 @@ export async function getPodcastEpisodes(
       if (!response.ok) {
         throw new Error(`Feed fetch failed: ${response.status}`);
       }
+      const contentLength = response.headers.get('content-length');
+      if (contentLength && parseInt(contentLength) > MAX_FEED_SIZE) {
+        throw new Error('Feed too large to process');
+      }
       const feedXml = await response.text();
+      if (feedXml.length > MAX_FEED_SIZE) {
+        throw new Error('Feed content exceeds size limit');
+      }
       feedData = await parser.parseString(feedXml) as unknown as RSSHubFeed;
     } else {
       // Try RSSHub Apple Podcasts route
@@ -341,7 +298,7 @@ export async function getPodcastEpisodes(
       const response = await fetch(rsshubUrl, {
         headers: { 'User-Agent': 'PodCatch/1.0' },
       });
-      
+
       if (!response.ok) {
         // Fallback: Get feed URL from iTunes and fetch directly
         const podcast = await getPodcastById(podcastId);
@@ -352,13 +309,27 @@ export async function getPodcastEpisodes(
           if (!directResponse.ok) {
             throw new Error(`Direct feed fetch failed: ${directResponse.status}`);
           }
+          const directContentLength = directResponse.headers.get('content-length');
+          if (directContentLength && parseInt(directContentLength) > MAX_FEED_SIZE) {
+            throw new Error('Feed too large to process');
+          }
           const feedXml = await directResponse.text();
+          if (feedXml.length > MAX_FEED_SIZE) {
+            throw new Error('Feed content exceeds size limit');
+          }
           feedData = await parser.parseString(feedXml) as unknown as RSSHubFeed;
         } else {
           throw new Error('No feed URL available');
         }
       } else {
+        const rsshubContentLength = response.headers.get('content-length');
+        if (rsshubContentLength && parseInt(rsshubContentLength) > MAX_FEED_SIZE) {
+          throw new Error('Feed too large to process');
+        }
         const feedXml = await response.text();
+        if (feedXml.length > MAX_FEED_SIZE) {
+          throw new Error('Feed content exceeds size limit');
+        }
         feedData = await parser.parseString(feedXml) as unknown as RSSHubFeed;
       }
     }
@@ -376,8 +347,8 @@ export async function getPodcastEpisodes(
       seasonNumber: parseInt((item as any).season, 10) || undefined,
     }));
 
-    // Cache for 1 hour
-    await setCachedResponse(cacheKey, episodes, 60);
+    // Cache in Redis (shared across all instances)
+    await setCached(cacheKey, episodes, CacheTTL.EPISODES);
 
     return episodes;
   } catch (err) {
@@ -410,23 +381,8 @@ export function getGenres(): AppleGenre[] {
 }
 
 /**
- * Rate limiter for API calls
+ * Rate limiter for API calls (distributed via Redis)
  */
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
-
-export function checkRateLimit(userId: string, maxRequests = 30, windowMs = 60000): boolean {
-  const now = Date.now();
-  const userLimit = rateLimitStore.get(userId);
-
-  if (!userLimit || userLimit.resetAt < now) {
-    rateLimitStore.set(userId, { count: 1, resetAt: now + windowMs });
-    return true;
-  }
-
-  if (userLimit.count >= maxRequests) {
-    return false;
-  }
-
-  userLimit.count++;
-  return true;
+export async function checkRateLimit(userId: string, maxRequests = 30, windowSeconds = 60): Promise<boolean> {
+  return redisRateLimit(userId, maxRequests, windowSeconds);
 }

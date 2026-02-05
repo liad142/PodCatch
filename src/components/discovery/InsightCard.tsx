@@ -1,9 +1,11 @@
 'use client';
 
+import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Clock, Heart } from 'lucide-react';
+import { glass } from '@/lib/glass';
 import { DiscoverySummarizeButton } from './DiscoverySummarizeButton';
 import { PlayButton } from '@/components/PlayButton';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -33,7 +35,7 @@ function formatDate(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function InsightCard({
+export const InsightCard = React.memo(function InsightCard({
   episodeId,
   title,
   description,
@@ -84,7 +86,7 @@ export function InsightCard({
     <motion.article
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-card border rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow"
+      className={`rounded-2xl p-4 sm:p-5 transition-shadow ${glass.card}`}
     >
       {/* Header: Podcast Info */}
       <div className="flex items-center gap-3 mb-3">
@@ -96,7 +98,7 @@ export function InsightCard({
                 alt={podcastName}
                 fill
                 className="object-cover"
-                unoptimized
+                sizes="40px"
               />
             </div>
           </Link>
@@ -159,4 +161,4 @@ export function InsightCard({
       </div>
     </motion.article>
   );
-}
+});

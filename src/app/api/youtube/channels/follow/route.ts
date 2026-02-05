@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limiting
-    if (!checkRateLimit(userId, 10, 60000)) {
+    if (!(await checkRateLimit(userId, 10, 60))) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please try again in a minute.' },
         { status: 429 }

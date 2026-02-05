@@ -5,6 +5,7 @@ import { Search, Sparkles, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { ApplePodcast } from '@/components/ApplePodcastCard';
+import { glass } from '@/lib/glass';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -110,7 +111,7 @@ export function SemanticSearchBar({ podcasts }: SemanticSearchBarProps) {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => results.length > 0 && setShowResults(true)}
-          className="pl-12 pr-12 h-12 text-base rounded-full border-2 border-muted bg-muted/30 focus:border-primary focus:bg-background transition-all"
+          className={`pl-12 pr-12 h-12 text-base rounded-full transition-all ${glass.input}`}
         />
         {query && (
           <button
@@ -129,7 +130,7 @@ export function SemanticSearchBar({ podcasts }: SemanticSearchBarProps) {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute top-full left-0 right-0 mt-2 bg-background border rounded-2xl shadow-xl overflow-hidden z-50"
+            className={`absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50 ${glass.card}`}
           >
             {isSearching ? (
               <div className="p-6 flex items-center justify-center gap-3">
@@ -159,7 +160,7 @@ export function SemanticSearchBar({ podcasts }: SemanticSearchBarProps) {
                         alt={result.podcast.name}
                         fill
                         className="object-cover"
-                        unoptimized
+                        sizes="48px"
                       />
                     </div>
                     <div className="flex-1 min-w-0">

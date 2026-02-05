@@ -245,7 +245,33 @@ export async function getFeed(params: {
 }
 
 /**
+ * Set bookmark state on a feed item (atomic, no read-before-write)
+ */
+export async function setBookmark(
+  userId: string,
+  feedItemId: string,
+  bookmarked: boolean
+): Promise<boolean> {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase
+    .from('feed_items')
+    .update({ bookmarked, updated_at: new Date().toISOString() })
+    .eq('id', feedItemId)
+    .eq('user_id', userId)
+    .select('bookmarked')
+    .single();
+
+  if (error) throw new Error(`Failed to set bookmark: ${error.message}`);
+  if (!data) throw new Error('Feed item not found or unauthorized');
+
+  return data.bookmarked;
+}
+
+/**
  * Toggle bookmark on a feed item
+ * @deprecated Prefer setBookmark() to avoid read-before-write race conditions.
+ * Kept for backward compatibility.
  */
 export async function toggleBookmark(
   userId: string,
@@ -264,17 +290,7 @@ export async function toggleBookmark(
     throw new Error('Feed item not found or unauthorized');
   }
 
-  const newBookmarkedState = !item.bookmarked;
-
-  const { error: updateError } = await supabase
-    .from('feed_items')
-    .update({ bookmarked: newBookmarkedState })
-    .eq('id', feedItemId)
-    .eq('user_id', userId);
-
-  if (updateError) throw new Error(`Failed to toggle bookmark: ${updateError.message}`);
-
-  return newBookmarkedState;
+  return setBookmark(userId, feedItemId, !item.bookmarked);
 }
 
 /**

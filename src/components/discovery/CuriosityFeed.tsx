@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InsightCard } from './InsightCard';
+import { glass } from '@/lib/glass';
 
 interface FeedEpisode {
   id: string;
@@ -71,7 +72,7 @@ export function CuriosityFeed({
       <div className="space-y-4">
         {isLoading && episodes.length === 0
           ? Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="bg-card border rounded-2xl p-5 space-y-3">
+              <div key={i} className={`rounded-2xl p-5 space-y-3 ${glass.card}`}>
                 <div className="flex items-center gap-3">
                   <Skeleton className="w-10 h-10 rounded-lg" />
                   <div className="space-y-1">

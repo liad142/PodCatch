@@ -1,14 +1,30 @@
 import { NextResponse } from 'next/server';
 import { getGenres } from '@/lib/apple-podcasts';
 
+let cachedGenres: { data: any; timestamp: number } | null = null;
+const GENRE_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
 export async function GET() {
   try {
+    // Return cached data if still fresh
+    if (cachedGenres && Date.now() - cachedGenres.timestamp < GENRE_CACHE_TTL) {
+      return NextResponse.json(cachedGenres.data);
+    }
+
     const genres = getGenres();
 
-    return NextResponse.json({
+    const responseData = {
       genres,
       count: genres.length,
-    });
+    };
+
+    // Cache the response
+    cachedGenres = {
+      data: responseData,
+      timestamp: Date.now(),
+    };
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('Apple genres error:', error);
     return NextResponse.json(

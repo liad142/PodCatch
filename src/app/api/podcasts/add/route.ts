@@ -18,21 +18,28 @@ export async function POST(request: NextRequest) {
     // Check if podcast already exists
     const { data: existingPodcast } = await supabase
       .from("podcasts")
-      .select("*")
+      .select("id")
       .eq("rss_feed_url", rss_url)
       .single();
 
     if (existingPodcast) {
-      // Return existing podcast with episodes
-      const { data: episodes } = await supabase
-        .from("episodes")
-        .select("*")
-        .eq("podcast_id", existingPodcast.id)
-        .order("published_at", { ascending: false });
+      // Fetch full podcast data and episodes for the response
+      const [{ data: fullPodcast }, { data: episodes }] = await Promise.all([
+        supabase
+          .from("podcasts")
+          .select("*")
+          .eq("id", existingPodcast.id)
+          .single(),
+        supabase
+          .from("episodes")
+          .select("*")
+          .eq("podcast_id", existingPodcast.id)
+          .order("published_at", { ascending: false }),
+      ]);
 
       return NextResponse.json({
         id: existingPodcast.id,
-        podcast: existingPodcast,
+        podcast: fullPodcast || existingPodcast,
         episodes: episodes || [],
         message: "Podcast already exists",
       });

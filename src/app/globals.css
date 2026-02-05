@@ -68,10 +68,31 @@
   --border: 217.2 32.6% 17.5%;
   --input: 217.2 32.6% 17.5%;
   --ring: 263 70% 50%;
+  
+  --glass-blur: 16px;
+  --glass-bg-light: rgba(255, 255, 255, 0.7);
+  --glass-bg-dark: rgba(255, 255, 255, 0.05);
+  --glass-border-light: rgba(255, 255, 255, 0.5);
+  --glass-border-dark: rgba(255, 255, 255, 0.1);
 }
 
 * {
   border-color: var(--color-border);
+}
+
+.glass-bg {
+  background: linear-gradient(135deg, 
+    hsl(var(--primary) / 0.1) 0%, 
+    hsl(var(--background)) 50%,
+    hsl(262 70% 90% / 0.1) 100%
+  );
+}
+.dark .glass-bg {
+  background: linear-gradient(135deg, 
+    hsl(var(--primary) / 0.15) 0%, 
+    hsl(var(--background)) 50%,
+    hsl(262 70% 20% / 0.2) 100%
+  );
 }
 
 body {

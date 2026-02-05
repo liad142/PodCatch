@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20', 10);
     const genreId = searchParams.get('genre') || undefined;
 
+    // getTopPodcasts handles Redis caching internally
     const podcasts = await getTopPodcasts(country, limit, genreId);
 
     return NextResponse.json({

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCountry } from '@/contexts/CountryContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { EpisodeLookupProvider } from '@/contexts/EpisodeLookupContext';
@@ -36,42 +36,115 @@ function getHighResArtwork(url: string | undefined): string {
   return highRes;
 }
 
+function mapEpisodes(results: any[], podcasts: ApplePodcast[], subscribedAppleIds: Set<string>): FeedEpisode[] {
+  return results
+    .filter((result: any) => result.success && result.episodes?.length > 0)
+    .flatMap((result: any) => {
+      const podcast = podcasts.find((p: ApplePodcast) => p.id === result.podcastId);
+      if (!podcast) return [];
+      return result.episodes.map((episode: any) => ({
+        id: episode.id,
+        title: episode.title,
+        description: episode.description || '',
+        publishedAt: new Date(episode.publishedAt),
+        audioUrl: episode.audioUrl,
+        duration: episode.duration,
+        podcastId: podcast.id,
+        podcastName: podcast.name,
+        podcastArtist: podcast.artistName,
+        podcastArtwork: getHighResArtwork(podcast.artworkUrl),
+        podcastFeedUrl: podcast.feedUrl,
+        isSubscribed: subscribedAppleIds.has(podcast.id),
+      }));
+    })
+    .sort((a: FeedEpisode, b: FeedEpisode) =>
+      new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+    );
+}
+
 export default function DiscoverPage() {
   const { country } = useCountry();
   const { subscribedAppleIds } = useSubscription();
 
-  // Data states
+  // PROGRESSIVE loading states - each section loads independently
   const [topPodcasts, setTopPodcasts] = useState<ApplePodcast[]>([]);
   const [heroEpisodes, setHeroEpisodes] = useState<FeedEpisode[]>([]);
   const [feedEpisodes, setFeedEpisodes] = useState<FeedEpisode[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPodcasts, setIsLoadingPodcasts] = useState(true);
+  const [isLoadingHero, setIsLoadingHero] = useState(true);
+  const [isLoadingFeed, setIsLoadingFeed] = useState(true);
   const [feedPage, setFeedPage] = useState(0);
   const [hasMoreFeed, setHasMoreFeed] = useState(true);
-  const isLoadingFeed = useRef(false);
+  const isLoadingMoreFeed = useRef(false);
+  const allPodcastsRef = useRef<ApplePodcast[]>([]);
 
-  // Fetch initial data with optimized parallel loading
+  // Phase 1: Fetch top podcasts (shows Brand Shelf immediately when ready)
+  // Phase 2: Fetch hero episodes (shows Daily Mix when ready)
+  // Phase 3: Fetch feed episodes (shows Curiosity Feed when ready)
+  // Each phase renders independently - no waiting for all data
   useEffect(() => {
+    let cancelled = false;
+
     const fetchData = async () => {
-      setIsLoading(true);
-      // Reset state on country change
-      setFeedEpisodes([]);
+      // Reset all states
+      setTopPodcasts([]);
       setHeroEpisodes([]);
+      setFeedEpisodes([]);
+      setIsLoadingPodcasts(true);
+      setIsLoadingHero(true);
+      setIsLoadingFeed(true);
       setFeedPage(0);
       setHasMoreFeed(true);
-      isLoadingFeed.current = false;
+      isLoadingMoreFeed.current = false;
+      allPodcastsRef.current = [];
 
       try {
-        // Fetch top podcasts for brand shelf and hero
-        const topRes = await fetch(`/api/apple/top?country=${country.toLowerCase()}&limit=30`);
-        const topData = await topRes.json();
-        const podcasts = topData.podcasts || [];
-        setTopPodcasts(podcasts);
+        // PHASE 1: Fetch top podcasts from BOTH countries in parallel
+        // This is the fastest call (cached after first load)
+        const [primaryRes, usRes] = await Promise.allSettled([
+          fetch(`/api/apple/top?country=${country.toLowerCase()}&limit=30`),
+          country.toLowerCase() !== 'us'
+            ? fetch(`/api/apple/top?country=us&limit=30`)
+            : Promise.resolve(null),
+        ]);
 
-        // Start fetching hero episodes and initial feed in parallel
-        const heroPodcasts = podcasts.slice(0, 5);
+        if (cancelled) return;
 
-        // Fire both requests in parallel
-        const [heroBatchRes] = await Promise.all([
+        let allPodcasts: ApplePodcast[] = [];
+
+        // Primary country podcasts
+        if (primaryRes.status === 'fulfilled' && primaryRes.value) {
+          const data = await primaryRes.value.json();
+          allPodcasts = data.podcasts || [];
+        }
+
+        // Merge US podcasts if different country (deduplicated)
+        if (usRes.status === 'fulfilled' && usRes.value) {
+          const usData = await usRes.value.json();
+          const usPodcasts = usData.podcasts || [];
+          const existingIds = new Set(allPodcasts.map((p: ApplePodcast) => p.id));
+          const uniqueUs = usPodcasts.filter((p: ApplePodcast) => !existingIds.has(p.id));
+          allPodcasts = [...allPodcasts, ...uniqueUs];
+        }
+
+        // IMMEDIATELY show Brand Shelf - no waiting for episodes
+        setTopPodcasts(allPodcasts);
+        setIsLoadingPodcasts(false);
+        allPodcastsRef.current = allPodcasts;
+
+        if (cancelled || allPodcasts.length === 0) {
+          setIsLoadingHero(false);
+          setIsLoadingFeed(false);
+          return;
+        }
+
+        // PHASE 2 & 3: Fetch hero + feed episodes IN PARALLEL
+        // Hero: first 5 podcasts, 1 episode each
+        // Feed: next 5 podcasts, 3 episodes each
+        const heroPodcasts = allPodcasts.slice(0, 5);
+        const feedPodcasts = allPodcasts.slice(5, 10);
+
+        const [heroRes, feedRes] = await Promise.allSettled([
           fetch('/api/apple/podcasts/batch-episodes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -80,51 +153,49 @@ export default function DiscoverPage() {
               country: country.toLowerCase(),
             }),
           }),
-          // Start loading feed in the background (non-blocking)
-          loadMoreFeed(podcasts, 0),
+          fetch('/api/apple/podcasts/batch-episodes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              podcasts: feedPodcasts.map((p: ApplePodcast) => ({ podcastId: p.id, limit: 3 })),
+              country: country.toLowerCase(),
+            }),
+          }),
         ]);
 
-        const heroBatchData = await heroBatchRes.json();
+        if (cancelled) return;
 
-        const heroEpisodesList = heroBatchData.results
-          .filter((result: any) => result.success && result.episodes.length > 0)
-          .map((result: any) => {
-            const episode = result.episodes[0];
-            const podcast = heroPodcasts.find((p: ApplePodcast) => p.id === result.podcastId);
-            if (!podcast) return null;
+        // Show hero as soon as it's ready
+        if (heroRes.status === 'fulfilled') {
+          const heroData = await heroRes.value.json();
+          setHeroEpisodes(mapEpisodes(heroData.results, heroPodcasts, subscribedAppleIds));
+        }
+        setIsLoadingHero(false);
 
-            return {
-              id: episode.id,
-              title: episode.title,
-              description: episode.description || '',
-              publishedAt: new Date(episode.publishedAt),
-              audioUrl: episode.audioUrl,
-              duration: episode.duration,
-              podcastId: podcast.id,
-              podcastName: podcast.name,
-              podcastArtist: podcast.artistName,
-              podcastArtwork: getHighResArtwork(podcast.artworkUrl),
-              podcastFeedUrl: podcast.feedUrl,
-              isSubscribed: subscribedAppleIds.has(podcast.id),
-            };
-          })
-          .filter(Boolean);
+        // Show feed as soon as it's ready
+        if (feedRes.status === 'fulfilled') {
+          const feedData = await feedRes.value.json();
+          setFeedEpisodes(mapEpisodes(feedData.results, feedPodcasts, subscribedAppleIds));
+          setFeedPage(1);
+        }
+        setIsLoadingFeed(false);
 
-        setHeroEpisodes(heroEpisodesList as FeedEpisode[]);
       } catch (error) {
         console.error('Error fetching discover data:', error);
-      } finally {
-        setIsLoading(false);
+        setIsLoadingPodcasts(false);
+        setIsLoadingHero(false);
+        setIsLoadingFeed(false);
       }
     };
 
     fetchData();
+
+    return () => { cancelled = true; };
   }, [country]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadMoreFeed = useCallback(async (podcasts: ApplePodcast[], page: number) => {
-    // Prevent concurrent loads
-    if (isLoadingFeed.current) return;
-    isLoadingFeed.current = true;
+    if (isLoadingMoreFeed.current) return;
+    isLoadingMoreFeed.current = true;
 
     const startIdx = page * 5 + 5; // Skip first 5 used in hero
     const endIdx = startIdx + 5;
@@ -132,61 +203,42 @@ export default function DiscoverPage() {
 
     if (podcastBatch.length === 0) {
       setHasMoreFeed(false);
-      isLoadingFeed.current = false;
+      isLoadingMoreFeed.current = false;
       return;
     }
 
-    // Fetch episodes using batch endpoint
-    const batchRes = await fetch('/api/apple/podcasts/batch-episodes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        podcasts: podcastBatch.map((p: ApplePodcast) => ({ podcastId: p.id, limit: 3 })),
-        country: country.toLowerCase(),
-      }),
-    });
-    const batchData = await batchRes.json();
+    try {
+      const batchRes = await fetch('/api/apple/podcasts/batch-episodes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          podcasts: podcastBatch.map((p: ApplePodcast) => ({ podcastId: p.id, limit: 3 })),
+          country: country.toLowerCase(),
+        }),
+      });
+      const batchData = await batchRes.json();
+      const newEpisodes = mapEpisodes(batchData.results, podcastBatch, subscribedAppleIds);
 
-    const newEpisodes = batchData.results
-      .filter((result: any) => result.success && result.episodes.length > 0)
-      .flatMap((result: any) => {
-        const podcast = podcastBatch.find((p: ApplePodcast) => p.id === result.podcastId);
-        if (!podcast) return [];
-
-        return result.episodes.map((episode: any) => ({
-          id: episode.id,
-          title: episode.title,
-          description: episode.description || '',
-          publishedAt: new Date(episode.publishedAt),
-          audioUrl: episode.audioUrl,
-          duration: episode.duration,
-          podcastId: podcast.id,
-          podcastName: podcast.name,
-          podcastArtist: podcast.artistName,
-          podcastArtwork: getHighResArtwork(podcast.artworkUrl),
-          podcastFeedUrl: podcast.feedUrl,
-          isSubscribed: subscribedAppleIds.has(podcast.id),
-        }));
-      })
-      .sort((a: FeedEpisode, b: FeedEpisode) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-
-    // Deduplicate episodes by composite key (podcastId-episodeId)
-    setFeedEpisodes(prev => {
-      const existingKeys = new Set(prev.map(ep => `${ep.podcastId}-${ep.id}`));
-      const uniqueNewEpisodes = newEpisodes.filter(
-        (ep: FeedEpisode) => !existingKeys.has(`${ep.podcastId}-${ep.id}`)
-      );
-      return [...prev, ...uniqueNewEpisodes];
-    });
-    setFeedPage(page + 1);
-    isLoadingFeed.current = false;
+      setFeedEpisodes(prev => {
+        const existingKeys = new Set(prev.map(ep => `${ep.podcastId}-${ep.id}`));
+        const unique = newEpisodes.filter(
+          (ep: FeedEpisode) => !existingKeys.has(`${ep.podcastId}-${ep.id}`)
+        );
+        return [...prev, ...unique];
+      });
+      setFeedPage(page + 1);
+    } catch (error) {
+      console.error('Error loading more feed:', error);
+    } finally {
+      isLoadingMoreFeed.current = false;
+    }
   }, [country, subscribedAppleIds]);
 
   const handleLoadMore = useCallback(() => {
-    if (hasMoreFeed && topPodcasts.length > 0) {
-      loadMoreFeed(topPodcasts, feedPage);
+    if (hasMoreFeed && allPodcastsRef.current.length > 0) {
+      loadMoreFeed(allPodcastsRef.current, feedPage);
     }
-  }, [hasMoreFeed, topPodcasts, feedPage, loadMoreFeed]);
+  }, [hasMoreFeed, feedPage, loadMoreFeed]);
 
   return (
     <EpisodeLookupProvider>
@@ -200,16 +252,16 @@ export default function DiscoverPage() {
 
         {/* Main Content */}
         <main className="max-w-3xl mx-auto px-4 py-6 space-y-8">
-          {/* Daily Mix Hero */}
-          <DailyMixCarousel episodes={heroEpisodes} isLoading={isLoading} />
+          {/* Daily Mix Hero - shows when hero episodes are ready */}
+          <DailyMixCarousel episodes={heroEpisodes} isLoading={isLoadingHero} />
 
-          {/* Brand Shelf */}
-          <BrandShelf podcasts={topPodcasts.slice(0, 15)} isLoading={isLoading} />
+          {/* Brand Shelf - shows as soon as top podcasts load (fastest) */}
+          <BrandShelf podcasts={topPodcasts.slice(0, 15)} isLoading={isLoadingPodcasts} />
 
-          {/* Curiosity Feed */}
+          {/* Curiosity Feed - shows when feed episodes are ready */}
           <CuriosityFeed
             episodes={feedEpisodes}
-            isLoading={isLoading}
+            isLoading={isLoadingFeed}
             hasMore={hasMoreFeed}
             onLoadMore={handleLoadMore}
           />

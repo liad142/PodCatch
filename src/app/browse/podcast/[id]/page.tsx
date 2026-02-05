@@ -344,7 +344,7 @@ export default function PodcastPage({ params }: PageProps) {
         {isLoadingEpisodes ? (
           <div className="space-y-4">
             {[...Array(5)].map((_, i) => (
-              <Card key={i}>
+              <Card key={i} variant="glass">
                 <CardContent className="p-4">
                   <div className="flex gap-4">
                     <Skeleton className="w-20 h-20 rounded-lg flex-shrink-0" />
@@ -367,7 +367,7 @@ export default function PodcastPage({ params }: PageProps) {
         ) : (
           <div className="space-y-4">
             {episodes.map((episode) => (
-              <Card key={episode.id} className="hover:bg-accent/50 transition-colors">
+              <Card key={episode.id} variant="glass" className="hover:bg-accent/50 transition-colors">
                 <CardContent className="p-4">
                   <div className="flex gap-4">
                     {/* Episode Artwork */}

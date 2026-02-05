@@ -76,7 +76,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Fetch podcast details
     const { data: podcast, error: podcastError } = await supabase
       .from("podcasts")
-      .select("*")
+      .select("id, title, author, description, rss_feed_url, image_url, language, created_at")
       .eq("id", id)
       .single();
 
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Fetch all episodes for this podcast, ordered by published_at DESC
     const { data: episodes, error: episodesError } = await supabase
       .from("episodes")
-      .select("*")
+      .select("id, podcast_id, title, description, audio_url, transcript_url, duration_seconds, published_at, created_at")
       .eq("podcast_id", id)
       .order("published_at", { ascending: false });
 

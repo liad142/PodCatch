@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limiting
-    if (!checkRateLimit(userId, 5, 60000)) {
+    if (!(await checkRateLimit(userId, 5, 60))) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please try again in a minute.' },
         { status: 429 }
@@ -44,9 +44,9 @@ export async function POST(request: NextRequest) {
     let totalVideosAdded = 0;
     const errors: string[] = [];
 
-    // Refresh each channel (could be parallelized with Promise.all)
-    for (const channel of channels) {
-      try {
+    // Refresh all channels in parallel
+    const results = await Promise.allSettled(
+      channels.map(async (channel) => {
         const { videos } = await fetchYouTubeChannelFeed(
           channel.channelId,
           false // Don't use cache
@@ -67,10 +67,18 @@ export async function POST(request: NextRequest) {
           }))
         );
 
-        totalVideosAdded += videos.length;
-      } catch (err) {
-        console.error(`Failed to refresh channel ${channel.channelName}:`, err);
-        errors.push(`${channel.channelName}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        return { channelName: channel.channelName, videosCount: videos.length };
+      })
+    );
+
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      if (result.status === 'fulfilled') {
+        totalVideosAdded += result.value.videosCount;
+      } else {
+        const channel = channels[i];
+        console.error(`Failed to refresh channel ${channel.channelName}:`, result.reason);
+        errors.push(`${channel.channelName}: ${result.reason instanceof Error ? result.reason.message : 'Unknown error'}`);
       }
     }
 

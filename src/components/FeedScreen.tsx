@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import FeedItemCard from '@/components/FeedItemCard';
 import { LoadingState } from '@/components/LoadingState';
+import { glass } from '@/lib/glass';
 
 type SourceType = 'all' | 'youtube' | 'podcast';
 type FeedMode = 'latest' | 'following' | 'mixed';
@@ -83,10 +84,14 @@ export default function FeedScreen() {
 
   const handleBookmarkToggle = async (itemId: string) => {
     try {
+      // Find the current item to determine desired state (avoids server-side race condition)
+      const currentItem = feedItems.find((item) => item.id === itemId);
+      const desiredState = currentItem ? !currentItem.bookmarked : true;
+
       const response = await fetch(`/api/feed/${itemId}/bookmark`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId, bookmarked: desiredState }),
       });
 
       const data = await response.json();
@@ -123,7 +128,7 @@ export default function FeedScreen() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 mb-6">
+        <div className={`rounded-xl shadow-sm p-6 mb-6 ${glass.card}`}>
           {/* Feed Mode */}
           <div className="mb-4">
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
@@ -131,21 +136,21 @@ export default function FeedScreen() {
             </label>
             <div className="flex gap-2 flex-wrap">
               <Button
-                variant={feedMode === 'latest' ? 'default' : 'outline'}
+                variant={feedMode === 'latest' ? 'default' : 'glass-outline'}
                 onClick={() => setFeedMode('latest')}
                 className="rounded-full"
               >
                 Latest Items
               </Button>
               <Button
-                variant={feedMode === 'following' ? 'default' : 'outline'}
+                variant={feedMode === 'following' ? 'default' : 'glass-outline'}
                 onClick={() => setFeedMode('following')}
                 className="rounded-full"
               >
                 Channels You Follow
               </Button>
               <Button
-                variant={feedMode === 'mixed' ? 'default' : 'outline'}
+                variant={feedMode === 'mixed' ? 'default' : 'glass-outline'}
                 onClick={() => setFeedMode('mixed')}
                 className="rounded-full"
                 disabled
@@ -162,21 +167,21 @@ export default function FeedScreen() {
             </label>
             <div className="flex gap-2 flex-wrap">
               <Badge
-                variant={sourceFilter === 'all' ? 'default' : 'outline'}
+                variant={sourceFilter === 'all' ? 'default' : 'glass'}
                 onClick={() => setSourceFilter('all')}
                 className="cursor-pointer px-4 py-2 text-sm"
               >
                 All
               </Badge>
               <Badge
-                variant={sourceFilter === 'youtube' ? 'default' : 'outline'}
+                variant={sourceFilter === 'youtube' ? 'default' : 'glass'}
                 onClick={() => setSourceFilter('youtube')}
                 className="cursor-pointer px-4 py-2 text-sm"
               >
                 YouTube
               </Badge>
               <Badge
-                variant={sourceFilter === 'podcast' ? 'default' : 'outline'}
+                variant={sourceFilter === 'podcast' ? 'default' : 'glass'}
                 onClick={() => setSourceFilter('podcast')}
                 className="cursor-pointer px-4 py-2 text-sm opacity-50"
               >
@@ -214,7 +219,7 @@ export default function FeedScreen() {
             </Button>
           </div>
         ) : feedItems.length === 0 ? (
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-12 text-center">
+          <div className={`rounded-xl shadow-sm p-12 text-center ${glass.card}`}>
             <p className="text-slate-600 dark:text-slate-400 mb-4">
               No items in your feed yet.
             </p>

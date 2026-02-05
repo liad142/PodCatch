@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Play, Clock } from 'lucide-react';
@@ -26,7 +27,7 @@ function formatDate(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function DailyMixCard({
+export const DailyMixCard = React.memo(function DailyMixCard({
   episodeId,
   title,
   description,
@@ -39,7 +40,7 @@ export function DailyMixCard({
     <motion.div
       whileHover={{ scale: 1.02 }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      className="relative w-[320px] sm:w-[400px] h-[200px] rounded-2xl overflow-hidden flex-shrink-0 group"
+      className="relative w-[320px] sm:w-[400px] h-[200px] rounded-2xl overflow-hidden flex-shrink-0 group border border-white/10 shadow-lg"
     >
       {/* Blurred Background */}
       <div className="absolute inset-0">
@@ -48,7 +49,7 @@ export function DailyMixCard({
           alt=""
           fill
           className="object-cover scale-110 blur-xl brightness-50"
-          unoptimized
+          sizes="400px"
         />
         <div className="absolute inset-0 bg-black/30" />
       </div>
@@ -62,7 +63,7 @@ export function DailyMixCard({
             alt={podcastName}
             fill
             className="object-cover"
-            unoptimized
+            sizes="400px"
           />
         </div>
 
@@ -97,4 +98,4 @@ export function DailyMixCard({
       </Link>
     </motion.div>
   );
-}
+});

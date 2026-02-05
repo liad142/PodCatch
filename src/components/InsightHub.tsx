@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { StickyTabNav } from "./StickyTabNav";
 import { SummaryTabContent } from "./insights/SummaryTabContent";
 import { MindmapTabContent } from "./insights/MindmapTabContent";
@@ -53,22 +53,62 @@ export function InsightHub({ episodeId, initialTab = 'summary' }: InsightHubProp
     fetchData().finally(() => setIsLoading(false));
   }, [fetchData]);
 
-  // Polling while generating
+  // Polling while generating - exponential backoff with setTimeout
+  const pollAttemptRef = useRef(0);
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    if (!isGenerating) return;
+    if (!isGenerating) {
+      // Reset attempt counter when generation stops
+      pollAttemptRef.current = 0;
+      if (pollTimeoutRef.current) {
+        clearTimeout(pollTimeoutRef.current);
+        pollTimeoutRef.current = null;
+      }
+      return;
+    }
 
-    const interval = setInterval(() => {
-      fetchData().then((json) => {
-        if (json) {
-          const status = json.insights?.status;
-          if (!['queued', 'transcribing', 'summarizing'].includes(status)) {
-            setIsGenerating(false);
+    const INITIAL_INTERVAL = 2000;   // Start at 2 seconds
+    const BACKOFF_MULTIPLIER = 1.5;  // Increase by 1.5x each poll
+    const MAX_INTERVAL = 15000;      // Cap at 15 seconds
+    const MAX_ATTEMPTS = 60;         // ~5 minutes total
+
+    const schedulePoll = () => {
+      if (pollAttemptRef.current >= MAX_ATTEMPTS) {
+        setIsGenerating(false);
+        setError('Insight generation timed out. Please try again later.');
+        return;
+      }
+
+      const interval = Math.min(
+        INITIAL_INTERVAL * Math.pow(BACKOFF_MULTIPLIER, pollAttemptRef.current),
+        MAX_INTERVAL
+      );
+
+      pollTimeoutRef.current = setTimeout(() => {
+        pollAttemptRef.current += 1;
+        fetchData().then((json) => {
+          if (json) {
+            const status = json.insights?.status;
+            if (!['queued', 'transcribing', 'summarizing'].includes(status)) {
+              setIsGenerating(false);
+              return;
+            }
           }
-        }
-      });
-    }, 2500);
+          // Schedule next poll if still generating
+          schedulePoll();
+        });
+      }, interval);
+    };
 
-    return () => clearInterval(interval);
+    schedulePoll();
+
+    return () => {
+      if (pollTimeoutRef.current) {
+        clearTimeout(pollTimeoutRef.current);
+        pollTimeoutRef.current = null;
+      }
+    };
   }, [isGenerating, fetchData]);
 
   // Generate insights (and summaries)

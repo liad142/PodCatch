@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { glass } from '@/lib/glass';
 
 // Navigation configuration - easy to edit
 const NAV_ITEMS = [
@@ -163,7 +164,8 @@ function MobileDrawer({
         aria-modal="true"
         aria-label="Navigation menu"
         className={cn(
-          'fixed top-0 left-0 bottom-0 w-72 bg-background border-r border-border z-50 transition-transform lg:hidden',
+          'fixed top-0 left-0 bottom-0 w-72 z-50 transition-transform lg:hidden',
+          glass.sidebar,
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -230,7 +232,10 @@ export function Sidebar() {
 
       {/* Desktop Sidebar */}
       <aside
-        className="fixed top-0 left-0 bottom-0 w-64 bg-background border-r border-border hidden lg:flex flex-col z-30"
+        className={cn(
+          "fixed top-0 left-0 bottom-0 w-64 hidden lg:flex flex-col z-30",
+          glass.sidebar
+        )}
         aria-label="Main navigation"
       >
         <SidebarContent />

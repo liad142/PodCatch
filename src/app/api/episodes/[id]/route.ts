@@ -18,10 +18,40 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Fetch episode details
+    // Fetch episode with transcript and summaries in a single query
     const { data: episode, error: episodeError } = await supabase
       .from("episodes")
-      .select("*")
+      .select(`
+        id,
+        podcast_id,
+        title,
+        description,
+        audio_url,
+        transcript_url,
+        transcript_language,
+        duration_seconds,
+        published_at,
+        created_at,
+        transcripts (
+          id,
+          episode_id,
+          text,
+          status,
+          language,
+          diarized_json,
+          created_at,
+          updated_at,
+          summaries (
+            id,
+            transcript_id,
+            level,
+            status,
+            content,
+            created_at,
+            updated_at
+          )
+        )
+      `)
       .eq("id", id)
       .single();
 
@@ -39,26 +69,22 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Fetch transcript if available
-    const { data: transcript } = await supabase
-      .from("transcripts")
-      .select("*")
-      .eq("episode_id", id)
-      .single();
-
-    // Fetch summary if transcript exists
+    // Extract transcript and summary from the nested response
+    const transcripts = episode.transcripts as any[] | null;
+    const transcript = transcripts && transcripts.length > 0 ? transcripts[0] : null;
     let summary = null;
     if (transcript) {
-      const { data: summaryData } = await supabase
-        .from("summaries")
-        .select("*")
-        .eq("transcript_id", transcript.id)
-        .single();
-      summary = summaryData;
+      const summaries = transcript.summaries as any[] | null;
+      summary = summaries && summaries.length > 0 ? summaries[0] : null;
+      // Remove nested summaries from transcript to keep response shape clean
+      delete transcript.summaries;
     }
 
+    // Remove nested transcripts from episode to keep response shape clean
+    const { transcripts: _transcripts, ...episodeData } = episode as any;
+
     return NextResponse.json({
-      episode,
+      episode: episodeData,
       transcript: transcript || null,
       summary: summary || null,
     });

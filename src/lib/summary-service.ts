@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai";
 import { supabase } from "./supabase";
 import { transcribeFromUrl, formatTranscriptWithTimestamps, formatTranscriptWithSpeakerNames } from "./deepgram";
 import type { DiarizedTranscript } from "@/types/deepgram";
@@ -12,24 +12,54 @@ import type {
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
 
-// Model selection: Flash for Quick, Pro for Deep analysis
-function getModelForLevel(level: SummaryLevel) {
-  if (level === 'deep') {
-    return genAI.getGenerativeModel({ 
-      model: "gemini-3-pro-preview",
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
-    });
-  } else {
-    return genAI.getGenerativeModel({ 
+// Cached model instances (Fix 2: avoid re-creating on every call)
+let flashModel: GenerativeModel | null = null;
+let proModel: GenerativeModel | null = null;
+
+function getFlashModel(): GenerativeModel {
+  if (!flashModel) {
+    flashModel = genAI.getGenerativeModel({
       model: "gemini-3-flash-preview",
       generationConfig: {
         responseMimeType: "application/json"
       }
     });
   }
+  return flashModel;
 }
+
+function getProModel(): GenerativeModel {
+  if (!proModel) {
+    proModel = genAI.getGenerativeModel({
+      model: "gemini-3-pro-preview",
+      generationConfig: {
+        responseMimeType: "application/json"
+      }
+    });
+  }
+  return proModel;
+}
+
+// Model selection: Flash for Quick, Pro for Deep analysis
+function getModelForLevel(level: SummaryLevel) {
+  if (level === 'deep') {
+    return getProModel();
+  } else {
+    return getFlashModel();
+  }
+}
+
+// Pre-compiled regex patterns for transcript parsing (Fix 3: avoid recompilation in loops)
+const SRT_SEQUENCE_RE = /^\d+$/;
+const SRT_TIMESTAMP_RE = /^\d{2}:\d{2}:\d{2}[,\.]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[,\.]\d{3}/;
+const VTT_CUE_ID_RE = /^[\w-]+$/;
+const VTT_TIMESTAMP_RE = /^\d{2}:\d{2}[:\.]?\d{0,2}[,\.]?\d{0,3}\s*-->\s*\d{2}:\d{2}[:\.]?\d{0,2}[,\.]?\d{0,3}/;
+const VTT_VOICE_TAG_RE = /<v\s+[^>]+>/gi;
+const VTT_VOICE_CLOSE_RE = /<\/v>/gi;
+const VTT_CLASS_TAG_RE = /<c[^>]*>/gi;
+const VTT_CLASS_CLOSE_RE = /<\/c>/gi;
+const VTT_ANY_TAG_RE = /<[^>]+>/g;
+const MULTI_SPACE_RE = /\s+/g;
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -105,14 +135,9 @@ export async function identifySpeakers(transcript: DiarizedTranscript): Promise<
     const systemPrompt = "You are a JSON-only response bot. Return ONLY valid JSON.";
     const fullPrompt = systemPrompt + "\n\n" + SPEAKER_ID_PROMPT + formattedSample;
     
-    // Use Flash model for speaker identification (fast, cheap task)
-    const speakerModel = genAI.getGenerativeModel({ 
-      model: "gemini-3-flash-preview",
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
-    });
-    
+    // Use cached Flash model for speaker identification (fast, cheap task)
+    const speakerModel = getFlashModel();
+
     const result = await speakerModel.generateContent(fullPrompt);
     const response = result.response;
     const text = response.text();
@@ -290,18 +315,17 @@ async function fetchTranscriptFromUrl(transcriptUrl: string): Promise<string | n
 function parseSrtToText(srt: string): string {
   const lines = srt.split('\n');
   const textLines: string[] = [];
-  let skipNext = false;
 
   for (const line of lines) {
     const trimmed = line.trim();
-    
+
     // Skip sequence numbers (just digits)
-    if (/^\d+$/.test(trimmed)) {
+    if (SRT_SEQUENCE_RE.test(trimmed)) {
       continue;
     }
-    
+
     // Skip timestamp lines (00:00:00,000 --> 00:00:00,000)
-    if (/^\d{2}:\d{2}:\d{2}[,\.]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[,\.]\d{3}/.test(trimmed)) {
+    if (SRT_TIMESTAMP_RE.test(trimmed)) {
       continue;
     }
 
@@ -314,7 +338,7 @@ function parseSrtToText(srt: string): string {
     textLines.push(trimmed);
   }
 
-  return textLines.join(' ').replace(/\s+/g, ' ').trim();
+  return textLines.join(' ').replace(MULTI_SPACE_RE, ' ').trim();
 }
 
 /**
@@ -327,19 +351,19 @@ function parseVttToText(vtt: string): string {
 
   for (const line of lines) {
     const trimmed = line.trim();
-    
+
     // Skip WEBVTT header and metadata
     if (trimmed.startsWith('WEBVTT') || trimmed.startsWith('NOTE') || trimmed.startsWith('STYLE')) {
       continue;
     }
 
     // Skip cue identifiers (if present)
-    if (/^[\w-]+$/.test(trimmed) && !trimmed.includes(' ')) {
+    if (VTT_CUE_ID_RE.test(trimmed) && !trimmed.includes(' ')) {
       continue;
     }
 
     // Skip timestamp lines (00:00:00.000 --> 00:00:00.000)
-    if (/^\d{2}:\d{2}[:\.]?\d{0,2}[,\.]?\d{0,3}\s*-->\s*\d{2}:\d{2}[:\.]?\d{0,2}[,\.]?\d{0,3}/.test(trimmed)) {
+    if (VTT_TIMESTAMP_RE.test(trimmed)) {
       continue;
     }
 
@@ -350,11 +374,11 @@ function parseVttToText(vtt: string): string {
 
     // Strip VTT tags like <v Speaker Name>, <c>, </c>, etc.
     const cleanedLine = trimmed
-      .replace(/<v\s+[^>]+>/gi, '')  // Voice tags
-      .replace(/<\/v>/gi, '')
-      .replace(/<c[^>]*>/gi, '')     // Class tags
-      .replace(/<\/c>/gi, '')
-      .replace(/<[^>]+>/g, '')       // Any other tags
+      .replace(VTT_VOICE_TAG_RE, '')   // Voice tags
+      .replace(VTT_VOICE_CLOSE_RE, '')
+      .replace(VTT_CLASS_TAG_RE, '')   // Class tags
+      .replace(VTT_CLASS_CLOSE_RE, '')
+      .replace(VTT_ANY_TAG_RE, '')     // Any other tags
       .trim();
 
     if (cleanedLine) {
@@ -362,7 +386,7 @@ function parseVttToText(vtt: string): string {
     }
   }
 
-  return textLines.join(' ').replace(/\s+/g, ' ').trim();
+  return textLines.join(' ').replace(MULTI_SPACE_RE, ' ').trim();
 }
 
 /**
@@ -466,14 +490,14 @@ export async function ensureTranscript(
     }
   }
 
-  // Create or update transcript record as queued
-  logWithTime('Creating transcript record (queued)...');
+  // Create or update transcript record directly as transcribing (Fix 1: single DB write)
+  logWithTime('Creating transcript record (transcribing)...');
   const { error: upsertError } = await supabase
     .from('transcripts')
     .upsert({
       episode_id: episodeId,
       language,
-      status: 'queued',
+      status: 'transcribing',
       updated_at: new Date().toISOString()
     }, { onConflict: 'episode_id,language' });
 
@@ -481,14 +505,6 @@ export async function ensureTranscript(
     logWithTime('DB upsert error', { error: upsertError });
     return { status: 'failed', error: 'Database error' };
   }
-
-  // Update to transcribing
-  logWithTime('Updating status to transcribing...');
-  await supabase
-    .from('transcripts')
-    .update({ status: 'transcribing' })
-    .eq('episode_id', episodeId)
-    .eq('language', language);
 
   try {
     let transcriptText: string | null = null;
@@ -750,15 +766,15 @@ export async function requestSummary(
     // If failed or not_ready, we'll try again
   }
 
-  // Create summary record as queued
-  logWithTime('Creating summary record (queued)...');
+  // Create summary record directly as transcribing (Fix 1: single DB write)
+  logWithTime('Creating summary record (transcribing)...');
   await supabase
     .from('summaries')
     .upsert({
       episode_id: episodeId,
       level,
       language,
-      status: 'queued',
+      status: 'transcribing',
       updated_at: new Date().toISOString()
     }, { onConflict: 'episode_id,level,language' });
 

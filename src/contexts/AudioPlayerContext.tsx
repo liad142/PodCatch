@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 
 interface Track {
   id: string;
@@ -11,18 +11,20 @@ interface Track {
   duration?: number;
 }
 
-interface AudioPlayerState {
-  currentTrack: Track | null;
-  isPlaying: boolean;
+// Frequently changing state (updates ~60fps during playback)
+interface AudioPlayerFrequentState {
   currentTime: number;
   duration: number;
-  volume: number;
-  playbackRate: number;
+  isPlaying: boolean;
   isLoading: boolean;
-  isExpanded: boolean;
 }
 
-interface AudioPlayerContextType extends AudioPlayerState {
+// Stable state + control functions (changes infrequently)
+interface AudioPlayerControlsType {
+  currentTrack: Track | null;
+  volume: number;
+  playbackRate: number;
+  isExpanded: boolean;
   play: (track?: Track) => void;
   pause: () => void;
   toggle: () => void;
@@ -35,35 +37,67 @@ interface AudioPlayerContextType extends AudioPlayerState {
   toggleExpanded: () => void;
 }
 
-const AudioPlayerContext = createContext<AudioPlayerContextType | null>(null);
+// Combined type for backward compatibility
+interface AudioPlayerContextType extends AudioPlayerFrequentState, AudioPlayerControlsType {}
 
-export function useAudioPlayer() {
-  const context = useContext(AudioPlayerContext);
+// Two separate contexts
+const AudioPlayerStateContext = createContext<AudioPlayerFrequentState | null>(null);
+const AudioPlayerControlsContext = createContext<AudioPlayerControlsType | null>(null);
+
+// Hook for frequently changing state (currentTime, isPlaying, etc.)
+export function useAudioPlayerState() {
+  const context = useContext(AudioPlayerStateContext);
   if (!context) {
-    throw new Error('useAudioPlayer must be used within an AudioPlayerProvider');
+    throw new Error('useAudioPlayerState must be used within an AudioPlayerProvider');
   }
   return context;
 }
 
+// Hook for stable controls and infrequently changing state
+export function useAudioPlayerControls() {
+  const context = useContext(AudioPlayerControlsContext);
+  if (!context) {
+    throw new Error('useAudioPlayerControls must be used within an AudioPlayerProvider');
+  }
+  return context;
+}
+
+// Combined hook for backward compatibility
+export function useAudioPlayer(): AudioPlayerContextType {
+  const state = useAudioPlayerState();
+  const controls = useAudioPlayerControls();
+  return { ...state, ...controls };
+}
+
 // Safe hook that doesn't throw if used outside provider
-export function useAudioPlayerSafe() {
-  return useContext(AudioPlayerContext);
+export function useAudioPlayerSafe(): AudioPlayerContextType | null {
+  const state = useContext(AudioPlayerStateContext);
+  const controls = useContext(AudioPlayerControlsContext);
+  if (!state || !controls) return null;
+  return { ...state, ...controls };
 }
 
 export function AudioPlayerProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioInitialized = useRef(false);
 
-  const [state, setState] = useState<AudioPlayerState>({
-    currentTrack: null,
-    isPlaying: false,
-    currentTime: 0,
-    duration: 0,
-    volume: 0.8,
-    playbackRate: 1,
-    isLoading: false,
-    isExpanded: false,
-  });
+  // Frequently changing state
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Infrequently changing state
+  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
+  const [volume, setVolumeState] = useState(0.8);
+  const [playbackRate, setPlaybackRateState] = useState(1);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Use refs for values needed in callbacks to avoid stale closures
+  const durationRef = useRef(duration);
+  durationRef.current = duration;
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
 
   // Lazy initialize audio element only when needed
   const initializeAudio = useCallback(() => {
@@ -73,42 +107,40 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     audioInitialized.current = true;
     audioRef.current = new Audio();
-    audioRef.current.volume = state.volume;
-    audioRef.current.playbackRate = state.playbackRate;
+    audioRef.current.volume = 0.8;
+    audioRef.current.playbackRate = 1;
 
     // Event listeners
     const audio = audioRef.current;
 
     const handleTimeUpdate = () => {
-      setState(prev => ({ ...prev, currentTime: audio.currentTime }));
+      setCurrentTime(audio.currentTime);
     };
 
     const handleLoadedMetadata = () => {
-      setState(prev => ({
-        ...prev,
-        duration: audio.duration,
-        isLoading: false
-      }));
+      setDuration(audio.duration);
+      setIsLoading(false);
     };
 
     const handleEnded = () => {
-      setState(prev => ({ ...prev, isPlaying: false, currentTime: 0 }));
+      setIsPlaying(false);
+      setCurrentTime(0);
     };
 
     const handlePlay = () => {
-      setState(prev => ({ ...prev, isPlaying: true }));
+      setIsPlaying(true);
     };
 
     const handlePause = () => {
-      setState(prev => ({ ...prev, isPlaying: false }));
+      setIsPlaying(false);
     };
 
     const handleWaiting = () => {
-      setState(prev => ({ ...prev, isLoading: true }));
+      setIsLoading(true);
     };
 
     const handleCanPlay = () => {
-      setState(prev => ({ ...prev, isLoading: false }));
+      setIsLoading(false);
     };
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
@@ -120,7 +152,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     audio.addEventListener('canplay', handleCanPlay);
 
     return audio;
-  }, [state.volume, state.playbackRate]);
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -136,13 +168,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     const audio = initializeAudio();
     if (!audio) return;
 
-    setState(prev => ({
-      ...prev,
-      currentTrack: track,
-      isLoading: true,
-      currentTime: 0,
-      duration: track.duration || 0,
-    }));
+    setCurrentTrack(track);
+    setIsLoading(true);
+    setCurrentTime(0);
+    setDuration(track.duration || 0);
 
     audio.src = track.audioUrl;
     audio.load();
@@ -168,34 +197,35 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const toggle = useCallback(() => {
-    if (state.isPlaying) {
-      pause();
+    if (isPlayingRef.current) {
+      audioRef.current?.pause();
     } else {
-      play();
+      const audio = initializeAudio();
+      audio?.play().catch(console.error);
     }
-  }, [state.isPlaying, play, pause]);
+  }, [initializeAudio]);
 
   const seek = useCallback((time: number) => {
     if (!audioRef.current) return;
-    audioRef.current.currentTime = Math.max(0, Math.min(time, state.duration));
-  }, [state.duration]);
+    audioRef.current.currentTime = Math.max(0, Math.min(time, durationRef.current));
+  }, []);
 
   const seekRelative = useCallback((delta: number) => {
     if (!audioRef.current) return;
-    const newTime = Math.max(0, Math.min(audioRef.current.currentTime + delta, state.duration));
+    const newTime = Math.max(0, Math.min(audioRef.current.currentTime + delta, durationRef.current));
     audioRef.current.currentTime = newTime;
-  }, [state.duration]);
+  }, []);
 
-  const setVolume = useCallback((volume: number) => {
-    const clampedVolume = Math.max(0, Math.min(1, volume));
-    setState(prev => ({ ...prev, volume: clampedVolume }));
+  const setVolume = useCallback((vol: number) => {
+    const clampedVolume = Math.max(0, Math.min(1, vol));
+    setVolumeState(clampedVolume);
     if (audioRef.current) {
       audioRef.current.volume = clampedVolume;
     }
   }, []);
 
   const setPlaybackRate = useCallback((rate: number) => {
-    setState(prev => ({ ...prev, playbackRate: rate }));
+    setPlaybackRateState(rate);
     if (audioRef.current) {
       audioRef.current.playbackRate = rate;
     }
@@ -206,21 +236,30 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       audioRef.current.pause();
       audioRef.current.src = '';
     }
-    setState(prev => ({
-      ...prev,
-      currentTrack: null,
-      isPlaying: false,
-      currentTime: 0,
-      duration: 0,
-    }));
+    setCurrentTrack(null);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
   }, []);
 
   const toggleExpanded = useCallback(() => {
-    setState(prev => ({ ...prev, isExpanded: !prev.isExpanded }));
+    setIsExpanded(prev => !prev);
   }, []);
 
-  const value: AudioPlayerContextType = {
-    ...state,
+  // Memoize the frequently changing state value
+  const stateValue = useMemo<AudioPlayerFrequentState>(() => ({
+    currentTime,
+    duration,
+    isPlaying,
+    isLoading,
+  }), [currentTime, duration, isPlaying, isLoading]);
+
+  // Memoize the controls value - only changes when stable state changes
+  const controlsValue = useMemo<AudioPlayerControlsType>(() => ({
+    currentTrack,
+    volume,
+    playbackRate,
+    isExpanded,
     play,
     pause,
     toggle,
@@ -231,11 +270,28 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     loadTrack,
     clearTrack,
     toggleExpanded,
-  };
+  }), [
+    currentTrack,
+    volume,
+    playbackRate,
+    isExpanded,
+    play,
+    pause,
+    toggle,
+    seek,
+    seekRelative,
+    setVolume,
+    setPlaybackRate,
+    loadTrack,
+    clearTrack,
+    toggleExpanded,
+  ]);
 
   return (
-    <AudioPlayerContext.Provider value={value}>
-      {children}
-    </AudioPlayerContext.Provider>
+    <AudioPlayerControlsContext.Provider value={controlsValue}>
+      <AudioPlayerStateContext.Provider value={stateValue}>
+        {children}
+      </AudioPlayerStateContext.Provider>
+    </AudioPlayerControlsContext.Provider>
   );
 }

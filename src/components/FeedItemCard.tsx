@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +27,7 @@ interface FeedItemCardProps {
   onBookmarkToggle: (itemId: string) => void;
 }
 
-export default function FeedItemCard({ item, onBookmarkToggle }: FeedItemCardProps) {
+const FeedItemCard = React.memo(function FeedItemCard({ item, onBookmarkToggle }: FeedItemCardProps) {
   const formatDuration = (seconds?: number) => {
     if (!seconds) return null;
     const mins = Math.floor(seconds / 60);
@@ -49,14 +50,16 @@ export default function FeedItemCard({ item, onBookmarkToggle }: FeedItemCardPro
   };
 
   return (
-    <Card className="group overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1">
+    <Card variant="glass" className="group overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1">
       {/* Thumbnail */}
       <div className="relative aspect-video overflow-hidden bg-slate-200 dark:bg-slate-700">
         {item.thumbnailUrl ? (
-          <img
+          <Image
             src={item.thumbnailUrl}
             alt={item.title}
-            className="w-full h-full object-cover transition-transform group-hover:scale-105"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover transition-transform group-hover:scale-105"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -125,4 +128,6 @@ export default function FeedItemCard({ item, onBookmarkToggle }: FeedItemCardPro
       </div>
     </Card>
   );
-}
+});
+
+export default FeedItemCard;

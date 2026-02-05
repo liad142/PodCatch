@@ -3,6 +3,7 @@
 import * as React from "react"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { glass } from "@/lib/glass"
 
 interface DialogProps {
   open: boolean
@@ -17,7 +18,7 @@ const Dialog = ({ open, onOpenChange, children }: DialogProps) => {
     <div className="fixed inset-0 z-50">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/80 backdrop-blur-sm"
+        className={cn("fixed inset-0", glass.overlay)}
         onClick={() => onOpenChange(false)}
       />
       {children}
@@ -33,7 +34,8 @@ const DialogContent = React.forwardRef<
     ref={ref}
     className={cn(
       "fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%]",
-      "bg-background border rounded-lg shadow-lg",
+      "rounded-lg",
+      glass.modal,
       "duration-200 animate-in fade-in-0 zoom-in-95 slide-in-from-left-1/2 slide-in-from-top-[48%]",
       className
     )}

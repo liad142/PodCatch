@@ -5,13 +5,15 @@ import { createServerClient } from '@/lib/supabase';
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
+  const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50', 10) || 50, 1), 200);
+  const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10) || 0, 0);
 
   if (!userId) {
     return NextResponse.json({ error: 'userId is required' }, { status: 400 });
   }
 
   try {
-    const { data: subscriptions, error } = await createServerClient()
+    const { data: subscriptions, error, count } = await createServerClient()
       .from('podcast_subscriptions')
       .select(`
         id,
@@ -28,9 +30,10 @@ export async function GET(request: NextRequest) {
           created_at,
           latest_episode_date
         )
-      `)
+      `, { count: 'exact' })
       .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) throw error;
 
@@ -51,7 +54,12 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ podcasts: podcastsWithStatus });
+    return NextResponse.json({
+      podcasts: podcastsWithStatus,
+      total: count ?? 0,
+      limit,
+      offset,
+    });
   } catch (error) {
     console.error('Error fetching subscriptions:', error);
     return NextResponse.json({ error: 'Failed to fetch subscriptions' }, { status: 500 });

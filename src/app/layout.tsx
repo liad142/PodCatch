@@ -34,13 +34,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} ${crimsonText.variable} ${outfit.variable}`}>
+      <body className={`${inter.className} ${crimsonText.variable} ${outfit.variable} glass-bg`}>
         <ThemeProvider>
           <CountryProvider>
             <SummarizeQueueProvider>
               <SubscriptionProvider>
                 <AudioPlayerProvider>
-                  <div className="min-h-screen bg-background">
+                  <div className="min-h-screen">
                     <Sidebar />
                     <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen pb-24">
                       <div className="max-w-7xl mx-auto">

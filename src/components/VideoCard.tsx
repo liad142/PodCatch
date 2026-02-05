@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ interface VideoCardProps {
   className?: string;
 }
 
-export function VideoCard({ video, onSave, userId, className }: VideoCardProps) {
+export const VideoCard = React.memo(function VideoCard({ video, onSave, userId, className }: VideoCardProps) {
   const [isSaved, setIsSaved] = useState(video.bookmarked || false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -99,10 +99,9 @@ export function VideoCard({ video, onSave, userId, className }: VideoCardProps) 
   };
 
   return (
-    <Card className={cn(
+    <Card variant="glass" className={cn(
       'group overflow-hidden transition-all duration-300',
       'hover:shadow-lg hover:-translate-y-1',
-      'bg-card/50 backdrop-blur border-0 shadow-sm',
       className
     )}>
       {/* Thumbnail */}
@@ -200,4 +199,4 @@ export function VideoCard({ video, onSave, userId, className }: VideoCardProps) 
       </CardContent>
     </Card>
   );
-}
+});

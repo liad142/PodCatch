@@ -9,6 +9,29 @@ const deepgram = createClient(process.env.DEEPGRAM_API_KEY!);
 
 const isDev = process.env.NODE_ENV === 'development';
 
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelayMs: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      // Don't retry on client errors (4xx)
+      if (error?.status >= 400 && error?.status < 500) throw error;
+      if (attempt < maxRetries) {
+        const delay = baseDelayMs * Math.pow(2, attempt);
+        console.log(`[Deepgram] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
 function logWithTime(message: string, data?: Record<string, unknown>) {
   if (isDev) {
     const timestamp = new Date().toISOString();
@@ -53,10 +76,9 @@ async function resolveAudioUrl(url: string, maxRedirects = 5): Promise<string> {
   const REDIRECT_TIMEOUT = 3000; // 3 second timeout per redirect
 
   while (redirectCount < maxRedirects) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REDIRECT_TIMEOUT);
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), REDIRECT_TIMEOUT);
-
       const response = await fetch(currentUrl, {
         method: 'HEAD',
         redirect: 'manual', // Don't auto-follow, we want to track
@@ -65,8 +87,6 @@ async function resolveAudioUrl(url: string, maxRedirects = 5): Promise<string> {
         },
         signal: controller.signal,
       });
-
-      clearTimeout(timeoutId);
 
       // Check if it's a redirect (3xx status)
       if (response.status >= 300 && response.status < 400) {
@@ -101,6 +121,8 @@ async function resolveAudioUrl(url: string, maxRedirects = 5): Promise<string> {
         logWithTime('Error resolving URL, using current', { error: String(error) });
       }
       break;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
@@ -246,9 +268,11 @@ export async function transcribeFromUrl(
 
     logWithTime('Sending to Deepgram API...', config);
 
-    const { result, error } = await deepgram.listen.prerecorded.transcribeUrl(
-      { url: resolvedUrl },
-      config
+    const { result, error } = await withRetry(() =>
+      deepgram.listen.prerecorded.transcribeUrl(
+        { url: resolvedUrl },
+        config
+      )
     );
 
     if (error) {

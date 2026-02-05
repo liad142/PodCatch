@@ -6,10 +6,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Parser from 'rss-parser';
-import { createServerClient } from '@/lib/supabase';
+import { getCached, setCached, CacheKeys, CacheTTL } from '@/lib/cache';
 
 const RSSHUB_BASE_URL = process.env.RSSHUB_BASE_URL || 'http://localhost:1200';
-const CACHE_TTL_MINUTES = 30;
+// TTL comes from CacheTTL.YOUTUBE_TRENDING
 
 interface TrendingVideo {
   videoId: string;
@@ -21,17 +21,6 @@ interface TrendingVideo {
   channelUrl: string;
   url: string;
   duration?: number;
-}
-
-interface RSSItem {
-  title?: string;
-  link?: string;
-  pubDate?: string;
-  content?: string;
-  contentSnippet?: string;
-  guid?: string;
-  isoDate?: string;
-  author?: string;
 }
 
 const parser = new Parser();
@@ -54,51 +43,6 @@ function extractVideoId(url: string): string | null {
 }
 
 /**
- * Get cached response or null if expired
- */
-async function getCachedResponse(cacheKey: string): Promise<TrendingVideo[] | null> {
-  try {
-    const supabase = createServerClient();
-    const { data, error } = await supabase
-      .from('rsshub_cache')
-      .select('response_data, expires_at')
-      .eq('cache_key', cacheKey)
-      .single();
-
-    if (error || !data) return null;
-
-    const expiresAt = new Date(data.expires_at);
-    if (expiresAt < new Date()) {
-      await supabase.from('rsshub_cache').delete().eq('cache_key', cacheKey);
-      return null;
-    }
-
-    return data.response_data as TrendingVideo[];
-  } catch (err) {
-    console.error('Trending cache read error:', err);
-    return null;
-  }
-}
-
-/**
- * Cache response
- */
-async function setCachedResponse(cacheKey: string, data: TrendingVideo[]): Promise<void> {
-  try {
-    const supabase = createServerClient();
-    const expiresAt = new Date(Date.now() + CACHE_TTL_MINUTES * 60 * 1000);
-
-    await supabase.from('rsshub_cache').upsert({
-      cache_key: cacheKey,
-      response_data: data,
-      expires_at: expiresAt.toISOString(),
-    });
-  } catch (err) {
-    console.error('Trending cache write error:', err);
-  }
-}
-
-/**
  * Fetch trending from RSSHub YouTube trending endpoint
  * Falls back to popular tech channels if trending unavailable
  */
@@ -106,8 +50,6 @@ async function fetchTrendingVideos(country: string, limit: number): Promise<Tren
   const videos: TrendingVideo[] = [];
 
   // RSSHub YouTube trending endpoints by region
-  // Format: /youtube/trending/:region/:embed?
-  // Regions: default, music, gaming, news, movies
   const rsshubTrendingUrl = `${RSSHUB_BASE_URL}/youtube/trending/${country}`;
 
   try {
@@ -170,7 +112,7 @@ async function fetchTrendingVideos(country: string, limit: number): Promise<Tren
           if (videos.length >= limit) break;
 
           const videoId = extractVideoId(item.link || '') || item.guid || '';
-          
+
           // Avoid duplicates
           if (videos.some(v => v.videoId === videoId)) continue;
 
@@ -203,10 +145,10 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '12', 10);
     const country = (searchParams.get('country') || 'US').toUpperCase();
 
-    // Check cache first
-    const cacheKey = `youtube:trending:${country}:${limit}`;
-    const cached = await getCachedResponse(cacheKey);
-    
+    // Check Redis cache
+    const cacheKey = CacheKeys.youtubeTrending(country, limit);
+    const cached = await getCached<TrendingVideo[]>(cacheKey);
+
     if (cached && cached.length > 0) {
       return NextResponse.json({
         success: true,
@@ -221,7 +163,7 @@ export async function GET(request: NextRequest) {
 
     // Cache the result
     if (videos.length > 0) {
-      await setCachedResponse(cacheKey, videos);
+      await setCached(cacheKey, videos, CacheTTL.YOUTUBE_TRENDING);
     }
 
     return NextResponse.json({
@@ -232,7 +174,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('YouTube trending error:', error);
-    
+
     // Return empty array with friendly message instead of crashing
     return NextResponse.json({
       success: false,

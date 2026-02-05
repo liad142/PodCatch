@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { glass } from '@/lib/glass';
 import { 
   Youtube, 
   Radio, 
@@ -105,8 +106,8 @@ export function EmptyState({
 
   return (
     <div className={cn(
-      'flex flex-col items-center justify-center py-12 px-4 text-center',
-      'bg-muted/30 rounded-xl border border-dashed border-muted-foreground/20',
+      'flex flex-col items-center justify-center py-12 px-4 text-center rounded-xl',
+      glass.card,
       className
     )}>
       <div className={cn(

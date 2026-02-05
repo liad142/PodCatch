@@ -4,10 +4,11 @@
  */
 
 import Parser from 'rss-parser';
-import { createServerClient } from '@/lib/supabase';
+import { getCached, setCached, CacheKeys, CacheTTL, checkRateLimit as redisRateLimit } from '@/lib/cache';
 
 const RSSHUB_BASE_URL = process.env.RSSHUB_BASE_URL || 'http://localhost:1200';
-const CACHE_TTL_MINUTES = 30;
+// Rate limiting is handled by Redis via @/lib/cache
+const MAX_FEED_SIZE = 10 * 1024 * 1024; // 10MB limit for XML feeds
 
 interface YouTubeVideo {
   videoId: string;
@@ -133,53 +134,7 @@ export function parseYouTubeInput(input: string): {
   return { type: 'unknown', value: input };
 }
 
-/**
- * Get cached RSSHub response or null if expired/missing
- */
-async function getCachedResponse(cacheKey: string): Promise<RSSHubFeed | null> {
-  try {
-    const supabase = createServerClient();
-
-    const { data, error } = await supabase
-      .from('rsshub_cache')
-      .select('response_data, expires_at')
-      .eq('cache_key', cacheKey)
-      .single();
-
-    if (error || !data) return null;
-
-    const expiresAt = new Date(data.expires_at);
-    if (expiresAt < new Date()) {
-      // Expired, delete it
-      await supabase.from('rsshub_cache').delete().eq('cache_key', cacheKey);
-      return null;
-    }
-
-    return data.response_data as RSSHubFeed;
-  } catch (err) {
-    console.error('Cache read error:', err);
-    return null;
-  }
-}
-
-/**
- * Cache RSSHub response
- */
-async function setCachedResponse(cacheKey: string, data: RSSHubFeed): Promise<void> {
-  try {
-    const supabase = createServerClient();
-
-    const expiresAt = new Date(Date.now() + CACHE_TTL_MINUTES * 60 * 1000);
-
-    await supabase.from('rsshub_cache').upsert({
-      cache_key: cacheKey,
-      response_data: data,
-      expires_at: expiresAt.toISOString(),
-    });
-  } catch (err) {
-    console.error('Cache write error:', err);
-  }
-}
+// Cache functions are now imported from @/lib/cache
 
 /**
  * Fetch YouTube channel RSS feed via RSSHub
@@ -188,11 +143,11 @@ export async function fetchYouTubeChannelFeed(
   channelIdOrHandle: string,
   useCache = true
 ): Promise<{ channel: YouTubeChannelInfo; videos: YouTubeVideo[] }> {
-  const cacheKey = `youtube:${channelIdOrHandle}`;
+  const cacheKey = CacheKeys.youtubeFeed(channelIdOrHandle);
 
   // Check cache first
   if (useCache) {
-    const cached = await getCachedResponse(cacheKey);
+    const cached = await getCached<RSSHubFeed>(cacheKey);
     if (cached) {
       return parseFeedData(cached, channelIdOrHandle);
     }
@@ -217,11 +172,18 @@ export async function fetchYouTubeChannelFeed(
       throw new Error(`RSSHub returned ${response.status}: ${response.statusText}`);
     }
 
+    const contentLength = response.headers.get('content-length');
+    if (contentLength && parseInt(contentLength) > MAX_FEED_SIZE) {
+      throw new Error('Feed too large to process');
+    }
     const feedXml = await response.text();
+    if (feedXml.length > MAX_FEED_SIZE) {
+      throw new Error('Feed content exceeds size limit');
+    }
     const feed = await parser.parseString(feedXml);
 
-    // Cache the response
-    await setCachedResponse(cacheKey, feed as unknown as RSSHubFeed);
+    // Cache the response in Redis
+    await setCached(cacheKey, feed as unknown as RSSHubFeed, CacheTTL.YOUTUBE_FEED);
 
     return parseFeedData(feed as unknown as RSSHubFeed, channelIdOrHandle);
   } catch (err) {
@@ -265,41 +227,8 @@ function parseFeedData(
 }
 
 /**
- * Rate limiter using in-memory store (simple implementation)
- * In production, consider Redis for distributed rate limiting
+ * Rate limiter for API calls (distributed via Redis)
  */
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
-
-export function checkRateLimit(userId: string, maxRequests = 10, windowMs = 60000): boolean {
-  const now = Date.now();
-  const userLimit = rateLimitStore.get(userId);
-
-  if (!userLimit || userLimit.resetAt < now) {
-    rateLimitStore.set(userId, { count: 1, resetAt: now + windowMs });
-    return true;
-  }
-
-  if (userLimit.count >= maxRequests) {
-    return false;
-  }
-
-  userLimit.count++;
-  return true;
-}
-
-/**
- * Clean up expired rate limit entries periodically
- */
-export function cleanupRateLimits(): void {
-  const now = Date.now();
-  for (const [userId, limit] of rateLimitStore.entries()) {
-    if (limit.resetAt < now) {
-      rateLimitStore.delete(userId);
-    }
-  }
-}
-
-// Run cleanup every 5 minutes
-if (typeof setInterval !== 'undefined') {
-  setInterval(cleanupRateLimits, 5 * 60 * 1000);
+export async function checkRateLimit(userId: string, maxRequests = 10, windowSeconds = 60): Promise<boolean> {
+  return redisRateLimit(userId, maxRequests, windowSeconds);
 }

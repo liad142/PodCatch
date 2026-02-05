@@ -3,6 +3,7 @@
 import { Settings, Moon, Sun, Monitor } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
+import { Card } from '@/components/ui/card';
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
@@ -27,7 +28,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Theme Settings */}
-        <section className="rounded-lg border bg-card p-6 mb-6">
+        <Card variant="glass" className="p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4">Appearance</h2>
           <div className="space-y-4">
             <div>
@@ -66,22 +67,22 @@ export default function SettingsPage() {
               </p>
             </div>
           </div>
-        </section>
+        </Card>
 
         {/* Coming Soon Sections */}
-        <section className="rounded-lg border bg-card p-6 mb-6 opacity-60">
+        <Card variant="glass" className="p-6 mb-6 opacity-60">
           <h2 className="text-lg font-semibold mb-2">Account</h2>
           <p className="text-muted-foreground text-sm">
             Account settings and preferences coming soon.
           </p>
-        </section>
+        </Card>
 
-        <section className="rounded-lg border bg-card p-6 opacity-60">
+        <Card variant="glass" className="p-6 opacity-60">
           <h2 className="text-lg font-semibold mb-2">Notifications</h2>
           <p className="text-muted-foreground text-sm">
             Notification preferences coming soon.
           </p>
-        </section>
+        </Card>
       </div>
     </div>
   );

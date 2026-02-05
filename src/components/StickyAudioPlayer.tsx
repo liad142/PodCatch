@@ -1,6 +1,26 @@
 'use client';
 
 import React, { useMemo } from 'react';
+
+// Sanitize artwork URLs that may contain malformed data (e.g., wrapped in ["..."])
+function sanitizeImageUrl(url: string | undefined): string | null {
+  if (!url) return null;
+  let cleaned = url.trim();
+  // Strip JSON array/quote wrapping: ["url"] or ['url']
+  if (cleaned.startsWith('[')) {
+    cleaned = cleaned.replace(/^\[["']?/, '').replace(/["']?\]$/, '');
+  }
+  // Must start with http:// or https://
+  if (!cleaned.startsWith('http://') && !cleaned.startsWith('https://')) {
+    return null;
+  }
+  try {
+    new URL(cleaned);
+    return cleaned;
+  } catch {
+    return null;
+  }
+}
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play,
@@ -132,10 +152,11 @@ export function StickyAudioPlayer() {
                   whileHover={{ scale: 1.05 }}
                   transition={{ type: 'spring', stiffness: 400 }}
                 >
-                  <div className="w-14 h-14 rounded-lg overflow-hidden shadow-lg shadow-black/50 ring-1 ring-white/10">
-                    {currentTrack.artworkUrl ? (
+                  <div className="relative w-14 h-14 rounded-lg overflow-hidden shadow-lg shadow-black/50 ring-1 ring-white/10">
+                    {sanitizeImageUrl(currentTrack.artworkUrl) ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
                       <img
-                        src={currentTrack.artworkUrl}
+                        src={sanitizeImageUrl(currentTrack.artworkUrl)!}
                         alt={currentTrack.title}
                         className="w-full h-full object-cover"
                       />
