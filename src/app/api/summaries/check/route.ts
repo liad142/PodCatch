@@ -19,6 +19,11 @@ export async function POST(request: NextRequest) {
     const body: CheckSummariesRequest = await request.json();
     const { audioUrls } = body;
 
+    console.log('[SUMMARIES CHECK] Request received', {
+      audioUrlCount: audioUrls?.length,
+      sampleUrls: audioUrls?.slice(0, 3).map(u => u.substring(0, 60))
+    });
+
     if (!audioUrls || !Array.isArray(audioUrls) || audioUrls.length === 0) {
       return NextResponse.json(
         { error: 'audioUrls array is required' },
@@ -41,6 +46,12 @@ export async function POST(request: NextRequest) {
       .from('episodes')
       .select('id, audio_url')
       .in('audio_url', audioUrls);
+
+    console.log('[SUMMARIES CHECK] Episodes lookup', { 
+      queriedUrls: audioUrls.length,
+      foundEpisodes: episodes?.length || 0,
+      episodeIds: episodes?.map(e => e.id).slice(0, 5) // Log first 5
+    });
 
     if (episodesError) {
       console.error('Error fetching episodes:', episodesError);
@@ -72,6 +83,16 @@ export async function POST(request: NextRequest) {
       .select('episode_id, level, status')
       .in('episode_id', episodeIds);
 
+    console.log('[SUMMARIES CHECK] Summaries lookup', {
+      episodeIds: episodeIds.length,
+      foundSummaries: summaries?.length || 0,
+      summaryDetails: summaries?.map(s => ({ 
+        episode_id: s.episode_id.substring(0, 8),
+        level: s.level,
+        status: s.status 
+      }))
+    });
+
     if (summariesError) {
       console.error('Error fetching summaries:', summariesError);
       return NextResponse.json(
@@ -84,14 +105,36 @@ export async function POST(request: NextRequest) {
     const audioUrlToEpisode = new Map(episodes.map(e => [e.audio_url, e.id]));
 
     // Build episode ID to summaries mapping
+    // Priority: ready > summarizing > transcribing > queued > failed > not_ready
+    const statusPriority: Record<string, number> = {
+      ready: 6,
+      summarizing: 5,
+      transcribing: 4,
+      queued: 3,
+      failed: 2,
+      not_ready: 1,
+    };
+
     const episodeSummaries = new Map<string, { quick: string | null; deep: string | null }>();
     for (const summary of summaries || []) {
       const existing = episodeSummaries.get(summary.episode_id) || { quick: null, deep: null };
+
       if (summary.level === 'quick') {
-        existing.quick = summary.status;
+        // Only update if new status has higher priority
+        const currentPriority = statusPriority[existing.quick || ''] || 0;
+        const newPriority = statusPriority[summary.status] || 0;
+        if (newPriority > currentPriority) {
+          existing.quick = summary.status;
+        }
       } else if (summary.level === 'deep') {
-        existing.deep = summary.status;
+        // Only update if new status has higher priority
+        const currentPriority = statusPriority[existing.deep || ''] || 0;
+        const newPriority = statusPriority[summary.status] || 0;
+        if (newPriority > currentPriority) {
+          existing.deep = summary.status;
+        }
       }
+
       episodeSummaries.set(summary.episode_id, existing);
     }
 

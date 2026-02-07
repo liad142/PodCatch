@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 // GET: List all subscribed podcasts for a user
 export async function GET(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
   const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50', 10) || 50, 1), 200);
   const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10) || 0, 0);
 
-  if (!userId) {
-    return NextResponse.json({ error: 'userId is required' }, { status: 400 });
-  }
-
   try {
-    const { data: subscriptions, error, count } = await createServerClient()
+    const { data: subscriptions, error, count } = await createAdminClient()
       .from('podcast_subscriptions')
       .select(`
         id,
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
           latest_episode_date
         )
       `, { count: 'exact' })
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -68,20 +69,25 @@ export async function GET(request: NextRequest) {
 
 // POST: Subscribe to a podcast
 export async function POST(request: NextRequest) {
-  try {
-    const { userId, podcastId } = await request.json();
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
-    if (!userId || !podcastId) {
+  try {
+    const { podcastId } = await request.json();
+
+    if (!podcastId) {
       return NextResponse.json(
-        { error: 'userId and podcastId are required' },
+        { error: 'podcastId is required' },
         { status: 400 }
       );
     }
 
-    const { data: existing } = await createServerClient()
+    const { data: existing } = await createAdminClient()
       .from('podcast_subscriptions')
       .select('id')
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .eq('podcast_id', podcastId)
       .single();
 
@@ -89,10 +95,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Already subscribed', id: existing.id });
     }
 
-    const { data: subscription, error } = await createServerClient()
+    const { data: subscription, error } = await createAdminClient()
       .from('podcast_subscriptions')
       .insert({
-        user_id: userId,
+        user_id: user.id,
         podcast_id: podcastId,
       })
       .select()

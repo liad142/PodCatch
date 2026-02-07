@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Bookmark, Loader2, RefreshCw, Youtube, Radio } from 'lucide-react';
+import { Bookmark, RefreshCw, Youtube, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { VideoCard, VideoItem } from '@/components/VideoCard';
 import { EmptyState } from '@/components/EmptyState';
+import { SignInPrompt } from '@/components/auth/SignInPrompt';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 type SavedTab = 'youtube' | 'podcasts';
@@ -22,20 +24,19 @@ interface SavedVideo {
   savedAt: string;
 }
 
-// TODO: Replace with actual user ID from auth context
-const USER_ID = 'demo-user-id';
-
 export default function SavedPage() {
+  const { user, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<SavedTab>('youtube');
   const [savedVideos, setSavedVideos] = useState<SavedVideo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchSavedVideos = useCallback(async () => {
+    if (!user) return;
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/youtube/save?userId=${USER_ID}&limit=50`);
+      const response = await fetch('/api/youtube/save?limit=50');
       const data = await response.json();
 
       if (data.success && data.videos) {
@@ -51,17 +52,18 @@ export default function SavedPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    if (activeTab === 'youtube') {
+    if (activeTab === 'youtube' && user) {
       fetchSavedVideos();
+    } else if (!user) {
+      setIsLoading(false);
     }
-  }, [activeTab, fetchSavedVideos]);
+  }, [activeTab, fetchSavedVideos, user]);
 
   const handleVideoUnsaved = (video: VideoItem, saved: boolean) => {
     if (!saved) {
-      // Remove from list when unsaved
       setSavedVideos(prev => prev.filter(v => v.videoId !== video.videoId));
     }
   };
@@ -75,6 +77,40 @@ export default function SavedPage() {
     url: saved.url,
     bookmarked: true,
   });
+
+  if (authLoading) {
+    return (
+      <div className="px-4 py-8">
+        <div className="max-w-5xl mx-auto">
+          <Skeleton className="h-10 w-48 mb-4" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="aspect-video rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="px-4 py-8">
+        <div className="max-w-5xl mx-auto mb-8">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-primary/10">
+              <Bookmark className="h-7 w-7 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold">Saved</h1>
+              <p className="text-muted-foreground mt-1">Your bookmarked videos and episodes</p>
+            </div>
+          </div>
+        </div>
+        <SignInPrompt message="Sign in to see your saved content" />
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 py-8">
@@ -120,7 +156,7 @@ export default function SavedPage() {
               Podcasts
             </Button>
           </div>
-          
+
           {activeTab === 'youtube' && (
             <Button
               variant="ghost"
@@ -138,7 +174,6 @@ export default function SavedPage() {
       {/* Content */}
       <div className="max-w-5xl mx-auto">
         {activeTab === 'youtube' ? (
-          // YouTube Saved Content
           isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {Array.from({ length: 8 }).map((_, i) => (
@@ -175,7 +210,6 @@ export default function SavedPage() {
                   <VideoCard
                     key={video.videoId}
                     video={transformToVideoItem(video)}
-                    userId={USER_ID}
                     onSave={handleVideoUnsaved}
                   />
                 ))}
@@ -183,7 +217,6 @@ export default function SavedPage() {
             </>
           )
         ) : (
-          // Podcasts Saved Content - Coming Soon
           <EmptyState
             type="saved"
             title="Podcast Saves Coming Soon"

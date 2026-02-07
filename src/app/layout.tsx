@@ -6,7 +6,10 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { SummarizeQueueProvider } from "@/contexts/SummarizeQueueContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { Sidebar } from "@/components/Sidebar";
+import { AuthModal } from "@/components/auth/AuthModal";
+import { CompactAuthPrompt } from "@/components/auth/CompactAuthPrompt";
 import { QueueToast } from "@/components/QueueToast";
 import { StickyAudioPlayer } from "@/components/StickyAudioPlayer";
 import { Agentation } from "agentation";
@@ -35,26 +38,30 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} ${crimsonText.variable} ${outfit.variable} glass-bg`}>
-        <ThemeProvider>
-          <CountryProvider>
-            <SummarizeQueueProvider>
-              <SubscriptionProvider>
-                <AudioPlayerProvider>
-                  <div className="min-h-screen">
-                    <Sidebar />
-                    <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen pb-24">
-                      <div className="max-w-7xl mx-auto">
-                        {children}
-                      </div>
-                    </main>
-                  </div>
-                  <QueueToast />
-                  <StickyAudioPlayer />
-                </AudioPlayerProvider>
-              </SubscriptionProvider>
-            </SummarizeQueueProvider>
-          </CountryProvider>
-        </ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <CountryProvider>
+              <SummarizeQueueProvider>
+                <SubscriptionProvider>
+                  <AudioPlayerProvider>
+                    <div className="min-h-screen">
+                      <Sidebar />
+                      <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen pb-24">
+                        <div className="max-w-7xl mx-auto">
+                          {children}
+                        </div>
+                      </main>
+                    </div>
+                    <AuthModal />
+                    <CompactAuthPrompt />
+                    <QueueToast />
+                    <StickyAudioPlayer />
+                  </AudioPlayerProvider>
+                </SubscriptionProvider>
+              </SummarizeQueueProvider>
+            </CountryProvider>
+          </ThemeProvider>
+        </AuthProvider>
         {process.env.NODE_ENV === "development" && <Agentation />}
       </body>
     </html>

@@ -7,23 +7,23 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { VideoCard, VideoItem } from '@/components/VideoCard';
 import { EmptyState } from '@/components/EmptyState';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 type YouTubeTab = 'trending' | 'followed';
 
 interface YouTubeSectionProps {
-  userId?: string;
   initialTab?: YouTubeTab;
   itemsPerPage?: number;
   className?: string;
 }
 
 export function YouTubeSection({
-  userId = 'demo-user-id',
   initialTab = 'trending',
   itemsPerPage = 12,
   className,
 }: YouTubeSectionProps) {
+  const { user } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<YouTubeTab>(initialTab);
   const [trendingVideos, setTrendingVideos] = useState<VideoItem[]>([]);
@@ -58,12 +58,17 @@ export function YouTubeSection({
 
   // Fetch followed channel videos
   const fetchFollowed = useCallback(async () => {
+    if (!user) {
+      setFollowedVideos([]);
+      setLoadingFollowed(false);
+      return;
+    }
     setLoadingFollowed(true);
     setFollowedError(null);
     try {
-      const response = await fetch(`/api/youtube/followed?userId=${userId}&limit=${itemsPerPage}`);
+      const response = await fetch(`/api/youtube/followed?limit=${itemsPerPage}`);
       const data = await response.json();
-      
+
       if (data.success && data.videos) {
         setFollowedVideos(data.videos);
       } else {
@@ -77,7 +82,7 @@ export function YouTubeSection({
     } finally {
       setLoadingFollowed(false);
     }
-  }, [userId, itemsPerPage]);
+  }, [user, itemsPerPage]);
 
   // Initial fetch
   useEffect(() => {
@@ -191,7 +196,6 @@ export function YouTubeSection({
             <VideoCard
               key={video.videoId}
               video={video}
-              userId={userId}
               onSave={handleVideoSaved}
             />
           ))}

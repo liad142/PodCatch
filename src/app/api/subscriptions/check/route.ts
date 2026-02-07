@@ -1,23 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 // POST: Check subscription status for multiple podcasts
 export async function POST(request: NextRequest) {
-  try {
-    const { userId, podcastIds, appleIds } = await request.json();
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
-    }
+  try {
+    const { podcastIds, appleIds } = await request.json();
 
     const statusMap: Record<string, boolean> = {};
 
     // Check by internal podcast IDs
     if (podcastIds && Array.isArray(podcastIds) && podcastIds.length > 0) {
-      const { data: subscriptions } = await createServerClient()
+      const { data: subscriptions } = await createAdminClient()
         .from('podcast_subscriptions')
         .select('podcast_id')
-        .eq('user_id', userId)
+        .eq('user_id', user.id)
         .in('podcast_id', podcastIds);
 
       const subscribedIds = new Set((subscriptions || []).map(s => s.podcast_id));
@@ -31,7 +33,7 @@ export async function POST(request: NextRequest) {
       const appleRssUrls = appleIds.map((id: string) => `apple:${id}`);
 
       // First, find podcasts by their apple RSS URLs
-      const { data: podcasts } = await createServerClient()
+      const { data: podcasts } = await createAdminClient()
         .from('podcasts')
         .select('id, rss_feed_url')
         .in('rss_feed_url', appleRssUrls);
@@ -40,10 +42,10 @@ export async function POST(request: NextRequest) {
         const podcastIdList = podcasts.map(p => p.id);
 
         // Then check subscriptions for these podcasts
-        const { data: subscriptions } = await createServerClient()
+        const { data: subscriptions } = await createAdminClient()
           .from('podcast_subscriptions')
           .select('podcast_id')
-          .eq('user_id', userId)
+          .eq('user_id', user.id)
           .in('podcast_id', podcastIdList);
 
         const subscribedPodcastIds = new Set((subscriptions || []).map(s => s.podcast_id));

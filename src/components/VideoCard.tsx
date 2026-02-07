@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Bookmark, Play, Clock, Calendar, ExternalLink } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 export interface VideoItem {
@@ -24,11 +25,11 @@ export interface VideoItem {
 interface VideoCardProps {
   video: VideoItem;
   onSave?: (video: VideoItem, saved: boolean) => void;
-  userId?: string;
   className?: string;
 }
 
-export const VideoCard = React.memo(function VideoCard({ video, onSave, userId, className }: VideoCardProps) {
+export const VideoCard = React.memo(function VideoCard({ video, onSave, className }: VideoCardProps) {
+  const { user } = useAuth();
   const [isSaved, setIsSaved] = useState(video.bookmarked || false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -62,7 +63,7 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, userId, 
     e.preventDefault();
     e.stopPropagation();
 
-    if (isSaving) return;
+    if (isSaving || !user) return;
 
     setIsSaving(true);
     try {
@@ -70,7 +71,6 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, userId, 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: userId || 'demo-user-id',
           videoId: video.videoId,
           title: video.title,
           description: video.description,

@@ -89,7 +89,13 @@ export function EpisodeCard({ episode, showSummaryButton = true, summaryStatus }
             <div className="shrink-0">
               <SummarizeButton
                 episodeId={episode.id}
-                initialStatus={effectiveStatus === 'ready' || hasSummary ? 'ready' : effectiveStatus === 'failed' ? 'failed' : 'not_ready'}
+                initialStatus={
+                  effectiveStatus === 'ready' || hasSummary ? 'ready' :
+                  effectiveStatus === 'transcribing' ? 'transcribing' :
+                  effectiveStatus === 'summarizing' ? 'summarizing' :
+                  effectiveStatus === 'queued' ? 'queued' :
+                  effectiveStatus === 'failed' ? 'failed' : 'not_ready'
+                }
               />
             </div>
           )}

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import FeedItemCard from '@/components/FeedItemCard';
 import { LoadingState } from '@/components/LoadingState';
 import { glass } from '@/lib/glass';
+import { useAuth } from '@/contexts/AuthContext';
 
 type SourceType = 'all' | 'youtube' | 'podcast';
 type FeedMode = 'latest' | 'following' | 'mixed';
@@ -27,18 +28,16 @@ interface FeedItem {
 }
 
 export default function FeedScreen() {
+  const { user } = useAuth();
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [sourceFilter, setSourceFilter] = useState<SourceType>('all');
   const [feedMode, setFeedMode] = useState<FeedMode>('latest');
   const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-
-  // TODO: Replace with actual user ID from auth context
-  const userId = 'demo-user-id';
 
   const fetchFeed = async (reset = false) => {
     try {
@@ -47,7 +46,6 @@ export default function FeedScreen() {
 
       const currentOffset = reset ? 0 : offset;
       const params = new URLSearchParams({
-        userId,
         sourceType: sourceFilter,
         mode: feedMode,
         bookmarked: bookmarkedOnly.toString(),
@@ -91,7 +89,7 @@ export default function FeedScreen() {
       const response = await fetch(`/api/feed/${itemId}/bookmark`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, bookmarked: desiredState }),
+        body: JSON.stringify({ bookmarked: desiredState }),
       });
 
       const data = await response.json();

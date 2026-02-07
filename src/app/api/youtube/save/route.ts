@@ -5,29 +5,27 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 export async function POST(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
-    const { 
-      userId, 
-      videoId, 
-      title, 
-      description, 
-      thumbnailUrl, 
-      publishedAt, 
-      channelName, 
+    const {
+      videoId,
+      title,
+      description,
+      thumbnailUrl,
+      publishedAt,
+      channelName,
       url,
-      action = 'toggle' // 'save', 'unsave', or 'toggle'
+      action = 'toggle'
     } = body;
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Missing userId' },
-        { status: 400 }
-      );
-    }
 
     if (!videoId) {
       return NextResponse.json(
@@ -36,19 +34,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createServerClient();
+    const supabase = createAdminClient();
 
     // Check if item already exists
     const { data: existingItem, error: fetchError } = await supabase
       .from('feed_items')
       .select('id, bookmarked')
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .eq('video_id', videoId)
       .eq('source_type', 'youtube')
       .single();
 
     if (fetchError && fetchError.code !== 'PGRST116') {
-      // PGRST116 = no rows found, which is fine
       throw new Error(`Database error: ${fetchError.message}`);
     }
 
@@ -56,7 +53,6 @@ export async function POST(request: NextRequest) {
     let feedItemId: string;
 
     if (existingItem) {
-      // Item exists, update bookmark status
       if (action === 'toggle') {
         newBookmarkedState = !existingItem.bookmarked;
       } else if (action === 'save') {
@@ -67,7 +63,7 @@ export async function POST(request: NextRequest) {
 
       const { error: updateError } = await supabase
         .from('feed_items')
-        .update({ 
+        .update({
           bookmarked: newBookmarkedState,
           updated_at: new Date().toISOString()
         })
@@ -79,17 +75,14 @@ export async function POST(request: NextRequest) {
 
       feedItemId = existingItem.id;
     } else {
-      // Item doesn't exist, create it with bookmarked=true
       newBookmarkedState = action !== 'unsave';
 
-      // We need to create a placeholder source_id for trending videos
-      // Since they may not be from a followed channel
       const { data: newItem, error: insertError } = await supabase
         .from('feed_items')
         .insert({
-          user_id: userId,
+          user_id: user.id,
           source_type: 'youtube',
-          source_id: '00000000-0000-0000-0000-000000000000', // Placeholder for non-followed sources
+          source_id: '00000000-0000-0000-0000-000000000000',
           video_id: videoId,
           title: title || 'YouTube Video',
           description: description || '',
@@ -102,13 +95,11 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (insertError) {
-        // Handle unique constraint violation gracefully
         if (insertError.code === '23505') {
-          // Item was created by another request, retry fetch
           const { data: refetchedItem } = await supabase
             .from('feed_items')
             .select('id, bookmarked')
-            .eq('user_id', userId)
+            .eq('user_id', user.id)
             .eq('video_id', videoId)
             .eq('source_type', 'youtube')
             .single();
@@ -149,25 +140,22 @@ export async function POST(request: NextRequest) {
  * Get all saved YouTube videos for a user
  */
 export async function GET(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
     const limit = parseInt(searchParams.get('limit') || '50', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Missing userId' },
-        { status: 400 }
-      );
-    }
-
-    const supabase = createServerClient();
+    const supabase = createAdminClient();
 
     const { data, error, count } = await supabase
       .from('feed_items')
       .select('*', { count: 'exact' })
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .eq('source_type', 'youtube')
       .eq('bookmarked', true)
       .order('updated_at', { ascending: false })
@@ -177,7 +165,6 @@ export async function GET(request: NextRequest) {
       throw new Error(`Failed to fetch saved videos: ${error.message}`);
     }
 
-    // Transform to frontend format
     const videos = (data || []).map(item => ({
       id: item.id,
       videoId: item.video_id,

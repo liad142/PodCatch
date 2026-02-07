@@ -5,20 +5,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFollowedChannels } from '@/lib/rsshub-db';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 export async function GET(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Missing userId' },
-        { status: 400 }
-      );
-    }
-
-    const channels = await getFollowedChannels(userId);
+    const channels = await getFollowedChannels(user.id);
 
     return NextResponse.json({
       success: true,

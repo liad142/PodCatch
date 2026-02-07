@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   SoundWaveAnimation,
   ParticleGemAnimation,
@@ -14,32 +16,61 @@ import type { QueueItemState } from '@/types/queue';
 
 interface SummarizeButtonProps {
   episodeId: string;
-  initialStatus?: 'not_ready' | 'ready' | 'failed';
+  initialStatus?: 'not_ready' | 'ready' | 'failed' | 'transcribing' | 'summarizing' | 'queued';
   className?: string;
+}
+
+// Map initialStatus to QueueItemState
+function mapInitialStatus(status: string): QueueItemState {
+  switch (status) {
+    case 'ready': return 'ready';
+    case 'failed': return 'failed';
+    case 'transcribing': return 'transcribing';
+    case 'summarizing': return 'summarizing';
+    case 'queued': return 'queued';
+    default: return 'idle';
+  }
 }
 
 export function SummarizeButton({ episodeId, initialStatus = 'not_ready', className = '' }: SummarizeButtonProps) {
   const router = useRouter();
+  const { user, setShowCompactPrompt } = useAuth();
   const { addToQueue, retryEpisode, getQueueItem, getQueuePosition } = useSummarizeQueue();
+  const resumedRef = useRef(false);
 
   const queueItem = getQueueItem(episodeId);
   const queuePosition = getQueuePosition(episodeId);
 
-  // Use queue state if in queue, otherwise use initialStatus from parent
-  // NO individual API calls - parent does batch check
-  const state: QueueItemState = queueItem?.state ||
-                                 (initialStatus === 'ready' ? 'ready' :
-                                  initialStatus === 'failed' ? 'failed' : 'idle');
+  // Use queue state if in queue, otherwise map initialStatus from parent
+  const state: QueueItemState = queueItem?.state || mapInitialStatus(initialStatus);
+
+  // Auto-resume polling for in-progress summaries detected on page load
+  useEffect(() => {
+    const isInProgress = ['transcribing', 'summarizing', 'queued'].includes(initialStatus);
+    if (isInProgress && !queueItem && !resumedRef.current) {
+      resumedRef.current = true;
+      // Add to queue to start polling - this will pick up the existing backend process
+      addToQueue(episodeId);
+    }
+  }, [initialStatus, episodeId, queueItem, addToQueue]);
 
   const handleClick = () => {
     switch (state) {
       case 'idle':
+        if (!user) {
+          setShowCompactPrompt(true, 'Only registered users can summarize episodes. Please sign in or create an account to continue.');
+          return;
+        }
         addToQueue(episodeId);
         break;
       case 'ready':
         router.push(`/episode/${episodeId}/insights?tab=summary`);
         break;
       case 'failed':
+        if (!user) {
+          setShowCompactPrompt(true, 'Only registered users can summarize episodes. Please sign in or create an account to continue.');
+          return;
+        }
         retryEpisode(episodeId);
         break;
       default:

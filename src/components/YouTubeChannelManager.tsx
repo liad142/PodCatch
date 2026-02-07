@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { LoadingState } from '@/components/LoadingState';
 import { PlusIcon, TrashIcon, RefreshCwIcon } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface YouTubeChannel {
   id: string;
@@ -15,11 +16,8 @@ interface YouTubeChannel {
   thumbnailUrl?: string;
 }
 
-interface YouTubeChannelManagerProps {
-  userId: string;
-}
-
-export default function YouTubeChannelManager({ userId }: YouTubeChannelManagerProps) {
+export default function YouTubeChannelManager() {
+  const { user } = useAuth();
   const [channels, setChannels] = useState<YouTubeChannel[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +29,7 @@ export default function YouTubeChannelManager({ userId }: YouTubeChannelManagerP
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/youtube/channels?userId=${userId}`);
+      const response = await fetch('/api/youtube/channels');
       const data = await response.json();
 
       if (!response.ok) {
@@ -56,7 +54,7 @@ export default function YouTubeChannelManager({ userId }: YouTubeChannelManagerP
       const response = await fetch('/api/youtube/channels/follow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: input.trim(), userId }),
+        body: JSON.stringify({ input: input.trim() }),
       });
 
       const data = await response.json();
@@ -77,7 +75,7 @@ export default function YouTubeChannelManager({ userId }: YouTubeChannelManagerP
   const handleUnfollow = async (channelId: string) => {
     try {
       const response = await fetch(
-        `/api/youtube/channels/${channelId}/unfollow?userId=${userId}`,
+        `/api/youtube/channels/${channelId}/unfollow`,
         { method: 'DELETE' }
       );
 
@@ -100,7 +98,7 @@ export default function YouTubeChannelManager({ userId }: YouTubeChannelManagerP
       const response = await fetch('/api/youtube/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({}),
       });
 
       const data = await response.json();

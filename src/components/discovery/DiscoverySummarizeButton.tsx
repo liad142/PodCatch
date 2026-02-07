@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
 import { useEpisodeLookup } from '@/contexts/EpisodeLookupContext';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   SoundWaveAnimation,
   ParticleGemAnimation,
@@ -47,6 +48,7 @@ export function DiscoverySummarizeButton({
   className = '',
 }: DiscoverySummarizeButtonProps) {
   const router = useRouter();
+  const { user, setShowCompactPrompt } = useAuth();
   const { addToQueue, retryEpisode, getQueueItem, getQueuePosition } = useSummarizeQueue();
   const { registerLookup, getLookupResult, isLoading: isLookupLoading } = useEpisodeLookup();
 
@@ -105,9 +107,15 @@ export function DiscoverySummarizeButton({
   const state = getState();
 
   const handleClick = async () => {
-    // If already imported and ready, navigate to insights
+    // If already imported and ready, navigate to insights (public — no auth needed)
     if (state === 'ready' && importedEpisodeId) {
       router.push(`/episode/${importedEpisodeId}/insights?tab=summary`);
+      return;
+    }
+
+    // All creation/retry actions require auth
+    if (!user) {
+      setShowCompactPrompt(true, 'Only registered users can summarize episodes. Please sign in or create an account to continue.');
       return;
     }
 

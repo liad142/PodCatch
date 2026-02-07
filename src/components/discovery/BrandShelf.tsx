@@ -8,14 +8,15 @@ import { ApplePodcast } from '@/components/ApplePodcastCard';
 interface BrandShelfProps {
   podcasts: ApplePodcast[];
   isLoading?: boolean;
+  title?: string;
 }
 
-export function BrandShelf({ podcasts, isLoading = false }: BrandShelfProps) {
+export function BrandShelf({ podcasts, isLoading = false, title = 'Top Podcasts' }: BrandShelfProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   return (
     <section>
-      <h2 className="text-lg font-semibold mb-3 text-muted-foreground">Top Podcasts</h2>
+      <h2 className="text-lg font-semibold mb-3 text-muted-foreground">{title}</h2>
       <div
         ref={scrollRef}
         className="flex gap-4 overflow-x-auto scrollbar-hide pb-2"

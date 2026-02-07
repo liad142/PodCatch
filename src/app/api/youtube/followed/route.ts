@@ -5,24 +5,22 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFeed } from '@/lib/rsshub-db';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 export async function GET(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
     const limit = parseInt(searchParams.get('limit') || '12', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Missing userId' },
-        { status: 400 }
-      );
-    }
-
     // Get feed items from followed channels
     const items = await getFeed({
-      userId,
+      userId: user.id,
       sourceType: 'youtube',
       mode: 'following',
       limit,
@@ -37,7 +35,7 @@ export async function GET(request: NextRequest) {
       thumbnailUrl: item.thumbnailUrl || `https://img.youtube.com/vi/${item.videoId}/hqdefault.jpg`,
       publishedAt: item.publishedAt,
       url: item.url,
-      channelName: '', // Could be enriched by joining with youtube_channels
+      channelName: '',
       channelUrl: '',
       bookmarked: item.bookmarked,
       feedItemId: item.id,

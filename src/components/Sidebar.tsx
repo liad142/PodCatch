@@ -14,11 +14,11 @@ import {
   Headphones,
   Menu,
   X,
-  User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { glass } from '@/lib/glass';
+import { SidebarUserSection } from '@/components/auth/SidebarUserSection';
 
 // Navigation configuration - easy to edit
 const NAV_ITEMS = [
@@ -95,15 +95,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       {/* Footer - User Status */}
       <div className="px-4 py-4 border-t border-border">
-        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/50">
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
-            <User className="h-4 w-4 text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">Guest</p>
-            <p className="text-xs text-muted-foreground">Not signed in</p>
-          </div>
-        </div>
+        <SidebarUserSection />
       </div>
     </div>
   );
@@ -223,7 +215,7 @@ export function Sidebar() {
             </span>
           </Link>
 
-          <div className="w-9" /> {/* Spacer for alignment */}
+          <SidebarUserSection compact />
         </div>
       </header>
 

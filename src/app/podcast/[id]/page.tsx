@@ -534,7 +534,17 @@ export default function PodcastPage() {
                                 {episode.isFromDb || summaryInfo?.episodeId ? (
                                   <SummarizeButton
                                     episodeId={episode.isFromDb ? episode.id : summaryInfo!.episodeId!}
-                                    initialStatus={hasSummary ? 'ready' : 'not_ready'}
+                                    initialStatus={
+                                      hasSummary ? 'ready' :
+                                      (() => {
+                                        const status = summaryInfo?.deepStatus || summaryInfo?.quickStatus;
+                                        if (status === 'transcribing') return 'transcribing' as const;
+                                        if (status === 'summarizing') return 'summarizing' as const;
+                                        if (status === 'queued') return 'queued' as const;
+                                        if (status === 'failed') return 'failed' as const;
+                                        return 'not_ready' as const;
+                                      })()
+                                    }
                                   />
                                 ) : (
                                   <Button

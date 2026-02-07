@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 interface ImportEpisodeRequest {
   episode: {
@@ -21,6 +22,11 @@ interface ImportEpisodeRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body: ImportEpisodeRequest = await request.json();
     const { episode, podcast } = body;
 

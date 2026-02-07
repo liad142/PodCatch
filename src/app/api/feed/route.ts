@@ -5,19 +5,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFeed } from '@/lib/rsshub-db';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 export async function GET(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Missing userId' },
-        { status: 400 }
-      );
-    }
-
     const sourceType = searchParams.get('sourceType') as 'youtube' | 'podcast' | 'all' || 'all';
     const mode = searchParams.get('mode') as 'following' | 'latest' | 'mixed' || 'latest';
     const bookmarkedOnly = searchParams.get('bookmarked') === 'true';
@@ -25,7 +22,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
     const items = await getFeed({
-      userId,
+      userId: user.id,
       sourceType,
       mode,
       bookmarkedOnly,

@@ -4,12 +4,30 @@ import React, { useState } from 'react';
 import FeedScreen from '@/components/FeedScreen';
 import YouTubeChannelManager from '@/components/YouTubeChannelManager';
 import { Button } from '@/components/ui/button';
+import { SignInPrompt } from '@/components/auth/SignInPrompt';
+import { useAuth } from '@/contexts/AuthContext';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function FeedPage() {
+  const { user, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<'feed' | 'manage'>('feed');
 
-  // TODO: Replace with actual user ID from auth context
-  const userId = 'demo-user-id';
+  if (authLoading) {
+    return (
+      <div className="px-4 py-8">
+        <Skeleton className="h-10 w-64 mb-6" />
+        <Skeleton className="h-96 w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="px-4 py-8">
+        <SignInPrompt message="Sign in to access your feed" />
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 py-8">
@@ -40,7 +58,7 @@ export default function FeedPage() {
         {activeTab === 'feed' ? (
           <FeedScreen />
         ) : (
-          <YouTubeChannelManager userId={userId} />
+          <YouTubeChannelManager />
         )}
       </div>
     </div>

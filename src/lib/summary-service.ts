@@ -744,14 +744,45 @@ export async function requestSummary(
   // Check existing summary
   logWithTime('Checking for existing summary...');
   const checkStart = Date.now();
-  const { data: existing } = await supabase
+  
+  // Fetch ALL summaries for this episode/level/language (not .single() to handle duplicates)
+  const { data: existingSummaries } = await supabase
     .from('summaries')
     .select('*')
     .eq('episode_id', episodeId)
     .eq('level', level)
-    .eq('language', language)
-    .single();
-  logWithTime('Existing summary check completed', { durationMs: Date.now() - checkStart, found: !!existing, status: existing?.status });
+    .eq('language', language);
+  
+  // Priority: ready > summarizing > transcribing > queued > failed > not_ready
+  const statusPriority: Record<string, number> = {
+    ready: 6,
+    summarizing: 5,
+    transcribing: 4,
+    queued: 3,
+    failed: 2,
+    not_ready: 1,
+  };
+  
+  // Find the BEST summary (highest priority status)
+  let existing: any = null;
+  let bestPriority = 0;
+  
+  if (existingSummaries && existingSummaries.length > 0) {
+    for (const summary of existingSummaries) {
+      const priority = statusPriority[summary.status] || 0;
+      if (priority > bestPriority) {
+        bestPriority = priority;
+        existing = summary;
+      }
+    }
+  }
+  
+  logWithTime('Existing summary check completed', { 
+    durationMs: Date.now() - checkStart, 
+    found: !!existing,
+    totalFound: existingSummaries?.length || 0,
+    status: existing?.status 
+  });
 
   if (existing) {
     if (existing.status === 'ready' && existing.content_json) {
@@ -759,8 +790,26 @@ export async function requestSummary(
       return { status: 'ready', content: existing.content_json };
     }
     if (['queued', 'transcribing', 'summarizing'].includes(existing.status)) {
-      logWithTime('Summary already in progress', { status: existing.status, totalDurationMs: Date.now() - startTime });
-      return { status: existing.status as SummaryStatus };
+      // Check for stale summaries stuck in processing for over 30 minutes
+      const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+      const updatedAt = existing.updated_at ? new Date(existing.updated_at).getTime() : 0;
+      const isStale = Date.now() - updatedAt > STALE_THRESHOLD_MS;
+
+      if (isStale) {
+        logWithTime('Summary is STALE - resetting to retry', {
+          status: existing.status,
+          updatedAt: existing.updated_at,
+          staleForMs: Date.now() - updatedAt
+        });
+        // Reset to failed so it gets retried below
+        await supabase
+          .from('summaries')
+          .update({ status: 'failed', updated_at: new Date().toISOString() })
+          .eq('id', existing.id);
+      } else {
+        logWithTime('Summary already in progress', { status: existing.status, totalDurationMs: Date.now() - startTime });
+        return { status: existing.status as SummaryStatus };
+      }
     }
     logWithTime('Summary exists but needs retry', { status: existing.status });
     // If failed or not_ready, we'll try again

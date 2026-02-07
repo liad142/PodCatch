@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { PodcastCard } from '@/components/PodcastCard';
 import { LoadingState } from '@/components/LoadingState';
 import { EmptyState } from '@/components/EmptyState';
+import { SignInPrompt } from '@/components/auth/SignInPrompt';
+import { useAuth } from '@/contexts/AuthContext';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface PodcastWithStatus {
   id: string;
@@ -23,17 +26,15 @@ interface PodcastWithStatus {
   has_new_episodes: boolean;
 }
 
-// Temporary user ID until auth is implemented
-const TEMP_USER_ID = 'anonymous-user';
-
 export default function MyPodcastsPage() {
+  const { user, isLoading: authLoading } = useAuth();
   const [podcasts, setPodcasts] = useState<PodcastWithStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchSubscriptions = async () => {
     try {
-      const response = await fetch(`/api/subscriptions?userId=${TEMP_USER_ID}`);
+      const response = await fetch('/api/subscriptions');
       if (!response.ok) throw new Error('Failed to fetch subscriptions');
 
       const data = await response.json();
@@ -47,13 +48,18 @@ export default function MyPodcastsPage() {
   };
 
   useEffect(() => {
-    fetchSubscriptions();
-  }, []);
+    if (user) {
+      setIsLoading(true);
+      fetchSubscriptions();
+    } else {
+      setIsLoading(false);
+    }
+  }, [user]);
 
   const handleUnsubscribe = async (podcastId: string) => {
     try {
       const response = await fetch(
-        `/api/subscriptions/${podcastId}?userId=${TEMP_USER_ID}`,
+        `/api/subscriptions/${podcastId}`,
         { method: 'DELETE' }
       );
 
@@ -65,6 +71,28 @@ export default function MyPodcastsPage() {
       console.error('Error unsubscribing:', err);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-bold mb-6">My Podcasts</h1>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="aspect-square rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-bold mb-6">My Podcasts</h1>
+        <SignInPrompt message="Sign in to see your podcasts" />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

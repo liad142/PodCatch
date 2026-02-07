@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requestSummary, getSummariesStatus } from "@/lib/summary-service";
 import { fetchPodcastFeed } from "@/lib/rss";
+import { getAuthUser } from "@/lib/auth-helpers";
 import type { SummaryLevel } from "@/types/database";
 
 interface RouteParams {
@@ -31,6 +32,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const startTime = Date.now();
   try {
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id } = await params;
     const body = await request.json();
     const level: SummaryLevel = body.level || 'quick';

@@ -1,33 +1,32 @@
 /**
  * POST /api/feed/[id]/bookmark
  * Set or toggle bookmark on a feed item.
- * Pass { userId, bookmarked: true/false } for atomic set (preferred).
- * Pass { userId } without bookmarked for legacy toggle behavior.
+ * Pass { bookmarked: true/false } for atomic set (preferred).
+ * Pass {} without bookmarked for legacy toggle behavior.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { setBookmark, toggleBookmark } from '@/lib/rsshub-db';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { id } = await context.params;
     const body = await request.json();
-    const { userId, bookmarked: desiredState } = body;
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Missing userId' },
-        { status: 400 }
-      );
-    }
+    const { bookmarked: desiredState } = body;
 
     // Use atomic setBookmark when the desired state is provided, otherwise fall back to toggle
     const bookmarked = typeof desiredState === 'boolean'
-      ? await setBookmark(userId, id, desiredState)
-      : await toggleBookmark(userId, id);
+      ? await setBookmark(user.id, id, desiredState)
+      : await toggleBookmark(user.id, id);
 
     return NextResponse.json({
       success: true,

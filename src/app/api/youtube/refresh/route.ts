@@ -9,21 +9,17 @@ import {
   upsertFeedItems,
 } from '@/lib/rsshub-db';
 import { fetchYouTubeChannelFeed, checkRateLimit } from '@/lib/rsshub';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 export async function POST(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    const body = await request.json();
-    const { userId } = body;
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Missing userId' },
-        { status: 400 }
-      );
-    }
-
     // Rate limiting
-    if (!(await checkRateLimit(userId, 5, 60))) {
+    if (!(await checkRateLimit(user.id, 5, 60))) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please try again in a minute.' },
         { status: 429 }
@@ -31,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get all followed channels
-    const channels = await getFollowedChannels(userId);
+    const channels = await getFollowedChannels(user.id);
 
     if (channels.length === 0) {
       return NextResponse.json({
@@ -49,7 +45,7 @@ export async function POST(request: NextRequest) {
       channels.map(async (channel) => {
         const { videos } = await fetchYouTubeChannelFeed(
           channel.channelId,
-          false // Don't use cache
+          false
         );
 
         await upsertFeedItems(
@@ -63,7 +59,7 @@ export async function POST(request: NextRequest) {
             duration: video.duration,
             url: video.url,
             videoId: video.videoId,
-            userId,
+            userId: user.id,
           }))
         );
 

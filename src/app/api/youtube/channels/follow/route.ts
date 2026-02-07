@@ -14,11 +14,17 @@ import {
   followYouTubeChannel,
   upsertFeedItems,
 } from '@/lib/rsshub-db';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 export async function POST(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
-    const { input, userId } = body;
+    const { input } = body;
 
     // Validate input
     if (!input || typeof input !== 'string') {
@@ -28,15 +34,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Missing userId' },
-        { status: 400 }
-      );
-    }
-
     // Rate limiting
-    if (!(await checkRateLimit(userId, 10, 60))) {
+    if (!(await checkRateLimit(user.id, 10, 60))) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please try again in a minute.' },
         { status: 429 }
@@ -66,7 +65,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Follow the channel
-    await followYouTubeChannel(userId, dbChannel.id);
+    await followYouTubeChannel(user.id, dbChannel.id);
 
     // Store feed items
     await upsertFeedItems(
@@ -80,7 +79,7 @@ export async function POST(request: NextRequest) {
         duration: video.duration,
         url: video.url,
         videoId: video.videoId,
-        userId,
+        userId: user.id,
       }))
     );
 

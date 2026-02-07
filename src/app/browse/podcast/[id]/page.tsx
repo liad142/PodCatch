@@ -7,6 +7,7 @@ import { ArrowLeft, Apple, Clock, Calendar, ExternalLink, Loader2, FileText } fr
 import { SummarizeButton } from '@/components/SummarizeButton';
 import { InlinePlayButton } from '@/components/PlayButton';
 import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -74,6 +75,7 @@ function formatDate(dateString: string): string {
 export default function PodcastPage({ params }: PageProps) {
   const { id: podcastId } = use(params);
   const { country } = useCountry();
+  const { user, setShowCompactPrompt } = useAuth();
 
   const [podcast, setPodcast] = useState<Podcast | null>(null);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
@@ -156,10 +158,49 @@ export default function PodcastPage({ params }: PageProps) {
     }
   }, [episodes]);
 
-  const { addToQueue } = useSummarizeQueue();
+  const { addToQueue, queue } = useSummarizeQueue();
+
+  // Update summaryAvailability when queue items complete
+  useEffect(() => {
+    const completedItems = queue.filter(item => item.state === 'ready');
+
+    if (completedItems.length > 0) {
+      setSummaryAvailability(prev => {
+        const updated = new Map(prev);
+
+        for (const item of completedItems) {
+          // Find the episode with this episodeId
+          const episode = episodes.find(ep => {
+            const info = prev.get(ep.audioUrl || '');
+            return info?.episodeId === item.episodeId;
+          });
+
+          if (episode?.audioUrl) {
+            const existing = prev.get(episode.audioUrl);
+            if (existing && !existing.hasDeepSummary) {
+              // Update to mark as ready
+              updated.set(episode.audioUrl, {
+                ...existing,
+                hasDeepSummary: true,
+                deepStatus: 'ready',
+              });
+            }
+          }
+        }
+
+        return updated;
+      });
+    }
+  }, [queue, episodes]);
 
   const handleSummarize = async (episode: Episode) => {
     if (!podcast || !episode.audioUrl) return;
+
+    // Check authentication
+    if (!user) {
+      setShowCompactPrompt(true, 'Only registered users can summarize episodes. Please sign in or create an account to continue.');
+      return;
+    }
 
     // Check if episode already exists in DB
     const availability = summaryAvailability.get(episode.audioUrl);
@@ -459,12 +500,23 @@ export default function PodcastPage({ params }: PageProps) {
                           const summaryInfo = getEpisodeSummaryInfo(episode);
                           const hasSummary = summaryInfo?.hasQuickSummary || summaryInfo?.hasDeepSummary;
 
+                          // Determine initial status from actual DB state
+                          const getInitialStatus = (): 'not_ready' | 'ready' | 'failed' | 'transcribing' | 'summarizing' | 'queued' => {
+                            if (hasSummary) return 'ready';
+                            const status = summaryInfo?.deepStatus || summaryInfo?.quickStatus;
+                            if (status === 'transcribing') return 'transcribing';
+                            if (status === 'summarizing') return 'summarizing';
+                            if (status === 'queued') return 'queued';
+                            if (status === 'failed') return 'failed';
+                            return 'not_ready';
+                          };
+
                           // Always use SummarizeButton when episodeId exists
                           if (summaryInfo?.episodeId) {
                             return (
                               <SummarizeButton
                                 episodeId={summaryInfo.episodeId}
-                                initialStatus={hasSummary ? 'ready' : 'not_ready'}
+                                initialStatus={getInitialStatus()}
                               />
                             );
                           }

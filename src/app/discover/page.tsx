@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCountry } from '@/contexts/CountryContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { EpisodeLookupProvider } from '@/contexts/EpisodeLookupContext';
 import { SemanticSearchBar } from '@/components/discovery/SemanticSearchBar';
 import { DailyMixCarousel } from '@/components/discovery/DailyMixCarousel';
@@ -62,9 +63,17 @@ function mapEpisodes(results: any[], podcasts: ApplePodcast[], subscribedAppleId
     );
 }
 
+interface PersonalizedSection {
+  genreId: string;
+  genreName: string;
+  label: string;
+  podcasts: ApplePodcast[];
+}
+
 export default function DiscoverPage() {
   const { country } = useCountry();
   const { subscribedAppleIds } = useSubscription();
+  const { user } = useAuth();
 
   // PROGRESSIVE loading states - each section loads independently
   const [topPodcasts, setTopPodcasts] = useState<ApplePodcast[]>([]);
@@ -77,6 +86,8 @@ export default function DiscoverPage() {
   const [hasMoreFeed, setHasMoreFeed] = useState(true);
   const isLoadingMoreFeed = useRef(false);
   const allPodcastsRef = useRef<ApplePodcast[]>([]);
+  const [personalizedSections, setPersonalizedSections] = useState<PersonalizedSection[]>([]);
+  const [isLoadingPersonalized, setIsLoadingPersonalized] = useState(false);
 
   // Phase 1: Fetch top podcasts (shows Brand Shelf immediately when ready)
   // Phase 2: Fetch hero episodes (shows Daily Mix when ready)
@@ -193,6 +204,34 @@ export default function DiscoverPage() {
     return () => { cancelled = true; };
   }, [country]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Fetch personalized recommendations for authenticated users
+  useEffect(() => {
+    if (!user) {
+      setPersonalizedSections([]);
+      return;
+    }
+
+    const fetchPersonalized = async () => {
+      setIsLoadingPersonalized(true);
+      try {
+        const response = await fetch(`/api/discover/personalized?country=${country.toLowerCase()}`);
+        const data = await response.json();
+        if (data.personalized && data.sections) {
+          setPersonalizedSections(data.sections);
+        } else {
+          setPersonalizedSections([]);
+        }
+      } catch (error) {
+        console.error('Error fetching personalized feed:', error);
+        setPersonalizedSections([]);
+      } finally {
+        setIsLoadingPersonalized(false);
+      }
+    };
+
+    fetchPersonalized();
+  }, [user, country]);
+
   const loadMoreFeed = useCallback(async (podcasts: ApplePodcast[], page: number) => {
     if (isLoadingMoreFeed.current) return;
     isLoadingMoreFeed.current = true;
@@ -254,6 +293,16 @@ export default function DiscoverPage() {
         <main className="max-w-3xl mx-auto px-4 py-6 space-y-8">
           {/* Daily Mix Hero - shows when hero episodes are ready */}
           <DailyMixCarousel episodes={heroEpisodes} isLoading={isLoadingHero} />
+
+          {/* Personalized Sections - for authenticated users with genre preferences */}
+          {personalizedSections.length > 0 && personalizedSections.map((section) => (
+            <BrandShelf
+              key={section.genreId}
+              podcasts={section.podcasts}
+              isLoading={false}
+              title={section.label}
+            />
+          ))}
 
           {/* Brand Shelf - shows as soon as top podcasts load (fastest) */}
           <BrandShelf podcasts={topPodcasts.slice(0, 15)} isLoading={isLoadingPodcasts} />

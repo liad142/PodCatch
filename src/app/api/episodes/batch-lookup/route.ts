@@ -42,18 +42,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ results: {} });
     }
 
+    // Status priority: ready > summarizing > transcribing > queued > failed > not_ready
+    const statusPriority: Record<string, number> = {
+      ready: 6,
+      summarizing: 5,
+      transcribing: 4,
+      queued: 3,
+      failed: 2,
+      not_ready: 1,
+    };
+
     // Build results directly from the joined data
     const results: Record<string, { episodeId: string; summaryStatus: string }> = {};
 
     for (const episode of episodes) {
-      // Find the deep summary status from the joined summaries array
-      const deepSummary = Array.isArray(episode.summaries)
-        ? episode.summaries.find((s: { level: string; status: string }) => s.level === 'deep')
-        : null;
+      // Find the BEST deep summary status from the joined summaries array
+      // (prioritize 'ready' over other statuses)
+      let bestStatus = 'not_ready';
+      let bestPriority = 0;
+
+      if (Array.isArray(episode.summaries)) {
+        for (const summary of episode.summaries) {
+          if (summary.level === 'deep') {
+            const priority = statusPriority[summary.status] || 0;
+            if (priority > bestPriority) {
+              bestPriority = priority;
+              bestStatus = summary.status;
+            }
+          }
+        }
+      }
 
       results[episode.audio_url] = {
         episodeId: episode.id,
-        summaryStatus: deepSummary?.status || 'not_ready',
+        summaryStatus: bestStatus,
       };
     }
 

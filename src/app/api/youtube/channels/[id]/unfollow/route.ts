@@ -5,25 +5,22 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { unfollowYouTubeChannel } from '@/lib/rsshub-db';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { id } = await context.params;
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Missing userId' },
-        { status: 400 }
-      );
-    }
 
     // Unfollow the channel
-    await unfollowYouTubeChannel(userId, id);
+    await unfollowYouTubeChannel(user.id, id);
 
     return NextResponse.json({
       success: true,

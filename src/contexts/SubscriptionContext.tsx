@@ -1,8 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-
-const TEMP_USER_ID = 'anonymous-user';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SubscriptionContextType {
   subscribedPodcastIds: Set<string>;  // Internal podcast UUIDs
@@ -17,15 +16,23 @@ interface SubscriptionContextType {
 const SubscriptionContext = createContext<SubscriptionContextType | null>(null);
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [subscribedPodcastIds, setSubscribedPodcastIds] = useState<Set<string>>(new Set());
   const [subscribedAppleIds, setSubscribedAppleIds] = useState<Set<string>>(new Set());
   const [appleToInternalMap, setAppleToInternalMap] = useState<Map<string, string>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch all subscriptions ONCE on mount
   const refreshSubscriptions = useCallback(async () => {
+    if (!user) {
+      setSubscribedPodcastIds(new Set());
+      setSubscribedAppleIds(new Set());
+      setAppleToInternalMap(new Map());
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch(`/api/subscriptions?userId=${TEMP_USER_ID}`);
+      const response = await fetch('/api/subscriptions');
       if (!response.ok) return;
 
       const data = await response.json();
@@ -37,7 +44,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
       podcasts.forEach((podcast: any) => {
         podcastIds.add(podcast.id);
-        // Extract apple ID from rss_feed_url if it's an apple podcast
         if (podcast.rss_feed_url?.startsWith('apple:')) {
           const appleId = podcast.rss_feed_url.replace('apple:', '');
           appleIds.add(appleId);
@@ -53,8 +59,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
+  // Re-fetch when user changes (login/logout)
   useEffect(() => {
     refreshSubscriptions();
   }, [refreshSubscriptions]);
@@ -64,6 +71,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   }, [subscribedAppleIds]);
 
   const subscribe = useCallback(async (appleId: string) => {
+    if (!user) return;
+
     // Optimistically update UI
     setSubscribedAppleIds(prev => new Set(prev).add(appleId));
 
@@ -84,7 +93,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       await fetch('/api/subscriptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: TEMP_USER_ID, podcastId }),
+        body: JSON.stringify({ podcastId }),
       });
 
       // Update internal state
@@ -99,12 +108,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       });
       console.error('Error subscribing:', error);
     }
-  }, []);
+  }, [user]);
 
   const unsubscribe = useCallback(async (appleId: string) => {
+    if (!user) return;
+
     const podcastId = appleToInternalMap.get(appleId);
     if (!podcastId) {
-      // Need to look it up
       try {
         const lookupResponse = await fetch(`/api/podcasts/lookup?rss_url=${encodeURIComponent(`apple:${appleId}`)}`);
         if (!lookupResponse.ok) return;
@@ -119,7 +129,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
 
     await performUnsubscribe(appleId, podcastId);
-  }, [appleToInternalMap]);
+  }, [appleToInternalMap, user]);
 
   const performUnsubscribe = async (appleId: string, podcastId: string) => {
     // Optimistically update UI
@@ -130,7 +140,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     });
 
     try {
-      await fetch(`/api/subscriptions/${podcastId}?userId=${TEMP_USER_ID}`, {
+      await fetch(`/api/subscriptions/${podcastId}`, {
         method: 'DELETE',
       });
 

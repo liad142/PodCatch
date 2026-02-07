@@ -1,24 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 // DELETE: Unsubscribe from a podcast
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ podcastId: string }> }
 ) {
-  const { podcastId } = await params;
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
-
-  if (!userId) {
-    return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const { podcastId } = await params;
+
   try {
-    const { error } = await createServerClient()
+    const { error } = await createAdminClient()
       .from('podcast_subscriptions')
       .delete()
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .eq('podcast_id', podcastId);
 
     if (error) throw error;
@@ -35,19 +35,18 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ podcastId: string }> }
 ) {
-  const { podcastId } = await params;
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
-
-  if (!userId) {
-    return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const { podcastId } = await params;
+
   try {
-    const { error } = await createServerClient()
+    const { error } = await createAdminClient()
       .from('podcast_subscriptions')
       .update({ last_viewed_at: new Date().toISOString() })
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .eq('podcast_id', podcastId);
 
     if (error) throw error;
