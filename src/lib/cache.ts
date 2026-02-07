@@ -130,8 +130,8 @@ export const CacheKeys = {
   topPodcasts: (country: string, genreId: string | undefined, limit: number) =>
     `apple:top:${country}:${genreId || 'all'}:${limit}`,
 
-  podcastEpisodes: (podcastId: string, limit: number) =>
-    `apple:episodes:${podcastId}:${limit}`,
+  podcastEpisodes: (podcastId: string) =>
+    `apple:episodes:${podcastId}`,
 
   podcastDetails: (podcastId: string, country: string) =>
     `apple:podcast:${podcastId}:${country}`,

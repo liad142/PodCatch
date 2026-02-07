@@ -47,6 +47,10 @@ export default function PodcastPage() {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingEpisodes, setIsLoadingEpisodes] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [appleId, setAppleId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [summaryAvailability, setSummaryAvailability] = useState<Map<string, SummaryAvailability>>(new Map());
   const [importingEpisodeId, setImportingEpisodeId] = useState<string | null>(null);
@@ -74,24 +78,25 @@ export default function PodcastPage() {
         setPodcast(podcastData);
         setIsLoading(false);
 
-        // 2. Determine Apple ID directly (no separate state)
+        // 2. Determine Apple ID directly
         const isApplePodcast = podcastData.rss_feed_url?.startsWith('apple:');
-        const appleId = isApplePodcast
+        const resolvedAppleId = isApplePodcast
           ? podcastData.rss_feed_url.replace('apple:', '')
           : null;
+        setAppleId(resolvedAppleId);
 
         console.log('[PodcastPage] Loading episodes', {
           podcastId,
           isApplePodcast,
-          appleId,
+          appleId: resolvedAppleId,
           rss_feed_url: podcastData.rss_feed_url
         });
 
         // 3. Fetch episodes
-        if (appleId) {
+        if (resolvedAppleId) {
           // Fetch from Apple API
           try {
-            const response = await fetch(`/api/apple/podcasts/${appleId}/episodes?limit=50`);
+            const response = await fetch(`/api/apple/podcasts/${resolvedAppleId}/episodes?limit=50&offset=0`);
             if (!response.ok) {
               console.error('[PodcastPage] Apple API error:', response.status);
               throw new Error('Failed to fetch from Apple');
@@ -99,6 +104,8 @@ export default function PodcastPage() {
             const data = await response.json();
             console.log('[PodcastPage] Apple episodes loaded:', data.episodes?.length);
             setEpisodes(data.episodes || []);
+            setHasMore(data.hasMore ?? false);
+            setTotalCount(data.totalCount ?? data.episodes?.length ?? 0);
           } catch (appleErr) {
             console.error('[PodcastPage] Apple fetch failed, trying local DB:', appleErr);
             // Fallback to local DB
@@ -150,6 +157,25 @@ export default function PodcastPage() {
 
     loadAll();
   }, [podcastId]);
+
+  const handleLoadMore = async () => {
+    if (!appleId) return;
+    setIsLoadingMore(true);
+    try {
+      const response = await fetch(
+        `/api/apple/podcasts/${appleId}/episodes?limit=50&offset=${episodes.length}`
+      );
+      if (!response.ok) throw new Error('Failed to fetch more episodes');
+      const data = await response.json();
+      setEpisodes(prev => [...prev, ...(data.episodes || [])]);
+      setHasMore(data.hasMore ?? false);
+      setTotalCount(data.totalCount ?? totalCount);
+    } catch (err) {
+      console.error('Error loading more episodes:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   // Mark subscription as viewed (clears "NEW" badge)
   useEffect(() => {
@@ -573,6 +599,27 @@ export default function PodcastPage() {
                       </Card>
                     );
                   })}
+
+                  {/* Load More */}
+                  {hasMore && (
+                    <div className="mt-8 text-center">
+                      <Button
+                        onClick={handleLoadMore}
+                        disabled={isLoadingMore}
+                        variant="outline"
+                        className="rounded-full px-8"
+                      >
+                        {isLoadingMore ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          `Load More (${episodes.length} of ${totalCount})`
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </section>

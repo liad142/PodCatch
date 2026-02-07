@@ -9,12 +9,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: podcastId } = await params;
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const limit = parseInt(searchParams.get('limit') || '50', 10);
+    const offset = parseInt(searchParams.get('offset') || '0', 10);
     const country = searchParams.get('country') || 'us';
 
     // First get the podcast to get the feed URL
     const podcast = await getPodcastById(podcastId, country);
-    
+
     if (!podcast) {
       return NextResponse.json(
         { error: 'Podcast not found' },
@@ -22,11 +23,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const episodes = await getPodcastEpisodes(podcastId, podcast.feedUrl, limit);
+    const { episodes, totalCount, hasMore } = await getPodcastEpisodes(podcastId, podcast.feedUrl, limit, offset);
 
     return NextResponse.json({
       episodes,
       podcastId,
+      totalCount,
+      hasMore,
       count: episodes.length,
     });
   } catch (error) {

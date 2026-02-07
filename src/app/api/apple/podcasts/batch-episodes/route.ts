@@ -57,11 +57,11 @@ export async function POST(request: NextRequest) {
 
         const episodesPromise = getPodcastEpisodes(podcastId, undefined, limit);
 
-        const episodes = await Promise.race([episodesPromise, timeoutPromise]) as any;
+        const result = await Promise.race([episodesPromise, timeoutPromise]) as any;
 
         return {
           podcastId,
-          episodes,
+          episodes: result.episodes,
           success: true,
         };
       } catch (error) {

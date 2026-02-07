@@ -81,6 +81,9 @@ export default function PodcastPage({ params }: PageProps) {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [isLoadingPodcast, setIsLoadingPodcast] = useState(true);
   const [isLoadingEpisodes, setIsLoadingEpisodes] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [importingEpisodeId, setImportingEpisodeId] = useState<string | null>(null);
   const [summaryAvailability, setSummaryAvailability] = useState<Map<string, SummaryAvailability>>(new Map());
@@ -102,15 +105,19 @@ export default function PodcastPage({ params }: PageProps) {
     }
   }, [podcastId, country]);
 
+  const EPISODES_PER_PAGE = 50;
+
   const fetchEpisodes = useCallback(async () => {
     setIsLoadingEpisodes(true);
     try {
       const response = await fetch(
-        `/api/apple/podcasts/${podcastId}/episodes?limit=30`
+        `/api/apple/podcasts/${podcastId}/episodes?limit=${EPISODES_PER_PAGE}&offset=0`
       );
       if (!response.ok) throw new Error('Failed to fetch episodes');
       const data = await response.json();
       setEpisodes(data.episodes || []);
+      setHasMore(data.hasMore ?? false);
+      setTotalCount(data.totalCount ?? data.episodes?.length ?? 0);
     } catch (err) {
       console.error('Error fetching episodes:', err);
       // Don't set error - podcast info is more important
@@ -118,6 +125,24 @@ export default function PodcastPage({ params }: PageProps) {
       setIsLoadingEpisodes(false);
     }
   }, [podcastId]);
+
+  const handleLoadMore = useCallback(async () => {
+    setIsLoadingMore(true);
+    try {
+      const response = await fetch(
+        `/api/apple/podcasts/${podcastId}/episodes?limit=${EPISODES_PER_PAGE}&offset=${episodes.length}`
+      );
+      if (!response.ok) throw new Error('Failed to fetch more episodes');
+      const data = await response.json();
+      setEpisodes(prev => [...prev, ...(data.episodes || [])]);
+      setHasMore(data.hasMore ?? false);
+      setTotalCount(data.totalCount ?? totalCount);
+    } catch (err) {
+      console.error('Error loading more episodes:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [podcastId, episodes.length, totalCount]);
 
   useEffect(() => {
     fetchPodcast();
@@ -549,6 +574,27 @@ export default function PodcastPage({ params }: PageProps) {
                 </CardContent>
               </Card>
             ))}
+
+            {/* Load More */}
+            {hasMore && (
+              <div className="mt-8 text-center">
+                <Button
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                  variant="outline"
+                  className="rounded-full px-8"
+                >
+                  {isLoadingMore ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    `Load More (${episodes.length} of ${totalCount})`
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

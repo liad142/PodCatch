@@ -258,72 +258,41 @@ function parseDuration(duration: string | undefined): number {
   return parseInt(duration, 10) || 0;
 }
 
+export interface PodcastEpisodesResult {
+  episodes: AppleEpisode[];
+  totalCount: number;
+  hasMore: boolean;
+}
+
 /**
  * Get podcast episodes via RSSHub or direct feed
+ * Caches the full parsed feed and applies offset/limit slicing on the result
  */
 export async function getPodcastEpisodes(
   podcastId: string,
   feedUrl?: string,
-  limit: number = 20
-): Promise<AppleEpisode[]> {
-  const cacheKey = CacheKeys.podcastEpisodes(podcastId, limit);
+  limit: number = 50,
+  offset: number = 0
+): Promise<PodcastEpisodesResult> {
+  const cacheKey = CacheKeys.podcastEpisodes(podcastId);
 
-  // Check Redis cache (shared across all instances)
-  const cached = await getCached<AppleEpisode[]>(cacheKey);
-  if (cached) return cached;
+  // Check Redis cache for the full episode list
+  let allEpisodes = await getCached<AppleEpisode[]>(cacheKey);
 
-  try {
-    let feedData: RSSHubFeed;
+  if (!allEpisodes) {
+    try {
+      let feedData: RSSHubFeed;
 
-    if (feedUrl) {
-      // Use direct feed URL if available
-      const response = await fetch(feedUrl, {
-        headers: { 'User-Agent': 'PodCatch/1.0' },
-      });
-      if (!response.ok) {
-        throw new Error(`Feed fetch failed: ${response.status}`);
-      }
-      const contentLength = response.headers.get('content-length');
-      if (contentLength && parseInt(contentLength) > MAX_FEED_SIZE) {
-        throw new Error('Feed too large to process');
-      }
-      const feedXml = await response.text();
-      if (feedXml.length > MAX_FEED_SIZE) {
-        throw new Error('Feed content exceeds size limit');
-      }
-      feedData = await parser.parseString(feedXml) as unknown as RSSHubFeed;
-    } else {
-      // Try RSSHub Apple Podcasts route
-      const rsshubUrl = `${RSSHUB_BASE_URL}/apple/podcast/${podcastId}`;
-      const response = await fetch(rsshubUrl, {
-        headers: { 'User-Agent': 'PodCatch/1.0' },
-      });
-
-      if (!response.ok) {
-        // Fallback: Get feed URL from iTunes and fetch directly
-        const podcast = await getPodcastById(podcastId);
-        if (podcast?.feedUrl) {
-          const directResponse = await fetch(podcast.feedUrl, {
-            headers: { 'User-Agent': 'PodCatch/1.0' },
-          });
-          if (!directResponse.ok) {
-            throw new Error(`Direct feed fetch failed: ${directResponse.status}`);
-          }
-          const directContentLength = directResponse.headers.get('content-length');
-          if (directContentLength && parseInt(directContentLength) > MAX_FEED_SIZE) {
-            throw new Error('Feed too large to process');
-          }
-          const feedXml = await directResponse.text();
-          if (feedXml.length > MAX_FEED_SIZE) {
-            throw new Error('Feed content exceeds size limit');
-          }
-          feedData = await parser.parseString(feedXml) as unknown as RSSHubFeed;
-        } else {
-          throw new Error('No feed URL available');
+      if (feedUrl) {
+        // Use direct feed URL if available
+        const response = await fetch(feedUrl, {
+          headers: { 'User-Agent': 'PodCatch/1.0' },
+        });
+        if (!response.ok) {
+          throw new Error(`Feed fetch failed: ${response.status}`);
         }
-      } else {
-        const rsshubContentLength = response.headers.get('content-length');
-        if (rsshubContentLength && parseInt(rsshubContentLength) > MAX_FEED_SIZE) {
+        const contentLength = response.headers.get('content-length');
+        if (contentLength && parseInt(contentLength) > MAX_FEED_SIZE) {
           throw new Error('Feed too large to process');
         }
         const feedXml = await response.text();
@@ -331,30 +300,78 @@ export async function getPodcastEpisodes(
           throw new Error('Feed content exceeds size limit');
         }
         feedData = await parser.parseString(feedXml) as unknown as RSSHubFeed;
+      } else {
+        // Try RSSHub Apple Podcasts route
+        const rsshubUrl = `${RSSHUB_BASE_URL}/apple/podcast/${podcastId}`;
+        const response = await fetch(rsshubUrl, {
+          headers: { 'User-Agent': 'PodCatch/1.0' },
+        });
+
+        if (!response.ok) {
+          // Fallback: Get feed URL from iTunes and fetch directly
+          const podcast = await getPodcastById(podcastId);
+          if (podcast?.feedUrl) {
+            const directResponse = await fetch(podcast.feedUrl, {
+              headers: { 'User-Agent': 'PodCatch/1.0' },
+            });
+            if (!directResponse.ok) {
+              throw new Error(`Direct feed fetch failed: ${directResponse.status}`);
+            }
+            const directContentLength = directResponse.headers.get('content-length');
+            if (directContentLength && parseInt(directContentLength) > MAX_FEED_SIZE) {
+              throw new Error('Feed too large to process');
+            }
+            const feedXml = await directResponse.text();
+            if (feedXml.length > MAX_FEED_SIZE) {
+              throw new Error('Feed content exceeds size limit');
+            }
+            feedData = await parser.parseString(feedXml) as unknown as RSSHubFeed;
+          } else {
+            throw new Error('No feed URL available');
+          }
+        } else {
+          const rsshubContentLength = response.headers.get('content-length');
+          if (rsshubContentLength && parseInt(rsshubContentLength) > MAX_FEED_SIZE) {
+            throw new Error('Feed too large to process');
+          }
+          const feedXml = await response.text();
+          if (feedXml.length > MAX_FEED_SIZE) {
+            throw new Error('Feed content exceeds size limit');
+          }
+          feedData = await parser.parseString(feedXml) as unknown as RSSHubFeed;
+        }
       }
+
+      // Parse ALL episodes from the feed (no slicing)
+      allEpisodes = feedData.items.map((item, index) => ({
+        id: item.guid || `${podcastId}-${index}`,
+        podcastId,
+        title: item.title || 'Untitled Episode',
+        description: item.contentSnippet || item.content || '',
+        publishedAt: new Date(item.isoDate || item.pubDate || Date.now()),
+        duration: parseDuration((item as any).duration),
+        audioUrl: item.enclosure?.url,
+        artworkUrl: (item as any).itunesImage?.href || feedData.image?.url,
+        episodeNumber: parseInt((item as any).episode, 10) || undefined,
+        seasonNumber: parseInt((item as any).season, 10) || undefined,
+      }));
+
+      // Cache the full episode list in Redis
+      await setCached(cacheKey, allEpisodes, CacheTTL.EPISODES);
+    } catch (err) {
+      console.error('Podcast episodes fetch error:', err);
+      throw new Error(`Failed to get episodes: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
-
-    const episodes: AppleEpisode[] = feedData.items.slice(0, limit).map((item, index) => ({
-      id: item.guid || `${podcastId}-${index}`,
-      podcastId,
-      title: item.title || 'Untitled Episode',
-      description: item.contentSnippet || item.content || '',
-      publishedAt: new Date(item.isoDate || item.pubDate || Date.now()),
-      duration: parseDuration((item as any).duration),
-      audioUrl: item.enclosure?.url,
-      artworkUrl: (item as any).itunesImage?.href || feedData.image?.url,
-      episodeNumber: parseInt((item as any).episode, 10) || undefined,
-      seasonNumber: parseInt((item as any).season, 10) || undefined,
-    }));
-
-    // Cache in Redis (shared across all instances)
-    await setCached(cacheKey, episodes, CacheTTL.EPISODES);
-
-    return episodes;
-  } catch (err) {
-    console.error('Podcast episodes fetch error:', err);
-    throw new Error(`Failed to get episodes: ${err instanceof Error ? err.message : 'Unknown error'}`);
   }
+
+  // Apply offset + limit slicing
+  const sliced = allEpisodes.slice(offset, offset + limit);
+
+  return {
+    episodes: sliced,
+    totalCount: allEpisodes.length,
+    hasMore: offset + limit < allEpisodes.length,
+  };
 }
 
 /**
@@ -363,14 +380,14 @@ export async function getPodcastEpisodes(
 export async function getPodcastFeed(
   podcastId: string,
   country: string = 'us',
-  episodeLimit: number = 20
+  episodeLimit: number = 50
 ): Promise<ApplePodcastFeed | null> {
   const podcast = await getPodcastById(podcastId, country);
   if (!podcast) return null;
 
-  const episodes = await getPodcastEpisodes(podcastId, podcast.feedUrl, episodeLimit);
+  const result = await getPodcastEpisodes(podcastId, podcast.feedUrl, episodeLimit);
 
-  return { podcast, episodes };
+  return { podcast, episodes: result.episodes };
 }
 
 /**
