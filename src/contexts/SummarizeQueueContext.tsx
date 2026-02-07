@@ -20,6 +20,7 @@ export function useSummarizeQueueOptional() {
 
 const MAX_RETRIES = 1;
 const RETRY_DELAY = 2000;
+const MAX_POLL_DURATION_MS = 10 * 60 * 1000; // 10 minutes max polling before giving up
 
 // Exponential backoff polling intervals (ms)
 const POLL_INTERVALS = {
@@ -148,13 +149,26 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
 
       const poll = async () => {
         pollCount++;
-        logQueue('Polling status...', { episodeId, pollCount });
+        const elapsedMs = Date.now() - startTime;
+        logQueue('Polling status...', { episodeId, pollCount, elapsedMs });
+
+        // Give up after max polling duration to prevent infinite polling
+        if (elapsedMs > MAX_POLL_DURATION_MS) {
+          logQueue('Polling TIMEOUT - giving up', { episodeId, pollCount, elapsedMs });
+          updateQueueItem(episodeId, { state: 'failed', error: 'Processing timed out' });
+          setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
+          processingRef.current = false;
+          setProcessingId(null);
+          processNext();
+          return;
+        }
+
         const state = await pollStatus(episodeId);
-        logQueue('Poll result', { episodeId, state, totalDurationMs: Date.now() - startTime });
+        logQueue('Poll result', { episodeId, state, totalDurationMs: elapsedMs });
         updateQueueItem(episodeId, { state });
 
         if (state === 'ready') {
-          logQueue('Processing COMPLETE', { episodeId, totalDurationMs: Date.now() - startTime });
+          logQueue('Processing COMPLETE', { episodeId, totalDurationMs: elapsedMs });
           setStats(prev => ({ ...prev, completed: prev.completed + 1 }));
           processingRef.current = false;
           setProcessingId(null);
