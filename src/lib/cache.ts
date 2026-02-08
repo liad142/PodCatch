@@ -144,6 +144,22 @@ export const CacheKeys = {
 
   batchEpisodes: (country: string, hash: string) =>
     `batch:episodes:${country}:${hash}`,
+
+  // Podcastindex cache keys
+  piSearch: (term: string, limit: number) =>
+    `pi:search:${term}:${limit}`,
+
+  piTrending: (limit: number, category?: string) =>
+    `pi:trending:${limit}:${category || 'all'}`,
+
+  piEpisodes: (feedId: string) =>
+    `pi:episodes:${feedId}`,
+
+  piPodcast: (feedId: string) =>
+    `pi:podcast:${feedId}`,
+
+  unifiedSearch: (term: string, country: string, limit: number) =>
+    `unified:search:${country}:${term}:${limit}`,
 };
 
 /**
@@ -157,6 +173,13 @@ export const CacheTTL = {
   YOUTUBE_FEED: 1800,      // 30 minutes
   YOUTUBE_TRENDING: 1800,  // 30 minutes
   BATCH_REQUESTS: 900,     // 15 minutes
+
+  // Podcastindex TTLs
+  PI_SEARCH: 1800,           // 30 minutes
+  PI_TRENDING: 3600,         // 1 hour
+  PI_EPISODES: 3600,         // 1 hour
+  PI_PODCAST: 3600,          // 1 hour
+  UNIFIED_SEARCH: 900,       // 15 minutes
 };
 
 /**

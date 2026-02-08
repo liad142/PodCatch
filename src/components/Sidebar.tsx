@@ -142,7 +142,7 @@ function MobileDrawer({
       {/* Backdrop */}
       <div
         className={cn(
-          'fixed inset-0 bg-black/50 z-40 transition-opacity lg:hidden',
+          'fixed inset-0 bg-black/50 z-[60] transition-opacity lg:hidden',
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         )}
         onClick={onClose}
@@ -156,7 +156,7 @@ function MobileDrawer({
         aria-modal="true"
         aria-label="Navigation menu"
         className={cn(
-          'fixed top-0 left-0 bottom-0 w-72 z-50 transition-transform lg:hidden',
+          'fixed top-0 left-0 bottom-0 w-72 z-[60] transition-transform lg:hidden',
           glass.sidebar,
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
@@ -195,7 +195,7 @@ export function Sidebar() {
   return (
     <>
       {/* Mobile Header */}
-      <header className="fixed top-0 left-0 right-0 h-14 bg-background/95 backdrop-blur border-b border-border z-30 lg:hidden">
+      <header className="fixed top-0 left-0 right-0 h-14 bg-background/95 backdrop-blur border-b border-border z-50 lg:hidden">
         <div className="flex items-center justify-between h-full px-4">
           <Button
             variant="ghost"

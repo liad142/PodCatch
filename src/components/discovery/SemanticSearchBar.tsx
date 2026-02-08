@@ -1,38 +1,33 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Search, Sparkles, X } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { Search, Loader2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
-import { ApplePodcast } from '@/components/ApplePodcastCard';
 import { glass } from '@/lib/glass';
 import Image from 'next/image';
 import Link from 'next/link';
 
-interface SemanticSearchBarProps {
-  podcasts: ApplePodcast[];
+interface SearchPodcast {
+  id: string;
+  source: string;
+  title: string;
+  author: string;
+  artworkUrl: string;
+  itunesId?: number;
 }
 
-interface SearchResult {
-  podcast: ApplePodcast;
-  reason: string;
-}
-
-const AI_REASONS = [
-  'Matches your interest in',
-  'Popular for learning about',
-  'Highly rated for',
-  'Recommended for exploring',
-  'Great introduction to',
-];
-
-export function SemanticSearchBar({ podcasts }: SemanticSearchBarProps) {
+export function SemanticSearchBar() {
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<SearchPodcast[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Close results when clicking outside
   useEffect(() => {
@@ -45,49 +40,78 @@ export function SemanticSearchBar({ podcasts }: SemanticSearchBarProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSearch = async () => {
-    if (!query.trim() || podcasts.length === 0) return;
+  // Debounced search
+  useEffect(() => {
+    if (!query.trim()) {
+      setResults([]);
+      setShowResults(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      performSearch(query.trim());
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const performSearch = useCallback(async (term: string) => {
+    // Cancel previous request
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     setIsSearching(true);
     setShowResults(true);
+    setSelectedIndex(-1);
 
-    // Simulate AI thinking delay
-    await new Promise(resolve => setTimeout(resolve, 1200));
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(term)}&limit=8`, {
+        signal: controller.signal,
+      });
 
-    // Filter podcasts by query (simple keyword match for demo)
-    const queryLower = query.toLowerCase();
-    const matched = podcasts
-      .filter(p =>
-        p.name.toLowerCase().includes(queryLower) ||
-        p.artistName.toLowerCase().includes(queryLower) ||
-        p.genres?.some(g => g.toLowerCase().includes(queryLower))
-      )
-      .slice(0, 5)
-      .map(podcast => ({
-        podcast,
-        reason: `${AI_REASONS[Math.floor(Math.random() * AI_REASONS.length)]} "${query}"`,
-      }));
+      if (!res.ok) throw new Error('Search failed');
 
-    // If no matches, return random "suggestions"
-    if (matched.length === 0) {
-      const random = podcasts
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3)
-        .map(podcast => ({
-          podcast,
-          reason: `You might also enjoy this based on "${query}"`,
-        }));
-      setResults(random);
-    } else {
-      setResults(matched);
+      const data = await res.json();
+      setResults(data.podcasts || []);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      console.error('Search error:', err);
+      setResults([]);
+    } finally {
+      if (!controller.signal.aborted) {
+        setIsSearching(false);
+      }
     }
-
-    setIsSearching(false);
-  };
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch();
+    if (!showResults || results.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev < results.length - 1 ? prev + 1 : 0));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : results.length - 1));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedIndex >= 0 && selectedIndex < results.length) {
+          const podcast = results[selectedIndex];
+          setShowResults(false);
+          router.push(getPodcastHref(podcast));
+        }
+        break;
+      case 'Escape':
+        setShowResults(false);
+        inputRef.current?.blur();
+        break;
     }
   };
 
@@ -95,6 +119,7 @@ export function SemanticSearchBar({ podcasts }: SemanticSearchBarProps) {
     setQuery('');
     setResults([]);
     setShowResults(false);
+    setSelectedIndex(-1);
     inputRef.current?.focus();
   };
 
@@ -106,21 +131,21 @@ export function SemanticSearchBar({ podcasts }: SemanticSearchBarProps) {
         <Input
           ref={inputRef}
           type="text"
-          placeholder="What do you want to learn today?"
+          placeholder="Search podcasts..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => results.length > 0 && setShowResults(true)}
           className={`pl-12 pr-12 h-12 text-base rounded-full transition-all ${glass.input}`}
         />
-        {query && (
+        {query ? (
           <button
             onClick={clearSearch}
             className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full transition-colors"
           >
             <X className="h-4 w-4 text-muted-foreground" />
           </button>
-        )}
+        ) : null}
       </div>
 
       {/* Results Dropdown */}
@@ -134,40 +159,38 @@ export function SemanticSearchBar({ podcasts }: SemanticSearchBarProps) {
           >
             {isSearching ? (
               <div className="p-6 flex items-center justify-center gap-3">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                >
-                  <Sparkles className="h-5 w-5 text-primary" />
-                </motion.div>
-                <span className="text-muted-foreground">Finding the best podcasts for you...</span>
+                <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                <span className="text-muted-foreground">Searching...</span>
               </div>
             ) : results.length > 0 ? (
               <div className="py-2">
                 <div className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  AI Picks for "{query}"
+                  Results for &ldquo;{query}&rdquo;
                 </div>
-                {results.map((result) => (
+                {results.map((podcast, index) => (
                   <Link
-                    key={result.podcast.id}
-                    href={`/browse/podcast/${result.podcast.id}`}
+                    key={podcast.id}
+                    href={getPodcastHref(podcast)}
                     onClick={() => setShowResults(false)}
-                    className="flex items-center gap-4 px-4 py-3 hover:bg-muted/50 transition-colors"
+                    className={`flex items-center gap-4 px-4 py-3 transition-colors ${
+                      index === selectedIndex
+                        ? 'bg-muted/70'
+                        : 'hover:bg-muted/50'
+                    }`}
                   >
-                    <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                    <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
                       <Image
-                        src={result.podcast.artworkUrl?.replace('100x100', '200x200') || '/placeholder-podcast.png'}
-                        alt={result.podcast.name}
+                        src={podcast.artworkUrl || '/placeholder-podcast.png'}
+                        alt={podcast.title}
                         fill
                         className="object-cover"
                         sizes="48px"
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{result.podcast.name}</p>
-                      <p className="text-sm text-muted-foreground truncate">{result.reason}</p>
+                      <p className="font-medium truncate">{podcast.title}</p>
+                      <p className="text-sm text-muted-foreground truncate">{podcast.author}</p>
                     </div>
-                    <Sparkles className="h-4 w-4 text-primary/50 flex-shrink-0" />
                   </Link>
                 ))}
               </div>
@@ -181,4 +204,22 @@ export function SemanticSearchBar({ podcasts }: SemanticSearchBarProps) {
       </AnimatePresence>
     </div>
   );
+}
+
+/**
+ * Get the browse href for a podcast search result.
+ * If the podcast has an itunesId (from either source), use the Apple route.
+ * Otherwise use the pi: prefixed ID.
+ */
+function getPodcastHref(podcast: SearchPodcast): string {
+  // If the ID already starts with "apple:", extract the numeric part
+  if (podcast.id.startsWith('apple:')) {
+    return `/browse/podcast/${podcast.id.slice(6)}`;
+  }
+  // If it has an itunesId, use that for the Apple flow
+  if (podcast.itunesId) {
+    return `/browse/podcast/${podcast.itunesId}`;
+  }
+  // PI-only podcast - use the full composite ID
+  return `/browse/podcast/${podcast.id}`;
 }

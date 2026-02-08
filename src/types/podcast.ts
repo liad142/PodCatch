@@ -1,0 +1,45 @@
+/**
+ * Unified source-agnostic podcast types
+ * Used across Apple Podcasts and Podcastindex results
+ */
+
+export type PodcastSource = 'apple' | 'podcastindex';
+
+export interface Podcast {
+  /** Composite ID: "apple:{itunesId}" or "pi:{feedId}" */
+  id: string;
+  source: PodcastSource;
+  title: string;
+  author: string;
+  description: string;
+  artworkUrl: string;
+  feedUrl?: string;
+  genres: string[];
+  episodeCount: number;
+  /** iTunes ID if available (shared across sources for deduplication) */
+  itunesId?: number;
+  /** Podcastindex feed ID if available */
+  podcastIndexId?: number;
+  language?: string;
+  explicit?: boolean;
+}
+
+export interface PodcastEpisode {
+  id: string;
+  podcastId: string;
+  title: string;
+  description: string;
+  publishedAt: Date;
+  duration: number;
+  audioUrl?: string;
+  artworkUrl?: string;
+  episodeNumber?: number;
+  seasonNumber?: number;
+}
+
+export interface SearchResult {
+  podcasts: Podcast[];
+  query: string;
+  source: 'apple' | 'podcastindex' | 'merged';
+  count: number;
+}

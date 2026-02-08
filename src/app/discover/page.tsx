@@ -283,9 +283,9 @@ export default function DiscoverPage() {
     <EpisodeLookupProvider>
       <div className="min-h-screen bg-background">
         {/* Sticky Semantic Search */}
-        <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b">
+        <div className="sticky top-14 lg:top-0 z-40 bg-background/80 backdrop-blur-lg border-b">
           <div className="max-w-3xl mx-auto px-4 py-3">
-            <SemanticSearchBar podcasts={topPodcasts} />
+            <SemanticSearchBar />
           </div>
         </div>
 

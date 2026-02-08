@@ -1,6 +1,6 @@
 /**
  * Apple Podcasts Client Library
- * Uses iTunes Search API for discovery and RSSHub for RSS feeds
+ * Uses iTunes Search API for discovery and direct RSS feed fetching
  */
 
 import Parser from 'rss-parser';
@@ -16,11 +16,10 @@ import {
 } from '@/types/apple-podcasts';
 
 const ITUNES_API_BASE = 'https://itunes.apple.com';
-const RSSHUB_BASE_URL = process.env.RSSHUB_BASE_URL || 'http://localhost:1200';
 // Rate limiting is handled by Redis via @/lib/cache
 const MAX_FEED_SIZE = 50 * 1024 * 1024; // 50MB limit for XML feeds (large podcasts with 500+ episodes)
 
-interface RSSHubFeed {
+interface ParsedRSSFeed {
   title: string;
   description: string;
   link: string;
@@ -265,7 +264,7 @@ export interface PodcastEpisodesResult {
 }
 
 /**
- * Get podcast episodes via RSSHub or direct feed
+ * Get podcast episodes via direct RSS feed
  * Caches the full parsed feed and applies offset/limit slicing on the result
  */
 export async function getPodcastEpisodes(
@@ -281,66 +280,33 @@ export async function getPodcastEpisodes(
 
   if (!allEpisodes) {
     try {
-      let feedData: RSSHubFeed;
+      let resolvedFeedUrl = feedUrl;
 
-      if (feedUrl) {
-        // Use direct feed URL if available
-        const response = await fetch(feedUrl, {
-          headers: { 'User-Agent': 'PodCatch/1.0' },
-        });
-        if (!response.ok) {
-          throw new Error(`Feed fetch failed: ${response.status}`);
-        }
-        const contentLength = response.headers.get('content-length');
-        if (contentLength && parseInt(contentLength) > MAX_FEED_SIZE) {
-          throw new Error('Feed too large to process');
-        }
-        const feedXml = await response.text();
-        if (feedXml.length > MAX_FEED_SIZE) {
-          throw new Error('Feed content exceeds size limit');
-        }
-        feedData = await parser.parseString(feedXml) as unknown as RSSHubFeed;
-      } else {
-        // Try RSSHub Apple Podcasts route
-        const rsshubUrl = `${RSSHUB_BASE_URL}/apple/podcast/${podcastId}`;
-        const response = await fetch(rsshubUrl, {
-          headers: { 'User-Agent': 'PodCatch/1.0' },
-        });
-
-        if (!response.ok) {
-          // Fallback: Get feed URL from iTunes and fetch directly
-          const podcast = await getPodcastById(podcastId);
-          if (podcast?.feedUrl) {
-            const directResponse = await fetch(podcast.feedUrl, {
-              headers: { 'User-Agent': 'PodCatch/1.0' },
-            });
-            if (!directResponse.ok) {
-              throw new Error(`Direct feed fetch failed: ${directResponse.status}`);
-            }
-            const directContentLength = directResponse.headers.get('content-length');
-            if (directContentLength && parseInt(directContentLength) > MAX_FEED_SIZE) {
-              throw new Error('Feed too large to process');
-            }
-            const feedXml = await directResponse.text();
-            if (feedXml.length > MAX_FEED_SIZE) {
-              throw new Error('Feed content exceeds size limit');
-            }
-            feedData = await parser.parseString(feedXml) as unknown as RSSHubFeed;
-          } else {
-            throw new Error('No feed URL available');
-          }
-        } else {
-          const rsshubContentLength = response.headers.get('content-length');
-          if (rsshubContentLength && parseInt(rsshubContentLength) > MAX_FEED_SIZE) {
-            throw new Error('Feed too large to process');
-          }
-          const feedXml = await response.text();
-          if (feedXml.length > MAX_FEED_SIZE) {
-            throw new Error('Feed content exceeds size limit');
-          }
-          feedData = await parser.parseString(feedXml) as unknown as RSSHubFeed;
-        }
+      // If no feedUrl provided, look it up via iTunes
+      if (!resolvedFeedUrl) {
+        const podcast = await getPodcastById(podcastId);
+        resolvedFeedUrl = podcast?.feedUrl;
       }
+
+      if (!resolvedFeedUrl) {
+        throw new Error('No feed URL available');
+      }
+
+      const response = await fetch(resolvedFeedUrl, {
+        headers: { 'User-Agent': 'PodCatch/1.0' },
+      });
+      if (!response.ok) {
+        throw new Error(`Feed fetch failed: ${response.status}`);
+      }
+      const contentLength = response.headers.get('content-length');
+      if (contentLength && parseInt(contentLength) > MAX_FEED_SIZE) {
+        throw new Error('Feed too large to process');
+      }
+      const feedXml = await response.text();
+      if (feedXml.length > MAX_FEED_SIZE) {
+        throw new Error('Feed content exceeds size limit');
+      }
+      const feedData = await parser.parseString(feedXml) as unknown as ParsedRSSFeed;
 
       // Parse ALL episodes from the feed (no slicing)
       allEpisodes = feedData.items.map((item, index) => ({

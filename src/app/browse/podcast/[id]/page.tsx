@@ -77,6 +77,10 @@ export default function PodcastPage({ params }: PageProps) {
   const { country } = useCountry();
   const { user, setShowCompactPrompt } = useAuth();
 
+  // Detect if this is a Podcastindex-only podcast (pi:{feedId} format)
+  const isPiPodcast = podcastId.startsWith('pi:');
+  const piFeedId = isPiPodcast ? podcastId.slice(3) : null;
+
   const [podcast, setPodcast] = useState<Podcast | null>(null);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [isLoadingPodcast, setIsLoadingPodcast] = useState(true);
@@ -91,9 +95,10 @@ export default function PodcastPage({ params }: PageProps) {
   const fetchPodcast = useCallback(async () => {
     setIsLoadingPodcast(true);
     try {
-      const response = await fetch(
-        `/api/apple/podcasts/${podcastId}?country=${country.toLowerCase()}`
-      );
+      const url = isPiPodcast
+        ? `/api/pi/podcasts/${piFeedId}`
+        : `/api/apple/podcasts/${podcastId}?country=${country.toLowerCase()}`;
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch podcast');
       const data = await response.json();
       setPodcast(data.podcast);
@@ -103,16 +108,17 @@ export default function PodcastPage({ params }: PageProps) {
     } finally {
       setIsLoadingPodcast(false);
     }
-  }, [podcastId, country]);
+  }, [podcastId, country, isPiPodcast, piFeedId]);
 
   const EPISODES_PER_PAGE = 50;
 
   const fetchEpisodes = useCallback(async () => {
     setIsLoadingEpisodes(true);
     try {
-      const response = await fetch(
-        `/api/apple/podcasts/${podcastId}/episodes?limit=${EPISODES_PER_PAGE}&offset=0`
-      );
+      const url = isPiPodcast
+        ? `/api/pi/podcasts/${piFeedId}/episodes?limit=${EPISODES_PER_PAGE}&offset=0`
+        : `/api/apple/podcasts/${podcastId}/episodes?limit=${EPISODES_PER_PAGE}&offset=0`;
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch episodes');
       const data = await response.json();
       setEpisodes(data.episodes || []);
@@ -120,18 +126,18 @@ export default function PodcastPage({ params }: PageProps) {
       setTotalCount(data.totalCount ?? data.episodes?.length ?? 0);
     } catch (err) {
       console.error('Error fetching episodes:', err);
-      // Don't set error - podcast info is more important
     } finally {
       setIsLoadingEpisodes(false);
     }
-  }, [podcastId]);
+  }, [podcastId, isPiPodcast, piFeedId]);
 
   const handleLoadMore = useCallback(async () => {
     setIsLoadingMore(true);
     try {
-      const response = await fetch(
-        `/api/apple/podcasts/${podcastId}/episodes?limit=${EPISODES_PER_PAGE}&offset=${episodes.length}`
-      );
+      const url = isPiPodcast
+        ? `/api/pi/podcasts/${piFeedId}/episodes?limit=${EPISODES_PER_PAGE}&offset=${episodes.length}`
+        : `/api/apple/podcasts/${podcastId}/episodes?limit=${EPISODES_PER_PAGE}&offset=${episodes.length}`;
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch more episodes');
       const data = await response.json();
       setEpisodes(prev => [...prev, ...(data.episodes || [])]);
@@ -142,7 +148,7 @@ export default function PodcastPage({ params }: PageProps) {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [podcastId, episodes.length, totalCount]);
+  }, [podcastId, episodes.length, totalCount, isPiPodcast, piFeedId]);
 
   useEffect(() => {
     fetchPodcast();
@@ -350,8 +356,10 @@ export default function PodcastPage({ params }: PageProps) {
               {/* Info */}
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
-                  <Apple className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Apple Podcasts</span>
+                  {!isPiPodcast && <Apple className="h-4 w-4 text-muted-foreground" />}
+                  <span className="text-sm text-muted-foreground">
+                    {isPiPodcast ? 'Podcast' : 'Apple Podcasts'}
+                  </span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-bold mb-2">{podcast.name}</h1>
                 <p className="text-lg text-muted-foreground mb-3">{podcast.artistName}</p>
@@ -374,18 +382,20 @@ export default function PodcastPage({ params }: PageProps) {
                 )}
 
                 <div className="flex gap-3">
-                  <Button asChild>
-                    <a
-                      href={`https://podcasts.apple.com/podcast/id${podcast.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Apple className="h-4 w-4 mr-2" />
-                      Open in Apple Podcasts
-                    </a>
-                  </Button>
+                  {!isPiPodcast && (
+                    <Button asChild>
+                      <a
+                        href={`https://podcasts.apple.com/podcast/id${podcast.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Apple className="h-4 w-4 mr-2" />
+                        Open in Apple Podcasts
+                      </a>
+                    </Button>
+                  )}
                   {podcast.feedUrl && (
-                    <Button variant="outline" asChild>
+                    <Button variant={isPiPodcast ? 'default' : 'outline'} asChild>
                       <a
                         href={podcast.feedUrl}
                         target="_blank"

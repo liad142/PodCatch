@@ -12,7 +12,6 @@ import { AuthModal } from "@/components/auth/AuthModal";
 import { CompactAuthPrompt } from "@/components/auth/CompactAuthPrompt";
 import { QueueToast } from "@/components/QueueToast";
 import { StickyAudioPlayer } from "@/components/StickyAudioPlayer";
-import { Agentation } from "agentation";
 
 const inter = Inter({ subsets: ["latin"] });
 const crimsonText = Crimson_Text({ 
@@ -62,7 +61,7 @@ export default function RootLayout({
             </CountryProvider>
           </ThemeProvider>
         </AuthProvider>
-        {process.env.NODE_ENV === "development" && <Agentation />}
+
       </body>
     </html>
   );
