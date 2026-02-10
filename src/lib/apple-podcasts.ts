@@ -6,6 +6,11 @@
 import Parser from 'rss-parser';
 import { getCached, setCached, CacheKeys, CacheTTL, checkRateLimit as redisRateLimit } from '@/lib/cache';
 import {
+  isPodcastIndexConfigured,
+  getPodcastByItunesId,
+  getEpisodesByFeedId,
+} from '@/lib/podcast-index';
+import {
   ApplePodcast,
   AppleEpisode,
   ApplePodcastFeed,
@@ -279,54 +284,79 @@ export async function getPodcastEpisodes(
   let allEpisodes = await getCached<AppleEpisode[]>(cacheKey);
 
   if (!allEpisodes) {
-    try {
-      let resolvedFeedUrl = feedUrl;
-
-      // If no feedUrl provided, look it up via iTunes
-      if (!resolvedFeedUrl) {
-        const podcast = await getPodcastById(podcastId);
-        resolvedFeedUrl = podcast?.feedUrl;
+    // Primary: try Podcastindex API (reliable single endpoint, structured JSON)
+    if (isPodcastIndexConfigured()) {
+      try {
+        const piPodcast = await getPodcastByItunesId(podcastId);
+        if (piPodcast?.podcastIndexId) {
+          const piEpisodes = await getEpisodesByFeedId(String(piPodcast.podcastIndexId));
+          allEpisodes = piEpisodes.map((ep) => ({
+            id: ep.id,
+            podcastId,
+            title: ep.title,
+            description: ep.description,
+            publishedAt: ep.publishedAt,
+            duration: ep.duration,
+            audioUrl: ep.audioUrl,
+            artworkUrl: ep.artworkUrl,
+            episodeNumber: ep.episodeNumber,
+            seasonNumber: ep.seasonNumber,
+          }));
+          await setCached(cacheKey, allEpisodes, CacheTTL.EPISODES);
+        }
+      } catch (piErr) {
+        console.error('Podcastindex episodes fetch failed:', piErr);
       }
+    }
 
-      if (!resolvedFeedUrl) {
-        throw new Error('No feed URL available');
-      }
+    // Fallback: fetch directly from RSS feed
+    if (!allEpisodes) {
+      try {
+        let resolvedFeedUrl = feedUrl;
 
-      const response = await fetch(resolvedFeedUrl, {
-        headers: { 'User-Agent': 'PodCatch/1.0' },
-      });
-      if (!response.ok) {
-        throw new Error(`Feed fetch failed: ${response.status}`);
-      }
-      const contentLength = response.headers.get('content-length');
-      if (contentLength && parseInt(contentLength) > MAX_FEED_SIZE) {
-        throw new Error('Feed too large to process');
-      }
-      const feedXml = await response.text();
-      if (feedXml.length > MAX_FEED_SIZE) {
-        throw new Error('Feed content exceeds size limit');
-      }
-      const feedData = await parser.parseString(feedXml) as unknown as ParsedRSSFeed;
+        if (!resolvedFeedUrl) {
+          const podcast = await getPodcastById(podcastId);
+          resolvedFeedUrl = podcast?.feedUrl;
+        }
 
-      // Parse ALL episodes from the feed (no slicing)
-      allEpisodes = feedData.items.map((item, index) => ({
-        id: item.guid || `${podcastId}-${index}`,
-        podcastId,
-        title: item.title || 'Untitled Episode',
-        description: item.contentSnippet || item.content || '',
-        publishedAt: new Date(item.isoDate || item.pubDate || Date.now()),
-        duration: parseDuration((item as any).duration),
-        audioUrl: item.enclosure?.url,
-        artworkUrl: (item as any).itunesImage?.href || feedData.image?.url,
-        episodeNumber: parseInt((item as any).episode, 10) || undefined,
-        seasonNumber: parseInt((item as any).season, 10) || undefined,
-      }));
+        if (!resolvedFeedUrl) {
+          throw new Error('No feed URL available');
+        }
 
-      // Cache the full episode list in Redis
-      await setCached(cacheKey, allEpisodes, CacheTTL.EPISODES);
-    } catch (err) {
-      console.error('Podcast episodes fetch error:', err);
-      throw new Error(`Failed to get episodes: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        const response = await fetch(resolvedFeedUrl, {
+          headers: { 'User-Agent': 'PodCatch/1.0' },
+        });
+        if (!response.ok) {
+          throw new Error(`Feed fetch failed: ${response.status}`);
+        }
+        const contentLength = response.headers.get('content-length');
+        if (contentLength && parseInt(contentLength) > MAX_FEED_SIZE) {
+          throw new Error('Feed too large to process');
+        }
+        const feedXml = await response.text();
+        if (feedXml.length > MAX_FEED_SIZE) {
+          throw new Error('Feed content exceeds size limit');
+        }
+        const feedData = await parser.parseString(feedXml) as unknown as ParsedRSSFeed;
+
+        allEpisodes = feedData.items.map((item, index) => ({
+          id: item.guid || `${podcastId}-${index}`,
+          podcastId,
+          title: item.title || 'Untitled Episode',
+          description: item.contentSnippet || item.content || '',
+          publishedAt: new Date(item.isoDate || item.pubDate || Date.now()),
+          duration: parseDuration((item as any).duration),
+          audioUrl: item.enclosure?.url,
+          artworkUrl: (item as any).itunesImage?.href || feedData.image?.url,
+          episodeNumber: parseInt((item as any).episode, 10) || undefined,
+          seasonNumber: parseInt((item as any).season, 10) || undefined,
+        }));
+
+        await setCached(cacheKey, allEpisodes, CacheTTL.EPISODES);
+      } catch (err) {
+        console.error('RSS feed fallback also failed:', err);
+        throw new Error(`Failed to get episodes: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
     }
   }
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, MutableRefObject } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, Brain, Quote, ScrollText } from "lucide-react";
+import { FileText, Quote, ScrollText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SectionId } from "./EpisodeSmartFeed";
 
@@ -25,7 +25,6 @@ export function QuickNav({ sectionRefs, onNavigate, hasHighlights }: QuickNavPro
   // Navigation items
   const navItems: NavItem[] = [
     { id: "hero", icon: FileText, label: "Summary" },
-    { id: "mindmap", icon: Brain, label: "Mindmap" },
     ...(hasHighlights
       ? [{ id: "highlights" as SectionId, icon: Quote, label: "Quotes" }]
       : []),

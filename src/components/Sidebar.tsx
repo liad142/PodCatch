@@ -6,9 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   Compass,
   Radio,
-  Rss,
   FileText,
-  Brain,
   Bookmark,
   Settings,
   Headphones,
@@ -24,9 +22,7 @@ import { SidebarUserSection } from '@/components/auth/SidebarUserSection';
 const NAV_ITEMS = [
   { label: 'Discover', href: '/discover', icon: Compass },
   { label: 'My Podcasts', href: '/my-podcasts', icon: Radio },
-  { label: 'Feed', href: '/feed', icon: Rss },
   { label: 'Episode Summaries', href: '/summaries', icon: FileText },
-  { label: 'Smart Notes', href: '/smart-notes', icon: Brain },
   { label: 'Saved', href: '/saved', icon: Bookmark },
   { label: 'Settings', href: '/settings', icon: Settings },
 ] as const;
