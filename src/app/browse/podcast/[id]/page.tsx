@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, use } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Clock, Calendar, ExternalLink, Loader2, FileText, Heart } from 'lucide-react';
+import { ArrowLeft, Clock, Calendar, Loader2, FileText, Heart } from 'lucide-react';
 import { SummarizeButton } from '@/components/SummarizeButton';
 import { InlinePlayButton } from '@/components/PlayButton';
 import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
@@ -424,18 +424,6 @@ export default function PodcastPage({ params }: PageProps) {
                   )}
 
 
-                  {podcast.feedUrl && (
-                    <Button variant="outline" size="sm" asChild>
-                      <a
-                        href={podcast.feedUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        RSS Feed
-                      </a>
-                    </Button>
-                  )}
                 </div>
               </div>
             </div>
