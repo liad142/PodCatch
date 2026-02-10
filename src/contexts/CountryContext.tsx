@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Country code to name mapping
 export const COUNTRY_OPTIONS: { code: string; name: string; flag: string }[] = [
@@ -85,20 +86,45 @@ function detectCountryFromLanguage(): string {
 export function CountryProvider({ children }: { children: React.ReactNode }) {
   const [country, setCountryState] = useState<string>("US");
   const [isInitialized, setIsInitialized] = useState(false);
+  const { user } = useAuth();
+  const profileFetched = useRef(false);
 
+  // Initial load: localStorage or browser language detection
   useEffect(() => {
-    // Try to load from localStorage first
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored && COUNTRY_OPTIONS.find((c) => c.code === stored)) {
       setCountryState(stored);
     } else {
-      // Auto-detect from navigator.language
       const detected = detectCountryFromLanguage();
       setCountryState(detected);
       localStorage.setItem(STORAGE_KEY, detected);
     }
     setIsInitialized(true);
   }, []);
+
+  // When user logs in, sync country from their profile preferences
+  useEffect(() => {
+    if (!user) {
+      profileFetched.current = false;
+      return;
+    }
+    if (profileFetched.current) return;
+    profileFetched.current = true;
+
+    fetch("/api/user/profile")
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        const profileCountry = data?.profile?.preferred_country;
+        if (profileCountry) {
+          const code = profileCountry.toUpperCase();
+          if (COUNTRY_OPTIONS.find((c) => c.code === code)) {
+            setCountryState(code);
+            localStorage.setItem(STORAGE_KEY, code);
+          }
+        }
+      })
+      .catch(() => {/* profile fetch failed, keep current country */});
+  }, [user]);
 
   const setCountry = useCallback((newCountry: string) => {
     setCountryState(newCountry);

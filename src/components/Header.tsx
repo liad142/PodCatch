@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Headphones, Compass, Radio, Rss } from "lucide-react";
+import { Headphones, Compass, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -42,16 +42,6 @@ export function Header() {
             <Link href="/discover" className="flex items-center gap-2">
               <Compass className="h-4 w-4" />
               <span className="hidden sm:inline">Discover</span>
-            </Link>
-          </Button>
-          <Button
-            variant={isActive("/feed") ? "default" : "ghost"}
-            size="sm"
-            asChild
-          >
-            <Link href="/feed" className="flex items-center gap-2">
-              <Rss className="h-4 w-4" />
-              <span className="hidden sm:inline">Feed</span>
             </Link>
           </Button>
         </nav>

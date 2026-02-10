@@ -2,15 +2,52 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { fetchPodcastFeed } from "@/lib/rss";
 import { getPodcastById } from "@/lib/apple-podcasts";
+import { getAuthUser } from "@/lib/auth-helpers";
+
+// Block SSRF: reject private/reserved IP ranges
+const PRIVATE_IP_PATTERNS = [
+  /^https?:\/\/127\./,
+  /^https?:\/\/10\./,
+  /^https?:\/\/172\.(1[6-9]|2\d|3[01])\./,
+  /^https?:\/\/192\.168\./,
+  /^https?:\/\/169\.254\./,
+  /^https?:\/\/0\./,
+  /^https?:\/\/localhost/i,
+  /^https?:\/\/\[::1\]/,
+];
+
+function isValidPodcastUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+    if (PRIVATE_IP_PATTERNS.some(p => p.test(url))) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { rss_url } = body;
 
     if (!rss_url || typeof rss_url !== "string") {
       return NextResponse.json(
         { error: "rss_url is required and must be a string" },
+        { status: 400 }
+      );
+    }
+
+    // Validate URL for non-Apple references
+    if (!rss_url.startsWith("apple:") && !isValidPodcastUrl(rss_url)) {
+      return NextResponse.json(
+        { error: "Invalid URL. Must be a valid HTTP/HTTPS URL." },
         { status: 400 }
       );
     }

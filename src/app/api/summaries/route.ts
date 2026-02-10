@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 // GET: List all episodes with summaries
 export async function GET(request: NextRequest) {
   try {
     // Get all summaries with their episodes and podcasts in a single query
-    const { data: summaries, error: summariesError } = await createServerClient()
+    const { data: summaries, error: summariesError } = await createAdminClient()
       .from('summaries')
       .select(`
         episode_id,

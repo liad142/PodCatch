@@ -1,4 +1,4 @@
-export interface Podcast {
+export interface DbPodcast {
   id: string;
   title: string;
   author: string | null;
@@ -9,6 +9,9 @@ export interface Podcast {
   created_at: string;
   latest_episode_date: string | null;
 }
+
+/** @deprecated Use DbPodcast for DB row types. Alias kept for backward compatibility. */
+export type Podcast = DbPodcast;
 
 export interface Episode {
   id: string;
@@ -27,11 +30,12 @@ export interface Transcript {
   id: string;
   episode_id: string;
   full_text: string;
-  language: string | null;
+  language: string;
   provider: string;
   created_at: string;
 }
 
+/** @deprecated Legacy summary shape - used by SummaryView. Use SummaryRecord for new code. */
 export interface Summary {
   id: string;
   transcript_id: string;
@@ -55,7 +59,7 @@ export interface EpisodeWithSummary extends Episode {
 // Status types for the new summary system
 export type TranscriptStatus = 'queued' | 'transcribing' | 'ready' | 'failed';
 export type SummaryStatus = 'not_ready' | 'queued' | 'transcribing' | 'summarizing' | 'ready' | 'failed';
-export type SummaryLevel = 'quick' | 'deep';
+export type SummaryLevel = 'quick' | 'deep' | 'insights';
 
 // Quick summary content structure
 export interface QuickSummaryContent {
@@ -142,7 +146,7 @@ export interface EpisodeSummariesResponse {
 // ============================================
 
 // Insight tab types
-export type InsightTab = 'summary' | 'mindmap' | 'transcript' | 'keywords' | 'highlights' | 'shownotes';
+export type InsightTab = 'summary' | 'transcript' | 'keywords' | 'highlights' | 'shownotes';
 
 // Keyword structure
 export interface KeywordItem {

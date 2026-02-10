@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai";
-import { supabase } from "./supabase";
+import { createAdminClient } from "@/lib/supabase/admin";
+const supabase = createAdminClient();
 import { transcribeFromUrl, formatTranscriptWithTimestamps, formatTranscriptWithSpeakerNames } from "./deepgram";
 import type { DiarizedTranscript } from "@/types/deepgram";
 import type {
@@ -61,14 +62,12 @@ const VTT_CLASS_CLOSE_RE = /<\/c>/gi;
 const VTT_ANY_TAG_RE = /<[^>]+>/g;
 const MULTI_SPACE_RE = /\s+/g;
 
-const isDev = process.env.NODE_ENV === 'development';
+import { createLogger } from "@/lib/logger";
+import { SUMMARY_STATUS_PRIORITY } from "@/lib/status-utils";
 
-function logWithTime(message: string, data?: Record<string, unknown>) {
-  if (isDev) {
-    const timestamp = new Date().toISOString();
-    console.log(`[SUMMARY-SERVICE ${timestamp}] ${message}`, data ? JSON.stringify(data) : '');
-  }
-}
+const logWithTime = createLogger('SUMMARY-SERVICE');
+
+const isDev = process.env.NODE_ENV === 'development';
 
 // Speaker identification types
 export interface IdentifiedSpeaker {
@@ -753,23 +752,13 @@ export async function requestSummary(
     .eq('level', level)
     .eq('language', language);
   
-  // Priority: ready > summarizing > transcribing > queued > failed > not_ready
-  const statusPriority: Record<string, number> = {
-    ready: 6,
-    summarizing: 5,
-    transcribing: 4,
-    queued: 3,
-    failed: 2,
-    not_ready: 1,
-  };
-  
   // Find the BEST summary (highest priority status)
   let existing: any = null;
   let bestPriority = 0;
   
   if (existingSummaries && existingSummaries.length > 0) {
     for (const summary of existingSummaries) {
-      const priority = statusPriority[summary.status] || 0;
+      const priority = SUMMARY_STATUS_PRIORITY[summary.status] || 0;
       if (priority > bestPriority) {
         bestPriority = priority;
         existing = summary;

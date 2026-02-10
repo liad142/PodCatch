@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Settings, Moon, Sun, Monitor, LogIn, LogOut, Loader2, X } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCountry } from '@/contexts/CountryContext';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ interface UserProfile {
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { user, isLoading: authLoading, signOut, setShowAuthModal } = useAuth();
+  const { setCountry } = useCountry();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
@@ -113,6 +115,8 @@ export default function SettingsPage() {
       if (response.ok) {
         const data = await response.json();
         setProfile(data.profile);
+        // Sync the global country context so the feed updates immediately
+        setCountry(countryCode.toUpperCase());
       }
     } catch (error) {
       console.error('Error updating country:', error);

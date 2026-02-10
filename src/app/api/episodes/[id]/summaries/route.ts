@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requestSummary, getSummariesStatus } from "@/lib/summary-service";
-import { fetchPodcastFeed } from "@/lib/rss";
 import { getAuthUser } from "@/lib/auth-helpers";
+import { resolvePodcastLanguage } from "@/lib/language-utils";
 import type { SummaryLevel } from "@/types/database";
 
 interface RouteParams {
@@ -41,6 +41,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const level: SummaryLevel = body.level || 'quick';
 
+    if (!['quick', 'deep'].includes(level)) {
+      return NextResponse.json({ error: 'Invalid level. Must be "quick" or "deep".' }, { status: 400 });
+    }
+
     logWithTime('POST request received', { episodeId: id, level });
 
     // Get episode with podcast info - language comes from RSS feed
@@ -60,69 +64,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Episode not found' }, { status: 404 });
     }
 
-    // Self-healing language detection:
-    // If language is already set and not 'en' (default), use it directly from DB cache
+    // Self-healing language detection via shared utility
     const podcastData = episode.podcasts as unknown as { id: string; language: string | null; rss_feed_url: string } | null;
-    let language = podcastData?.language;
-
-    if (language && language !== 'en') {
-      // Language is already cached and valid - skip RSS fetch
-      logWithTime('Using cached language from DB', { language });
-    } else {
-      // Language missing or 'en' (might be old default) - fetch from RSS to verify
-      logWithTime('Language missing or default, fetching from RSS...', {
-        currentLanguage: language,
-        rssUrl: podcastData?.rss_feed_url?.substring(0, 50)
-      });
-
-      try {
-        if (podcastData?.rss_feed_url) {
-          let rssLanguage: string | undefined;
-
-          // Handle Apple Podcasts (format: "apple:1234567890")
-          if (podcastData.rss_feed_url.startsWith('apple:')) {
-            logWithTime('Fetching language from Apple Podcasts RSS...');
-            const appleId = podcastData.rss_feed_url.replace('apple:', '');
-
-            // Get podcast details from iTunes to get the RSS feed URL
-            const { getPodcastById } = await import('@/lib/apple-podcasts');
-            const applePodcast = await getPodcastById(appleId, 'us');
-
-            if (applePodcast?.feedUrl) {
-              // Now fetch the actual RSS feed to get language
-              const { podcast: rssPodcast } = await fetchPodcastFeed(applePodcast.feedUrl);
-              rssLanguage = rssPodcast.language;
-            }
-          } else {
-            // Regular RSS feed
-            const { podcast: rssPodcast } = await fetchPodcastFeed(podcastData.rss_feed_url);
-            rssLanguage = rssPodcast.language;
-          }
-
-          if (rssLanguage && rssLanguage !== language) {
-            // Found different language in RSS - update DB for future requests and use it
-            logWithTime('Found language in RSS, updating DB...', {
-              oldLanguage: language,
-              newLanguage: rssLanguage
-            });
-
-            await supabase
-              .from('podcasts')
-              .update({ language: rssLanguage })
-              .eq('id', podcastData.id);
-
-            language = rssLanguage;
-          } else {
-            language = rssLanguage || 'en';
-          }
-        }
-      } catch (rssError) {
-        logWithTime('Failed to fetch RSS for language, using fallback', {
-          error: rssError instanceof Error ? rssError.message : String(rssError)
-        });
-        language = language || 'en';
-      }
-    }
+    const language = await resolvePodcastLanguage(podcastData, supabase);
 
     logWithTime('Episode found, calling requestSummary...', { 
       audioUrl: episode.audio_url?.substring(0, 50) + '...',

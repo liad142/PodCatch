@@ -1,6 +1,6 @@
 "use client";
 
-import { type LucideIcon, FileText, Brain, ScrollText, Tags, Lightbulb, List } from "lucide-react";
+import { type LucideIcon, FileText, ScrollText, Tags, Lightbulb, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { InsightTab } from "@/types/database";
 
@@ -12,7 +12,6 @@ interface Tab {
 
 const tabs: Tab[] = [
   { id: 'summary', label: 'Summary', icon: FileText },
-  { id: 'mindmap', label: 'Mindmap', icon: Brain },
   { id: 'transcript', label: 'Transcript', icon: ScrollText },
   { id: 'keywords', label: 'Keywords', icon: Tags },
   { id: 'highlights', label: 'Highlights', icon: Lightbulb },
@@ -34,13 +33,15 @@ export function StickyTabNav({ activeTab, onChange, className }: StickyTabNavPro
         "pb-[env(safe-area-inset-bottom)]",
         className
       )}>
-        <div className="flex justify-around items-center h-16">
+        <div className="flex justify-around items-center h-16" role="tablist">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
+                role="tab"
+                aria-selected={isActive}
                 onClick={() => onChange(tab.id)}
                 className={cn(
                   "flex flex-col items-center justify-center flex-1 h-full px-1 transition-colors",
@@ -64,13 +65,15 @@ export function StickyTabNav({ activeTab, onChange, className }: StickyTabNavPro
         "hidden md:block border-b sticky top-0 bg-background z-40",
         className
       )}>
-        <div className="flex items-center gap-1 px-4 overflow-x-auto scrollbar-hide">
+        <div className="flex items-center gap-1 px-4 overflow-x-auto scrollbar-hide" role="tablist">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
+                role="tab"
+                aria-selected={isActive}
                 onClick={() => onChange(tab.id)}
                 className={cn(
                   "flex items-center gap-2 px-4 py-3 border-b-2 transition-colors whitespace-nowrap",

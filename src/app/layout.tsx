@@ -7,19 +7,15 @@ import { SummarizeQueueProvider } from "@/contexts/SummarizeQueueContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { Sidebar } from "@/components/Sidebar";
-import { AuthModal } from "@/components/auth/AuthModal";
-import { CompactAuthPrompt } from "@/components/auth/CompactAuthPrompt";
-import { QueueToast } from "@/components/QueueToast";
-import { StickyAudioPlayer } from "@/components/StickyAudioPlayer";
+import { AppShell } from "@/components/AppShell";
 
 const inter = Inter({ subsets: ["latin"] });
-const crimsonText = Crimson_Text({ 
+const crimsonText = Crimson_Text({
   subsets: ["latin"],
   weight: ["400", "600", "700"],
   variable: "--font-crimson"
 });
-const outfit = Outfit({ 
+const outfit = Outfit({
   subsets: ["latin"],
   variable: "--font-outfit"
 });
@@ -43,25 +39,13 @@ export default function RootLayout({
               <SummarizeQueueProvider>
                 <SubscriptionProvider>
                   <AudioPlayerProvider>
-                    <div className="min-h-screen">
-                      <Sidebar />
-                      <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen pb-24">
-                        <div className="max-w-7xl mx-auto">
-                          {children}
-                        </div>
-                      </main>
-                    </div>
-                    <AuthModal />
-                    <CompactAuthPrompt />
-                    <QueueToast />
-                    <StickyAudioPlayer />
+                    <AppShell>{children}</AppShell>
                   </AudioPlayerProvider>
                 </SubscriptionProvider>
               </SummarizeQueueProvider>
             </CountryProvider>
           </ThemeProvider>
         </AuthProvider>
-
       </body>
     </html>
   );

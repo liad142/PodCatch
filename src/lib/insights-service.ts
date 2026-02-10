@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { supabase } from "./supabase";
+import { createAdminClient } from "@/lib/supabase/admin";
+const supabase = createAdminClient();
 import { ensureTranscript } from "./summary-service";
 import type {
   InsightStatus,
@@ -255,7 +256,7 @@ export async function getInsightsStatus(episodeId: string, language = 'en') {
   // This handles auto-detected languages (e.g., Hebrew detected from English request)
   const { data: transcripts } = await supabase
     .from('transcripts')
-    .select('status, language, full_text')
+    .select('status, language')
     .eq('episode_id', episodeId)
     .order('created_at', { ascending: false });
 
@@ -263,21 +264,35 @@ export async function getInsightsStatus(episodeId: string, language = 'en') {
   const transcript = transcripts?.[0] || null;
   const actualLanguage = transcript?.language || language;
 
-  // Now fetch insights and summaries with the actual language
-  const { data: insights } = await supabase
-    .from('summaries')
-    .select('*')
-    .eq('episode_id', episodeId)
-    .eq('level', 'insights')
-    .eq('language', actualLanguage)
-    .single();
+  // Fetch full_text only when transcript is ready (avoid transferring large text during polling)
+  let transcriptText: string | undefined;
+  if (transcript?.status === 'ready') {
+    const { data: fullTranscript } = await supabase
+      .from('transcripts')
+      .select('full_text')
+      .eq('episode_id', episodeId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    transcriptText = fullTranscript?.full_text;
+  }
 
-  const { data: summaries } = await supabase
-    .from('summaries')
-    .select('*')
-    .eq('episode_id', episodeId)
-    .eq('language', actualLanguage)
-    .in('level', ['quick', 'deep']);
+  // Fetch insights and summaries in parallel (both depend only on actualLanguage)
+  const [{ data: insights }, { data: summaries }] = await Promise.all([
+    supabase
+      .from('summaries')
+      .select('*')
+      .eq('episode_id', episodeId)
+      .eq('level', 'insights')
+      .eq('language', actualLanguage)
+      .single(),
+    supabase
+      .from('summaries')
+      .select('*')
+      .eq('episode_id', episodeId)
+      .eq('language', actualLanguage)
+      .in('level', ['quick', 'deep']),
+  ]);
 
   const quick = summaries?.find(s => s.level === 'quick');
   const deep = summaries?.find(s => s.level === 'deep');
@@ -285,7 +300,7 @@ export async function getInsightsStatus(episodeId: string, language = 'en') {
   return {
     episodeId,
     transcript_status: transcript?.status || 'not_started',
-    transcript_text: transcript?.status === 'ready' ? transcript.full_text : undefined,
+    transcript_text: transcriptText,
     detected_language: actualLanguage,
     insights: insights ? {
       status: insights.status as InsightStatus,

@@ -2,11 +2,11 @@
  * Database functions for RSSHub YouTube integration
  */
 
-import { createServerClient } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase/admin';
 
-// Use singleton server client for connection pooling
+// Use singleton admin client for connection pooling
 function getSupabaseClient() {
-  return createServerClient();
+  return createAdminClient();
 }
 
 export interface YouTubeChannel {

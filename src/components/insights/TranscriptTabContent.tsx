@@ -15,6 +15,7 @@ import {
   Filter
 } from "lucide-react";
 import { TranscriptMessage } from "./TranscriptMessage";
+import { isRTLText } from "@/lib/rtl";
 import type { ParsedTranscriptSegment, SpeakerInfo } from "@/types/transcript";
 
 interface TranscriptTabContentProps {
@@ -36,17 +37,6 @@ export function TranscriptTabContent({
 
   const isTranscribing = ['queued', 'transcribing'].includes(transcriptStatus);
   const hasTranscript = transcriptStatus === 'ready' && transcript;
-
-  // Detect if text is RTL (Hebrew, Arabic, Persian, etc.)
-  const isRTLText = (text: string): boolean => {
-    // RTL Unicode ranges: Hebrew (0590-05FF), Arabic (0600-06FF, 0750-077F), etc.
-    const rtlChars = /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
-    const rtlMatches = (text.match(rtlChars) || []).length;
-    const latinChars = /[a-zA-Z]/g;
-    const latinMatches = (text.match(latinChars) || []).length;
-    // If more RTL characters than Latin, consider it RTL
-    return rtlMatches > latinMatches;
-  };
 
   // Parse transcript into segments with speaker detection
   // Then merge consecutive segments from the same speaker for better readability

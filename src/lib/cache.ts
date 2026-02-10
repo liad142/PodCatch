@@ -125,16 +125,16 @@ export async function getCachedMulti<T>(keys: string[]): Promise<(T | null)[]> {
  */
 export const CacheKeys = {
   searchPodcasts: (country: string, term: string, limit: number) =>
-    `apple:search:${country}:${term}:${limit}`,
+    `apple:search:${country.toLowerCase()}:${term}:${limit}`,
 
   topPodcasts: (country: string, genreId: string | undefined, limit: number) =>
-    `apple:top:${country}:${genreId || 'all'}:${limit}`,
+    `apple:top:${country.toLowerCase()}:${genreId || 'all'}:${limit}`,
 
   podcastEpisodes: (podcastId: string) =>
     `apple:episodes:${podcastId}`,
 
   podcastDetails: (podcastId: string, country: string) =>
-    `apple:podcast:${podcastId}:${country}`,
+    `apple:podcast:${podcastId}:${country.toLowerCase()}`,
 
   youtubeFeed: (channelIdOrHandle: string) =>
     `youtube:${channelIdOrHandle}`,
@@ -159,7 +159,7 @@ export const CacheKeys = {
     `pi:podcast:${feedId}`,
 
   unifiedSearch: (term: string, country: string, limit: number) =>
-    `unified:search:${country}:${term}:${limit}`,
+    `unified:search:${country.toLowerCase()}:${term}:${limit}`,
 };
 
 /**
@@ -195,17 +195,36 @@ export async function checkRateLimit(
   try {
     const client = getRedis();
     const key = `ratelimit:${identifier}`;
-    const count = await client.incr(key);
 
-    // Set expiry on first request in the window
-    if (count === 1) {
-      await client.expire(key, windowSeconds);
-    }
+    // Atomic: SET NX creates key with TTL only if it doesn't exist
+    await client.set(key, 0, { ex: windowSeconds, nx: true });
+    // INCR is atomic - no race between read and write
+    const count = await client.incr(key);
 
     return count <= maxRequests;
   } catch (error) {
     console.error('[CACHE ERROR] Rate limit check failed:', identifier, error);
     // Fail open - allow the request if Redis is down
     return true;
+  }
+}
+
+/**
+ * Get Redis health info for admin dashboard
+ */
+export async function getCacheHealth(): Promise<{
+  connected: boolean;
+  latencyMs: number;
+  cacheKeys: number;
+}> {
+  try {
+    const client = getRedis();
+    const start = Date.now();
+    await client.ping();
+    const latencyMs = Date.now() - start;
+    const cacheKeys = await client.dbsize();
+    return { connected: true, latencyMs, cacheKeys };
+  } catch {
+    return { connected: false, latencyMs: -1, cacheKeys: 0 };
   }
 }

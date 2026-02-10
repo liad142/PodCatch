@@ -7,10 +7,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { getAuthUser } from '@/lib/auth-helpers';
-import { Redis } from '@upstash/redis';
+import { getCached, setCached } from '@/lib/cache';
 import { APPLE_PODCAST_GENRES } from '@/types/apple-podcasts';
-
-const redis = Redis.fromEnv();
 
 interface ApplePodcast {
   id: string;
@@ -22,9 +20,15 @@ interface ApplePodcast {
 }
 
 export async function GET(request: NextRequest) {
+  const ALLOWED_COUNTRIES = new Set([
+    'us','gb','au','ca','de','fr','il','jp','kr','br','mx','in','se',
+    'no','dk','fi','nl','be','at','ch','nz','ie','sg','za',
+  ]);
+
   const { searchParams } = new URL(request.url);
-  const country = searchParams.get('country') || 'us';
-  const limit = parseInt(searchParams.get('limit') || '30', 10);
+  const rawCountry = searchParams.get('country') || 'us';
+  const country = ALLOWED_COUNTRIES.has(rawCountry.toLowerCase()) ? rawCountry.toLowerCase() : 'us';
+  const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '30', 10) || 30, 1), 100);
 
   const user = await getAuthUser();
 
@@ -36,7 +40,7 @@ export async function GET(request: NextRequest) {
   try {
     // Check cache first
     const cacheKey = `personalized:${user.id}:${country}`;
-    const cached = await redis.get(cacheKey);
+    const cached = await getCached<{ personalized: boolean; sections: unknown[] }>(cacheKey);
     if (cached) {
       return NextResponse.json(cached);
     }
@@ -113,8 +117,8 @@ export async function GET(request: NextRequest) {
       sections,
     };
 
-    // Cache for 1 hour
-    await redis.set(cacheKey, JSON.stringify(responseData), { ex: 3600 });
+    // Cache for 1 hour (setCached handles JSON serialization)
+    await setCached(cacheKey, responseData, 3600);
 
     return NextResponse.json(responseData);
   } catch (error) {

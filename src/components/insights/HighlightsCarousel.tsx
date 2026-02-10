@@ -145,7 +145,7 @@ export function HighlightsCarousel({ highlights, episodeId }: HighlightsCarousel
 
             return (
               <motion.div
-                key={i}
+                key={`${highlight.timestamp || ''}-${highlight.quote.slice(0, 30)}`}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: i * 0.05 }}
@@ -224,12 +224,7 @@ export function HighlightsCarousel({ highlights, episodeId }: HighlightsCarousel
         </div>
       </motion.div>
 
-      {/* Hide scrollbar styles */}
-      <style jsx global>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
+      {/* scrollbar-hide styles are in globals.css */}
     </div>
   );
 }

@@ -177,19 +177,17 @@ export default function PodcastPage() {
     }
   };
 
-  // Mark subscription as viewed (clears "NEW" badge)
+  // Mark subscription as viewed (clears "NEW" badge) - only for authenticated users
   useEffect(() => {
-    const TEMP_USER_ID = 'anonymous-user';
-
     const updateLastViewed = async () => {
       if (!podcastId) return;
 
       try {
-        await fetch(`/api/subscriptions/${podcastId}?userId=${TEMP_USER_ID}`, {
+        await fetch(`/api/subscriptions/${podcastId}`, {
           method: 'PATCH',
         });
-      } catch (error) {
-        // Silently fail - user might not be subscribed to this podcast
+      } catch {
+        // Silently fail - user might not be authenticated or subscribed
       }
     };
 

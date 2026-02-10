@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getAuthUser } from '@/lib/auth-helpers';
 
 interface ImportEpisodeRequest {
@@ -37,7 +37,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createServerClient();
+    // Validate input lengths and formats
+    if (!episode.title || episode.title.length > 1000) {
+      return NextResponse.json({ error: 'Invalid episode title' }, { status: 400 });
+    }
+    if (episode.description && episode.description.length > 50000) {
+      return NextResponse.json({ error: 'Description too long' }, { status: 400 });
+    }
+    if (episode.audioUrl) {
+      try {
+        const parsed = new URL(episode.audioUrl);
+        if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+          return NextResponse.json({ error: 'audioUrl must be HTTP/HTTPS' }, { status: 400 });
+        }
+      } catch {
+        return NextResponse.json({ error: 'Invalid audioUrl' }, { status: 400 });
+      }
+    }
+    if (episode.publishedAt && isNaN(Date.parse(episode.publishedAt))) {
+      return NextResponse.json({ error: 'Invalid publishedAt date' }, { status: 400 });
+    }
+
+    const supabase = createAdminClient();
 
     // Check if podcast exists by external ID stored in rss_feed_url
     // We use a convention: apple:podcastId as rss_feed_url for imported podcasts
@@ -144,26 +165,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update podcast's latest_episode_date for "new episode" badge
+    // Atomically update podcast's latest_episode_date (only if newer)
     if (episode.publishedAt) {
       const publishedDate = new Date(episode.publishedAt).toISOString();
 
-      // Only update if this episode is newer than the current latest
-      const { data: currentPodcast } = await supabase
+      // Update only if current latest is null or older than this episode
+      await supabase
         .from('podcasts')
-        .select('latest_episode_date')
+        .update({ latest_episode_date: publishedDate })
         .eq('id', podcastId)
-        .single();
-
-      const shouldUpdate = !currentPodcast?.latest_episode_date ||
-        new Date(publishedDate) > new Date(currentPodcast.latest_episode_date);
-
-      if (shouldUpdate) {
-        await supabase
-          .from('podcasts')
-          .update({ latest_episode_date: publishedDate })
-          .eq('id', podcastId);
-      }
+        .or(`latest_episode_date.is.null,latest_episode_date.lt.${publishedDate}`);
     }
 
     return NextResponse.json({

@@ -84,23 +84,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: existing } = await createAdminClient()
-      .from('podcast_subscriptions')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('podcast_id', podcastId)
-      .single();
-
-    if (existing) {
-      return NextResponse.json({ message: 'Already subscribed', id: existing.id });
-    }
-
     const { data: subscription, error } = await createAdminClient()
       .from('podcast_subscriptions')
-      .insert({
-        user_id: user.id,
-        podcast_id: podcastId,
-      })
+      .upsert(
+        { user_id: user.id, podcast_id: podcastId },
+        { onConflict: 'user_id,podcast_id', ignoreDuplicates: true }
+      )
       .select()
       .single();
 
