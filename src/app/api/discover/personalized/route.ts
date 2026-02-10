@@ -21,8 +21,15 @@ interface ApplePodcast {
 
 export async function GET(request: NextRequest) {
   const ALLOWED_COUNTRIES = new Set([
-    'us','gb','au','ca','de','fr','il','jp','kr','br','mx','in','se',
-    'no','dk','fi','nl','be','at','ch','nz','ie','sg','za',
+    'dz','ao','ai','ag','ar','am','au','at','az','bs','bh','bb','be','bz','bm',
+    'bo','bw','br','bn','bg','ca','ky','cl','co','cr','hr','cy','cz','dk','dm',
+    'do','ec','eg','sv','ee','fi','fr','de','gh','gr','gd','gt','gy','hn','hk',
+    'hu','is','in','id','ie','il','it','jm','jp','jo','kz','ke','kr','kw','kg',
+    'la','lv','lb','lt','lu','mo','my','mv','mt','mu','mx','md','mn','ms','mz',
+    'mm','na','np','nl','nz','ni','ng','mk','no','om','pk','pa','pg','py','pe',
+    'ph','pl','pt','qa','ro','sa','sn','sg','sk','si','za','es','lk','kn','lc',
+    'vc','sr','se','ch','tw','tz','th','tt','tn','tr','tc','ug','ua','ae','gb',
+    'us','uy','uz','ve','vn','vg','ye','zw',
   ]);
 
   const { searchParams } = new URL(request.url);

@@ -356,10 +356,7 @@ export default function PodcastPage({ params }: PageProps) {
               {/* Info */}
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
-                  {!isPiPodcast && <Apple className="h-4 w-4 text-muted-foreground" />}
-                  <span className="text-sm text-muted-foreground">
-                    {isPiPodcast ? 'Podcast' : 'Apple Podcasts'}
-                  </span>
+                  <span className="text-sm text-muted-foreground">Podcast</span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-bold mb-2">{podcast.name}</h1>
                 <p className="text-lg text-muted-foreground mb-3">{podcast.artistName}</p>
@@ -390,7 +387,7 @@ export default function PodcastPage({ params }: PageProps) {
                         rel="noopener noreferrer"
                       >
                         <Apple className="h-4 w-4 mr-2" />
-                        Open in Apple Podcasts
+                        Open Podcast Page
                       </a>
                     </Button>
                   )}

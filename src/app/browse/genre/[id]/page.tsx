@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, use } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Apple, Loader2, Globe } from 'lucide-react';
+import { ArrowLeft, Loader2, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ApplePodcastCard, ApplePodcast } from '@/components/ApplePodcastCard';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -119,8 +119,7 @@ export default function GenrePage({ params }: PageProps) {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <Apple className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Apple Podcasts</span>
+                <span className="text-sm text-muted-foreground">Podcasts</span>
               </div>
               <h1 className="text-3xl sm:text-4xl font-bold">{genreName}</h1>
               <p className="text-muted-foreground mt-2 flex items-center gap-2">
