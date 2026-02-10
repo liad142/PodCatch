@@ -3,16 +3,18 @@
 import { useState, useEffect, useCallback, use } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Apple, Clock, Calendar, ExternalLink, Loader2, FileText } from 'lucide-react';
+import { ArrowLeft, Apple, Clock, Calendar, ExternalLink, Loader2, FileText, Heart } from 'lucide-react';
 import { SummarizeButton } from '@/components/SummarizeButton';
 import { InlinePlayButton } from '@/components/PlayButton';
 import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCountry } from '@/contexts/CountryContext';
+import { cn } from '@/lib/utils';
 
 interface Podcast {
   id: string;
@@ -76,10 +78,31 @@ export default function PodcastPage({ params }: PageProps) {
   const { id: podcastId } = use(params);
   const { country } = useCountry();
   const { user, setShowCompactPrompt } = useAuth();
+  const { subscribedAppleIds, subscribe, unsubscribe } = useSubscription();
 
   // Detect if this is a Podcastindex-only podcast (pi:{feedId} format)
   const isPiPodcast = podcastId.startsWith('pi:');
   const piFeedId = isPiPodcast ? podcastId.slice(3) : null;
+
+  const isSubscribed = !isPiPodcast && subscribedAppleIds.has(podcastId);
+  const [isTogglingSubscription, setIsTogglingSubscription] = useState(false);
+
+  const handleToggleSubscription = async () => {
+    if (!user) {
+      setShowCompactPrompt(true, 'Sign in to save podcasts to your library.');
+      return;
+    }
+    setIsTogglingSubscription(true);
+    try {
+      if (isSubscribed) {
+        await unsubscribe(podcastId);
+      } else {
+        await subscribe(podcastId);
+      }
+    } finally {
+      setIsTogglingSubscription(false);
+    }
+  };
 
   const [podcast, setPodcast] = useState<Podcast | null>(null);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
@@ -378,9 +401,30 @@ export default function PodcastPage({ params }: PageProps) {
                   </p>
                 )}
 
-                <div className="flex gap-3">
+                <div className="flex gap-3 items-center">
+                  {/* Like / Subscribe button */}
                   {!isPiPodcast && (
-                    <Button asChild>
+                    <Button
+                      variant={isSubscribed ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={handleToggleSubscription}
+                      disabled={isTogglingSubscription}
+                      className={cn(
+                        'gap-2 transition-all',
+                        isSubscribed && 'bg-rose-500 hover:bg-rose-600 border-rose-500 text-white'
+                      )}
+                    >
+                      {isTogglingSubscription ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Heart className={cn('h-4 w-4', isSubscribed && 'fill-current')} />
+                      )}
+                      {isSubscribed ? 'Saved' : 'Save'}
+                    </Button>
+                  )}
+
+                  {!isPiPodcast && (
+                    <Button asChild variant="outline" size="sm">
                       <a
                         href={`https://podcasts.apple.com/podcast/id${podcast.id}`}
                         target="_blank"
@@ -392,7 +436,7 @@ export default function PodcastPage({ params }: PageProps) {
                     </Button>
                   )}
                   {podcast.feedUrl && (
-                    <Button variant={isPiPodcast ? 'default' : 'outline'} asChild>
+                    <Button variant="outline" size="sm" asChild>
                       <a
                         href={podcast.feedUrl}
                         target="_blank"
