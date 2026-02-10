@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, use } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Apple, Clock, Calendar, ExternalLink, Loader2, FileText, Heart } from 'lucide-react';
+import { ArrowLeft, Clock, Calendar, ExternalLink, Loader2, FileText, Heart } from 'lucide-react';
 import { SummarizeButton } from '@/components/SummarizeButton';
 import { InlinePlayButton } from '@/components/PlayButton';
 import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
@@ -423,18 +423,7 @@ export default function PodcastPage({ params }: PageProps) {
                     </Button>
                   )}
 
-                  {!isPiPodcast && (
-                    <Button asChild variant="outline" size="sm">
-                      <a
-                        href={`https://podcasts.apple.com/podcast/id${podcast.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Apple className="h-4 w-4 mr-2" />
-                        Open Podcast Page
-                      </a>
-                    </Button>
-                  )}
+
                   {podcast.feedUrl && (
                     <Button variant="outline" size="sm" asChild>
                       <a
