@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 // POST: Batch lookup episodes by audio URLs and return their IDs + summary statuses
 export async function POST(request: NextRequest) {
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Maximum 50 URLs per batch' }, { status: 400 });
     }
 
-    const supabase = createServerClient();
+    const supabase = createAdminClient();
 
     // Single query: fetch episodes with their deep summaries using Supabase relationship
     // This eliminates the N+1 query pattern by using a JOIN under the hood
@@ -42,15 +42,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ results: {} });
     }
 
-    // Status priority: ready > summarizing > transcribing > queued > failed > not_ready
-    const statusPriority: Record<string, number> = {
-      ready: 6,
-      summarizing: 5,
-      transcribing: 4,
-      queued: 3,
-      failed: 2,
-      not_ready: 1,
-    };
+    const { SUMMARY_STATUS_PRIORITY: statusPriority } = await import('@/lib/status-utils');
 
     // Build results directly from the joined data
     const results: Record<string, { episodeId: string; summaryStatus: string }> = {};

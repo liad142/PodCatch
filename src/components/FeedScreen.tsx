@@ -39,18 +39,18 @@ export default function FeedScreen() {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
-  const fetchFeed = async (reset = false) => {
+  const fetchFeed = async (reset = false, currentOffset?: number) => {
     try {
       setLoading(true);
       setError(null);
 
-      const currentOffset = reset ? 0 : offset;
+      const effectiveOffset = reset ? 0 : (currentOffset ?? offset);
       const params = new URLSearchParams({
         sourceType: sourceFilter,
         mode: feedMode,
         bookmarked: bookmarkedOnly.toString(),
         limit: '20',
-        offset: currentOffset.toString(),
+        offset: effectiveOffset.toString(),
       });
 
       const response = await fetch(`/api/feed?${params}`);

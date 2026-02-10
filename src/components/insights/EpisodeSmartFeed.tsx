@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InsightHero } from "./InsightHero";
-import { MindmapTeaser } from "./MindmapTeaser";
 import { HighlightsCarousel } from "./HighlightsCarousel";
 import { TranscriptAccordion } from "./TranscriptAccordion";
 import { ActionFooter } from "./ActionFooter";
@@ -16,7 +15,7 @@ interface EpisodeSmartFeedProps {
   episode: Episode & { podcast?: Podcast };
 }
 
-export type SectionId = "hero" | "mindmap" | "highlights" | "transcript";
+export type SectionId = "hero" | "highlights" | "transcript";
 
 export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
   const [data, setData] = useState<EpisodeInsightsResponse | null>(null);
@@ -27,7 +26,6 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
   // Section refs for QuickNav
   const sectionRefs = useRef<Record<SectionId, HTMLElement | null>>({
     hero: null,
-    mindmap: null,
     highlights: null,
     transcript: null,
   });
@@ -60,22 +58,36 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
     fetchData().finally(() => setIsLoading(false));
   }, [fetchData]);
 
-  // Polling while generating
+  // Polling while generating (exponential backoff: 2s initial, 1.5x, 15s max, 60 attempts cap)
   useEffect(() => {
     if (!isGenerating) return;
 
-    const interval = setInterval(() => {
+    let delay = 2000;
+    let attempts = 0;
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const poll = () => {
+      if (attempts >= 60) {
+        setIsGenerating(false);
+        setError("Generation timed out. Please try again.");
+        return;
+      }
+      attempts++;
       fetchData().then((json) => {
         if (json) {
           const status = json.insights?.status;
           if (!["queued", "transcribing", "summarizing"].includes(status)) {
             setIsGenerating(false);
+            return;
           }
         }
+        delay = Math.min(delay * 1.5, 15000);
+        timeoutId = setTimeout(poll, delay);
       });
-    }, 2500);
+    };
 
-    return () => clearInterval(interval);
+    timeoutId = setTimeout(poll, delay);
+    return () => clearTimeout(timeoutId);
   }, [isGenerating, fetchData]);
 
   // Generate insights
@@ -214,16 +226,7 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
           />
         </section>
 
-        {/* Section 2: Mindmap Teaser */}
-        <section ref={setSectionRef("mindmap")} data-section="mindmap">
-          <MindmapTeaser
-            mindmap={insightsContent?.mindmap}
-            isGenerating={isGenerating}
-            onGenerate={handleGenerate}
-          />
-        </section>
-
-        {/* Section 3: Highlights Carousel */}
+        {/* Section 2: Highlights Carousel */}
         {(insightsContent?.highlights?.length ?? 0) > 0 && (
           <section ref={setSectionRef("highlights")} data-section="highlights">
             <HighlightsCarousel
@@ -233,7 +236,7 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
           </section>
         )}
 
-        {/* Section 4: Transcript Accordion */}
+        {/* Section 3: Transcript Accordion */}
         <section ref={setSectionRef("transcript")} data-section="transcript">
           <TranscriptAccordion
             transcript={data?.transcript_text}

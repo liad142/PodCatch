@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/admin";
 
 interface RouteParams {
   params: Promise<{
@@ -9,6 +10,9 @@ interface RouteParams {
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const { user, error: authError } = await requireAdmin();
+    if (authError) return authError;
+
     const { id } = await params;
 
     if (!id) {
@@ -18,8 +22,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Use server client with secret key for delete operations
-    const supabase = createServerClient();
+    // Use admin client with secret key for delete operations
+    const supabase = createAdminClient();
 
     // First delete all episodes for this podcast
     const { error: episodesError } = await supabase
@@ -70,8 +74,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Use server client for GET as well to ensure consistent permissions
-    const supabase = createServerClient();
+    // Use admin client for GET as well to ensure consistent permissions
+    const supabase = createAdminClient();
 
     // Fetch podcast details
     const { data: podcast, error: podcastError } = await supabase

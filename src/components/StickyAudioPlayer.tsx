@@ -91,6 +91,7 @@ export function StickyAudioPlayer() {
   } = player;
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const sanitizedArtwork = sanitizeImageUrl(currentTrack.artworkUrl);
 
   const handleProgressChange = (value: number[]) => {
     const newTime = (value[0] / 100) * duration;
@@ -153,10 +154,10 @@ export function StickyAudioPlayer() {
                   transition={{ type: 'spring', stiffness: 400 }}
                 >
                   <div className="relative w-14 h-14 rounded-lg overflow-hidden shadow-lg shadow-black/50 ring-1 ring-white/10">
-                    {sanitizeImageUrl(currentTrack.artworkUrl) ? (
+                    {sanitizedArtwork ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
-                        src={sanitizeImageUrl(currentTrack.artworkUrl)!}
+                        src={sanitizedArtwork}
                         alt={currentTrack.title}
                         className="w-full h-full object-cover"
                       />

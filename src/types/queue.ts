@@ -1,5 +1,4 @@
 // src/types/queue.ts
-import type { SummaryStatus } from './database';
 
 // Queue item states
 export type QueueItemState =

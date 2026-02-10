@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 interface CheckSummariesRequest {
   audioUrls: string[];
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createServerClient();
+    const supabase = createAdminClient();
 
     // Find episodes by audio URLs
     const { data: episodes, error: episodesError } = await supabase
@@ -105,15 +105,7 @@ export async function POST(request: NextRequest) {
     const audioUrlToEpisode = new Map(episodes.map(e => [e.audio_url, e.id]));
 
     // Build episode ID to summaries mapping
-    // Priority: ready > summarizing > transcribing > queued > failed > not_ready
-    const statusPriority: Record<string, number> = {
-      ready: 6,
-      summarizing: 5,
-      transcribing: 4,
-      queued: 3,
-      failed: 2,
-      not_ready: 1,
-    };
+    const { SUMMARY_STATUS_PRIORITY: statusPriority } = await import('@/lib/status-utils');
 
     const episodeSummaries = new Map<string, { quick: string | null; deep: string | null }>();
     for (const summary of summaries || []) {

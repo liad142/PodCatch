@@ -167,3 +167,11 @@ html:not(.dark) {
 .animate-pulse-slow {
   animation: pulse 3s ease-in-out infinite;
 }
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

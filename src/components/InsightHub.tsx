@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { StickyTabNav } from "./StickyTabNav";
 import { SummaryTabContent } from "./insights/SummaryTabContent";
-import { MindmapTabContent } from "./insights/MindmapTabContent";
 import { TranscriptTabContent } from "./insights/TranscriptTabContent";
 import { KeywordsTabContent } from "./insights/KeywordsTabContent";
 import { HighlightsTabContent } from "./insights/HighlightsTabContent";
@@ -186,16 +185,6 @@ export function InsightHub({ episodeId, initialTab = 'summary' }: InsightHubProp
           />
         );
 
-      case 'mindmap':
-        return (
-          <MindmapTabContent
-            mindmap={insightsContent?.mindmap}
-            isLoading={isLoading}
-            isGenerating={isGenerating}
-            onGenerate={handleGenerate}
-          />
-        );
-
       case 'transcript':
         return (
           <TranscriptTabContent
@@ -276,9 +265,9 @@ export function InsightHub({ episodeId, initialTab = 'summary' }: InsightHubProp
             <Loader2 className="h-4 w-4 animate-spin" />
             <span className="text-sm font-medium">
               {data?.transcript_status === 'transcribing'
-                ? 'Transcribing audio with Groq...'
+                ? 'Transcribing audio...'
                 : data?.insights?.status === 'summarizing'
-                ? 'Generating insights with Claude...'
+                ? 'Generating insights...'
                 : 'Processing...'}
             </span>
           </div>
@@ -315,8 +304,7 @@ export function InsightHub({ episodeId, initialTab = 'summary' }: InsightHubProp
         </div>
       )}
 
-      {/* Mobile Tab Navigation */}
-      <StickyTabNav activeTab={activeTab} onChange={setActiveTab} />
+      {/* StickyTabNav handles both mobile (bottom) and desktop (top) layouts internally */}
     </div>
   );
 }

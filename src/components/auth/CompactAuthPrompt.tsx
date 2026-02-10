@@ -13,6 +13,12 @@ export function CompactAuthPrompt() {
     setShowAuthModal(true);
   };
 
+  const handleSignUp = () => {
+    setShowCompactPrompt(false);
+    // Open auth modal - signup mode is handled within the modal
+    setShowAuthModal(true);
+  };
+
   return (
     <Toast open={showCompactPrompt} onOpenChange={(open) => setShowCompactPrompt(open)} position="bottom">
       <div className="pr-8">
@@ -40,7 +46,7 @@ export function CompactAuthPrompt() {
           <Button
             size="sm"
             variant="outline"
-            onClick={handleSignIn}
+            onClick={handleSignUp}
             className="flex-1 gap-1.5"
           >
             <UserPlus className="h-3.5 w-3.5" />

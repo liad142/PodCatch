@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 // GET: Lookup podcast by RSS URL
 export async function GET(request: NextRequest) {
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { data: podcast, error } = await createServerClient()
+    const { data: podcast, error } = await createAdminClient()
       .from('podcasts')
       .select('id')
       .eq('rss_feed_url', rssUrl)

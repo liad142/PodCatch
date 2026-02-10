@@ -32,12 +32,8 @@ async function withRetry<T>(
   throw lastError;
 }
 
-function logWithTime(message: string, data?: Record<string, unknown>) {
-  if (isDev) {
-    const timestamp = new Date().toISOString();
-    console.log(`[DEEPGRAM ${timestamp}] ${message}`, data ? JSON.stringify(data) : '');
-  }
-}
+import { createLogger } from "@/lib/logger";
+const logWithTime = createLogger('DEEPGRAM');
 
 // Audio file extensions that indicate direct URLs (no redirects needed)
 const DIRECT_AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.wav', '.ogg', '.flac', '.aac', '.opus'];
