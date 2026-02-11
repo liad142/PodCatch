@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   Sparkles,
@@ -12,8 +12,20 @@ import {
   ExternalLink,
   Copy,
   Check,
+  ChevronDown,
+  Wrench,
+  GitBranch,
+  Lightbulb,
+  Target,
+  BookOpen,
+  Repeat,
+  Github,
+  User,
+  FileText,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,18 +33,121 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import type { Episode, Podcast } from "@/types/database";
+import { normalizeActionItems, getResourceSearchUrl } from "@/lib/summary-normalize";
+import type { Episode, Podcast, ActionItem } from "@/types/database";
 
 interface ActionFooterProps {
   episode: Episode & { podcast?: Podcast };
-  actionPrompts?: string[];
+  actionPrompts?: (string | ActionItem)[];
+}
+
+// Category icon mapping
+function getCategoryIcon(category: string) {
+  switch (category) {
+    case "tool":
+      return Wrench;
+    case "repo":
+      return GitBranch;
+    case "concept":
+      return Lightbulb;
+    case "strategy":
+      return Target;
+    case "resource":
+      return BookOpen;
+    case "habit":
+      return Repeat;
+    default:
+      return Lightbulb;
+  }
+}
+
+// Category label
+function getCategoryLabel(category: string): string {
+  const labels: Record<string, string> = {
+    tool: "Tool",
+    repo: "Repository",
+    concept: "Concept",
+    strategy: "Strategy",
+    resource: "Resource",
+    habit: "Habit",
+  };
+  return labels[category] || "Insight";
+}
+
+// Priority styling
+function getPriorityStyles(priority?: string) {
+  switch (priority) {
+    case "high":
+      return {
+        label: "High priority",
+        className: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800",
+      };
+    case "low":
+      return {
+        label: "Quick win",
+        className: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+      };
+    default:
+      return null; // medium = no pill
+  }
+}
+
+// Resource type icon
+function getResourceIcon(type: string) {
+  switch (type) {
+    case "github":
+      return Github;
+    case "book":
+      return BookOpen;
+    case "tool":
+      return Wrench;
+    case "person":
+      return User;
+    case "paper":
+      return FileText;
+    case "website":
+      return Globe;
+    default:
+      return ExternalLink;
+  }
+}
+
+// localStorage key for checked state
+function getStorageKey(episodeId: string) {
+  return `podcatch:actions:${episodeId}`;
 }
 
 export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
+  const actions = useMemo(() => normalizeActionItems(actionPrompts), [actionPrompts]);
+
+  // Sort: high priority first, then medium, then low
+  const sortedActions = useMemo(() => {
+    const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+    return [...actions].sort(
+      (a, b) => (priorityOrder[a.priority || "medium"] ?? 1) - (priorityOrder[b.priority || "medium"] ?? 1)
+    );
+  }, [actions]);
+
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
+  const [showAll, setShowAll] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Toggle action item
+  // Load checked state from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(getStorageKey(episode.id));
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setCheckedItems(new Set(parsed));
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [episode.id]);
+
+  // Save checked state to localStorage
   const toggleItem = (index: number) => {
     const newChecked = new Set(checkedItems);
     if (newChecked.has(index)) {
@@ -41,6 +156,14 @@ export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
       newChecked.add(index);
     }
     setCheckedItems(newChecked);
+    try {
+      localStorage.setItem(
+        getStorageKey(episode.id),
+        JSON.stringify([...newChecked])
+      );
+    } catch {
+      // ignore
+    }
   };
 
   // Share handlers
@@ -59,14 +182,17 @@ export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
           text: `Check out this podcast episode: ${episode.title}`,
           url: window.location.href,
         });
-      } catch (err) {
+      } catch {
         // User cancelled or error
-        console.log("Share cancelled");
       }
     } else {
       handleCopyLink();
     }
   };
+
+  const INITIAL_SHOW = 3;
+  const visibleActions = showAll ? sortedActions : sortedActions.slice(0, INITIAL_SHOW);
+  const hiddenCount = sortedActions.length - INITIAL_SHOW;
 
   return (
     <div className="px-4">
@@ -91,7 +217,6 @@ export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
             size="lg"
             className="w-full gap-3 h-14 text-base"
             onClick={() => {
-              // Placeholder for AI chat feature
               alert("AI Chat feature coming soon!");
             }}
           >
@@ -115,7 +240,6 @@ export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
               size="lg"
               className="h-14 flex-col gap-1"
               onClick={() => {
-                // Placeholder for save feature
                 alert("Save feature coming soon!");
               }}
             >
@@ -149,8 +273,8 @@ export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
           </div>
         </div>
 
-        {/* Action Items from Deep Summary */}
-        {actionPrompts && actionPrompts.length > 0 && (
+        {/* Structured Action Items */}
+        {sortedActions.length > 0 && (
           <div className="rounded-xl border bg-card p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-sm flex items-center gap-2">
@@ -158,58 +282,124 @@ export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
                 Action Items
               </h3>
               <span className="text-xs text-muted-foreground">
-                {checkedItems.size}/{actionPrompts.length} done
+                {checkedItems.size}/{sortedActions.length} done
               </span>
             </div>
 
-            <div className="space-y-2">
-              {actionPrompts.map((action, i) => {
-                const isChecked = checkedItems.has(i);
+            <div className="space-y-3">
+              {visibleActions.map((action, displayIndex) => {
+                // Find the actual index in sortedActions for checkbox persistence
+                const actualIndex = sortedActions.indexOf(action);
+                const isChecked = checkedItems.has(actualIndex);
+                const CategoryIcon = getCategoryIcon(action.category);
+                const priorityStyles = getPriorityStyles(action.priority);
 
                 return (
-                  <motion.button
-                    key={i}
-                    onClick={() => toggleItem(i)}
+                  <motion.div
+                    key={actualIndex}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: displayIndex * 0.05 }}
                     className={cn(
-                      "w-full text-left p-3 rounded-lg border transition-all",
-                      "hover:bg-muted/50",
-                      isChecked && "bg-primary/5 border-primary/20"
+                      "rounded-lg border p-3 transition-all",
+                      isChecked && "bg-primary/5 border-primary/20 opacity-70"
                     )}
-                    whileTap={{ scale: 0.98 }}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="shrink-0 mt-0.5">
+                      {/* Checkbox */}
+                      <button
+                        onClick={() => toggleItem(actualIndex)}
+                        className="shrink-0 mt-0.5"
+                      >
                         {isChecked ? (
                           <CheckCircle2 className="h-5 w-5 text-primary" />
                         ) : (
-                          <Circle className="h-5 w-5 text-muted-foreground" />
+                          <Circle className="h-5 w-5 text-muted-foreground hover:text-primary transition-colors" />
                         )}
-                      </div>
-                      <div className="flex-1 min-w-0">
+                      </button>
+
+                      <div className="flex-1 min-w-0 space-y-2">
+                        {/* Header: category + title + priority */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="secondary" className="gap-1 text-xs shrink-0">
+                            <CategoryIcon className="h-3 w-3" />
+                            {getCategoryLabel(action.category)}
+                          </Badge>
+                          {priorityStyles && (
+                            <Badge
+                              variant="outline"
+                              className={cn("text-[10px] h-5 px-1.5 shrink-0", priorityStyles.className)}
+                            >
+                              {priorityStyles.label}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Action text */}
                         <p
                           className={cn(
                             "text-sm leading-relaxed",
                             isChecked && "line-through text-muted-foreground"
                           )}
                         >
-                          {action}
+                          {action.text}
                         </p>
+
+                        {/* Resource pills */}
+                        {action.resources && action.resources.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {action.resources.map((resource, ri) => {
+                              const ResourceIcon = getResourceIcon(resource.type);
+                              return (
+                                <a
+                                  key={ri}
+                                  href={getResourceSearchUrl(resource)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={cn(
+                                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs",
+                                    "border bg-muted/50 hover:bg-muted transition-colors",
+                                    "text-foreground hover:text-primary"
+                                  )}
+                                  title={resource.context || `Search for ${resource.name}`}
+                                >
+                                  <ResourceIcon className="h-3 w-3" />
+                                  {resource.name}
+                                  <ExternalLink className="h-2.5 w-2.5 opacity-50" />
+                                </a>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </motion.button>
+                  </motion.div>
                 );
               })}
             </div>
 
+            {/* Show more button */}
+            {hiddenCount > 0 && !showAll && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAll(true)}
+                className="w-full gap-2 text-muted-foreground"
+              >
+                <ChevronDown className="h-4 w-4" />
+                Show {hiddenCount} more
+              </Button>
+            )}
+
             {/* Progress bar */}
-            {actionPrompts.length > 0 && (
+            {sortedActions.length > 0 && (
               <div className="pt-2">
                 <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                   <motion.div
                     className="h-full bg-primary rounded-full"
                     initial={{ width: 0 }}
                     animate={{
-                      width: `${(checkedItems.size / actionPrompts.length) * 100}%`,
+                      width: `${(checkedItems.size / sortedActions.length) * 100}%`,
                     }}
                     transition={{ duration: 0.3 }}
                   />

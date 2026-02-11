@@ -2,13 +2,15 @@
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, ChevronUp, Sparkles, Loader2, Tag, BookOpen, Lightbulb, Clock, MessageSquareQuote, CheckCircle } from "lucide-react";
+import { ChevronDown, ChevronUp, Sparkles, Loader2, Tag, BookOpen, Lightbulb, Clock, MessageSquareQuote, Play, ChevronsUpDown, ChevronsDownUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { isRTLText } from "@/lib/rtl";
-import type { Episode, Podcast, SummaryData, QuickSummaryContent, DeepSummaryContent } from "@/types/database";
+import { useAudioPlayerSafe } from "@/contexts/AudioPlayerContext";
+import { parseHighlightMarkers, normalizeChronologicalSections, hasRealTimestamps } from "@/lib/summary-normalize";
+import type { Episode, Podcast, SummaryData, QuickSummaryContent, DeepSummaryContent, ChronologicalSection } from "@/types/database";
 
 interface InsightHeroProps {
   episode: Episode & { podcast?: Podcast };
@@ -21,6 +23,249 @@ interface InsightHeroProps {
 function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength).trim() + "...";
+}
+
+// Render paragraph with <<highlighted>> markers
+function AnnotatedParagraph({ text, isRTL }: { text: string; isRTL: boolean }) {
+  const segments = parseHighlightMarkers(text);
+  return (
+    <p className={cn("mb-3 last:mb-0 leading-relaxed", isRTL && "text-right")}>
+      {segments.map((seg, i) =>
+        seg.type === "highlight" ? (
+          <mark
+            key={i}
+            className="bg-yellow-100/60 dark:bg-yellow-900/30 px-0.5 rounded text-foreground"
+          >
+            {seg.content}
+          </mark>
+        ) : (
+          <span key={i}>{seg.content}</span>
+        )
+      )}
+    </p>
+  );
+}
+
+// Episode Chapters Timeline component
+function EpisodeChapters({
+  sections,
+  isRTL,
+}: {
+  sections: ChronologicalSection[];
+  isRTL: boolean;
+}) {
+  const normalized = useMemo(() => normalizeChronologicalSections(sections), [sections]);
+  const showTimestamps = useMemo(() => hasRealTimestamps(normalized), [normalized]);
+  const [expandedIndex, setExpandedIndex] = useState<number>(0); // First auto-expanded
+  const [allExpanded, setAllExpanded] = useState(false);
+  const player = useAudioPlayerSafe();
+
+  // Find active chapter based on current playback time
+  const activeIndex = useMemo(() => {
+    if (!player || !showTimestamps) return -1;
+    const time = player.currentTime;
+    let active = -1;
+    for (let i = 0; i < normalized.length; i++) {
+      const sec = normalized[i].timestamp_seconds ?? 0;
+      if (sec <= time) active = i;
+    }
+    return active;
+  }, [player?.currentTime, normalized, showTimestamps, player]);
+
+  const handleSeekTo = (seconds: number) => {
+    if (seconds >= 0 && player) {
+      player.seek(seconds);
+      if (!player.isPlaying) {
+        player.play();
+      }
+    }
+  };
+
+  const toggleExpand = (index: number) => {
+    setExpandedIndex(expandedIndex === index ? -1 : index);
+    setAllExpanded(false);
+  };
+
+  const toggleAll = () => {
+    setAllExpanded(!allExpanded);
+    if (allExpanded) {
+      setExpandedIndex(0);
+    }
+  };
+
+  if (normalized.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <div className={cn(
+        "flex items-center justify-between",
+        isRTL && "flex-row-reverse"
+      )}>
+        <h3 className={cn(
+          "text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2",
+          isRTL && "flex-row-reverse"
+        )}>
+          <Clock className="h-4 w-4" />
+          Episode Chapters
+        </h3>
+        {normalized.length > 1 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleAll}
+            className="text-xs gap-1 h-7 text-muted-foreground"
+          >
+            {allExpanded ? (
+              <>
+                <ChevronsDownUp className="h-3 w-3" />
+                Collapse All
+              </>
+            ) : (
+              <>
+                <ChevronsUpDown className="h-3 w-3" />
+                Expand All
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+
+      {/* Timeline */}
+      <div className={cn("relative", isRTL ? "pr-4" : "pl-4")}>
+        {/* Vertical line */}
+        <div className={cn(
+          "absolute top-0 bottom-0 w-0.5 bg-border",
+          isRTL ? "right-[7px]" : "left-[7px]"
+        )} />
+
+        {normalized.map((section, i) => {
+          const isActive = i === activeIndex;
+          const isExpanded = allExpanded || expandedIndex === i;
+          const sectionTitle = section.title || section.timestamp_description || `Section ${i + 1}`;
+          const hasTimestamp = showTimestamps && (section.timestamp_seconds ?? 0) > 0;
+
+          return (
+            <div key={i} className="relative pb-4 last:pb-0">
+              {/* Timeline dot */}
+              <div className={cn(
+                "absolute top-1.5 w-3 h-3 rounded-full border-2 z-10",
+                isRTL ? "-right-[2px]" : "-left-[2px]",
+                isActive
+                  ? "bg-primary border-primary"
+                  : "bg-background border-muted-foreground/40"
+              )} />
+
+              {/* Content card */}
+              <div className={cn(
+                "rounded-lg border transition-all",
+                isRTL ? "mr-5" : "ml-5",
+                isActive && "border-primary/40 bg-primary/5"
+              )}>
+                {/* Header - always visible */}
+                <button
+                  onClick={() => toggleExpand(i)}
+                  className={cn(
+                    "w-full p-3 flex items-start gap-2 text-left hover:bg-muted/50 transition-colors rounded-lg",
+                    isRTL && "flex-row-reverse text-right"
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className={cn(
+                      "flex items-center gap-2 flex-wrap",
+                      isRTL && "flex-row-reverse"
+                    )}>
+                      {/* Timestamp badge */}
+                      {hasTimestamp && (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-xs gap-1 cursor-pointer hover:bg-primary/10 transition-colors shrink-0",
+                            isActive && "border-primary text-primary"
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSeekTo(section.timestamp_seconds!);
+                          }}
+                        >
+                          <Clock className="h-3 w-3" />
+                          ~{section.timestamp}
+                        </Badge>
+                      )}
+                      <span className={cn(
+                        "font-medium text-sm",
+                        isActive && "text-primary"
+                      )}>
+                        {sectionTitle}
+                      </span>
+                      {isActive && (
+                        <Badge variant="default" className="text-[10px] h-5 px-1.5 shrink-0">
+                          NOW PLAYING
+                        </Badge>
+                      )}
+                    </div>
+                    {/* Hook (teaser) */}
+                    {!isExpanded && section.hook && (
+                      <p className={cn(
+                        "text-xs text-muted-foreground mt-1 line-clamp-1",
+                        isRTL && "text-right"
+                      )}>
+                        {section.hook}
+                      </p>
+                    )}
+                  </div>
+                  <div className="shrink-0 mt-0.5">
+                    {isExpanded ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                </button>
+
+                {/* Expanded content */}
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className={cn("px-3 pb-3 space-y-3", isRTL && "text-right")} dir={isRTL ? "rtl" : "ltr"}>
+                        {section.hook && (
+                          <p className="text-xs italic text-muted-foreground">
+                            {section.hook}
+                          </p>
+                        )}
+                        <p className="text-sm leading-relaxed">
+                          {section.content}
+                        </p>
+                        {hasTimestamp && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 h-8 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSeekTo(section.timestamp_seconds!);
+                            }}
+                          >
+                            <Play className="h-3 w-3 fill-current" />
+                            Play from ~{section.timestamp}
+                          </Button>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }: InsightHeroProps) {
@@ -201,7 +446,7 @@ export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }
 
                 {isDeepReady && deepContent && (
                   <>
-                    {/* Comprehensive Overview */}
+                    {/* Comprehensive Overview with Highlights */}
                     {deepContent.comprehensive_overview && (
                       <div className="space-y-3">
                         <h3 className={cn(
@@ -213,7 +458,7 @@ export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }
                         </h3>
                         <div className={cn("prose prose-sm dark:prose-invert max-w-none", isRTL && "text-right")}>
                           {deepContent.comprehensive_overview.split('\n').map((paragraph, i) => (
-                            <p key={i} className="mb-3 last:mb-0 leading-relaxed">{paragraph}</p>
+                            <AnnotatedParagraph key={i} text={paragraph} isRTL={isRTL} />
                           ))}
                         </div>
                       </div>
@@ -252,29 +497,12 @@ export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }
                       </div>
                     )}
 
-                    {/* Chronological Breakdown */}
+                    {/* Episode Chapters (replaces old Chronological Breakdown) */}
                     {deepContent.chronological_breakdown && deepContent.chronological_breakdown.length > 0 && (
-                      <div className="space-y-3">
-                        <h3 className={cn(
-                          "text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2",
-                          isRTL && "flex-row-reverse"
-                        )}>
-                          <Clock className="h-4 w-4" />
-                          Episode Flow
-                        </h3>
-                        <div className="space-y-3">
-                          {deepContent.chronological_breakdown.map((section, i) => (
-                            <div key={i} className="rounded-lg bg-muted/30 p-4 space-y-2">
-                              <Badge variant="outline" className="text-xs">
-                                {section.timestamp_description}
-                              </Badge>
-                              <p className={cn("text-sm leading-relaxed", isRTL && "text-right")}>
-                                {section.content}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      <EpisodeChapters
+                        sections={deepContent.chronological_breakdown}
+                        isRTL={isRTL}
+                      />
                     )}
 
                     {/* Contrarian Views */}
@@ -294,32 +522,6 @@ export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }
                               isRTL ? "border-r-4 border-r-purple-500" : "border-l-4 border-l-purple-500"
                             )}>
                               <p className={cn("text-sm", isRTL && "text-right")}>{view}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Actionable Takeaways */}
-                    {deepContent.actionable_takeaways && deepContent.actionable_takeaways.length > 0 && (
-                      <div className="space-y-3">
-                        <h3 className={cn(
-                          "text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2",
-                          isRTL && "flex-row-reverse"
-                        )}>
-                          <CheckCircle className="h-4 w-4 text-green-500" />
-                          Actionable Takeaways
-                        </h3>
-                        <div className="space-y-2">
-                          {deepContent.actionable_takeaways.map((action, i) => (
-                            <div key={i} className={cn(
-                              "rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 p-3",
-                              isRTL ? "border-r-4 border-r-green-500" : "border-l-4 border-l-green-500"
-                            )}>
-                              <div className={cn("flex gap-2 items-start", isRTL && "flex-row-reverse text-right")}>
-                                <span className="text-green-600 dark:text-green-400 font-bold text-sm">{i + 1}.</span>
-                                <p className="text-sm flex-1">{action}</p>
-                              </div>
                             </div>
                           ))}
                         </div>

@@ -69,6 +69,68 @@ const logWithTime = createLogger('SUMMARY-SERVICE');
 
 const isDev = process.env.NODE_ENV === 'development';
 
+/**
+ * Attempt to repair common JSON issues from LLM output:
+ * - Trailing commas before } or ]
+ * - Unescaped control characters inside strings (newlines, tabs)
+ * - Unescaped quotes inside strings (best-effort)
+ */
+function repairJsonString(text: string): string {
+  let result = text;
+
+  // 1. Remove trailing commas before } or ] (with optional whitespace)
+  result = result.replace(/,(\s*[}\]])/g, '$1');
+
+  // 2. Fix unescaped control characters inside JSON strings.
+  //    Walk through the string tracking whether we're inside a JSON string value,
+  //    and escape raw newlines/tabs that appear inside.
+  const chars: string[] = [];
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < result.length; i++) {
+    const ch = result[i];
+
+    if (escaped) {
+      chars.push(ch);
+      escaped = false;
+      continue;
+    }
+
+    if (ch === '\\' && inString) {
+      chars.push(ch);
+      escaped = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = !inString;
+      chars.push(ch);
+      continue;
+    }
+
+    // If inside a string, escape raw control characters
+    if (inString) {
+      if (ch === '\n') {
+        chars.push('\\n');
+        continue;
+      }
+      if (ch === '\r') {
+        chars.push('\\r');
+        continue;
+      }
+      if (ch === '\t') {
+        chars.push('\\t');
+        continue;
+      }
+    }
+
+    chars.push(ch);
+  }
+
+  return chars.join('');
+}
+
 // Speaker identification types
 export interface IdentifiedSpeaker {
   id: number;
@@ -181,7 +243,13 @@ export async function identifySpeakers(transcript: DiarizedTranscript): Promise<
 }
 
 // System message to enforce JSON-only responses
-const SYSTEM_MESSAGE = `You are a JSON-only response bot. You MUST respond with ONLY valid JSON - no explanations, no markdown, no text before or after the JSON. Start your response with { and end with }. Never say "Based on" or any other text.
+const SYSTEM_MESSAGE = `You are a JSON-only response bot. You MUST respond with ONLY valid JSON - no explanations, no markdown, no text before or after the JSON. Start your response with { and end with }.
+
+CRITICAL JSON RULES:
+1. Escape all double quotes inside string values with backslash: \\"
+2. Use \\n for newlines inside strings, never raw newlines
+3. No trailing commas after the last item in arrays or objects
+4. Never say "Based on" or any other text outside the JSON
 
 CRITICAL: You MUST detect the language of the transcript and respond in THE SAME LANGUAGE. This works for ANY language - Hebrew, Spanish, French, German, Japanese, Arabic, Portuguese, Russian, Chinese, or any other. Match the transcript language exactly.`;
 
@@ -217,8 +285,8 @@ Your goal is to write a comprehensive "Executive Briefing" that completely subst
 Return ONLY a JSON object with this exact structure:
 
 {
-  "comprehensive_overview": "A detailed, multi-paragraph essay (400-600 words) summarizing the entire episode. capturing the nuance, the debate, and the narrative arc. Do NOT be brief.",
-  
+  "comprehensive_overview": "A detailed, multi-paragraph essay (400-600 words) summarizing the entire episode, capturing the nuance, the debate, and the narrative arc. Do NOT be brief. Wrap the 3-5 MOST important sentences or phrases in <<double angle brackets>> to highlight them as must-read insights. Example: The discussion revealed that <<quantum computing will make current encryption obsolete within 5 years>>, which has major implications for...",
+
   "core_concepts": [
     {
       "concept": "Name of the concept/argument",
@@ -229,7 +297,10 @@ Return ONLY a JSON object with this exact structure:
 
   "chronological_breakdown": [
     {
-      "timestamp_description": "e.g., 'The Opening Argument' or 'The Middle East Discussion'",
+      "timestamp": "05:45",
+      "timestamp_seconds": 345,
+      "title": "The AI Safety Debate",
+      "hook": "Why every hospital will have an AI triage system by 2027",
       "content": "A meaty paragraph (100-150 words) detailing exactly what was said in this section. Include specific examples given by speakers."
     }
   ],
@@ -239,7 +310,14 @@ Return ONLY a JSON object with this exact structure:
   ],
 
   "actionable_takeaways": [
-    "Concrete advice or future predictions made in the episode."
+    {
+      "text": "Set up OpenTelemetry tracing for your distributed services",
+      "category": "tool",
+      "priority": "high",
+      "resources": [
+        { "name": "OpenTelemetry", "type": "tool", "context": "Monitoring framework discussed as the backbone for distributed tracing" }
+      ]
+    }
   ]
 }
 
@@ -249,6 +327,13 @@ RULES:
 3. **Tone**: Professional, analytical, but engaging. Avoid robotic phrasing like "The speakers discussed...". Instead, write directly: "Israel's geopolitical situation is shifting because..."
 4. **Format**: Use Markdown formatting inside the JSON strings (e.g., **bold** for emphasis) to make the text readable.
 5. **No Fluff**: Do not say "In this interesting episode...". Dive straight into the content.
+6. **Highlights**: In comprehensive_overview, wrap the 3-5 MOST important sentences in <<double angle brackets>>. These are the must-read insights.
+7. **Timestamps**: The transcript may include [MM:SS] timestamps. For EACH chronological_breakdown section, set "timestamp" to the EXACT [MM:SS] from the transcript where that topic BEGINS. Set "timestamp_seconds" to total seconds (e.g., "05:45" = 345). If the transcript has no timestamps, use "00:00" and 0.
+8. **Action Items**:
+   - category: tool/repo/concept/strategy/resource/habit
+   - priority: high (explicitly recommended), medium (implied), low (general idea)
+   - resources: ONLY include tools/repos/books/people that were EXPLICITLY MENTIONED in the episode. Never invent resources.
+   - Include the resource NAME only — never fabricate URLs.
 `;
 
 
@@ -629,7 +714,7 @@ export async function generateSummaryForLevel(
   level: SummaryLevel,
   transcriptText: string,
   language = 'en',
-  _diarizedTranscript?: DiarizedTranscript // Keep for future use, not used in simple approach
+  diarizedTranscript?: DiarizedTranscript
 ): Promise<{ status: SummaryStatus; content?: QuickSummaryContent | DeepSummaryContent; error?: string }> {
   const startTime = Date.now();
   logWithTime('generateSummaryForLevel started', { episodeId, level, language, transcriptLength: transcriptText.length });
@@ -649,19 +734,35 @@ export async function generateSummaryForLevel(
     const selectedModel = getModelForLevel(level);
     const modelName = level === 'deep' ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
     const prompt = level === 'quick' ? QUICK_PROMPT : DEEP_PROMPT;
-    
+
     // Use up to 150k characters of transcript (leaves room for prompt and response)
     const maxTranscriptChars = 150000;
-    const truncatedTranscript = transcriptText.length > maxTranscriptChars 
-      ? transcriptText.substring(0, maxTranscriptChars) + '\n\n[... transcript truncated for length ...]'
-      : transcriptText;
-    
+
+    // For deep summaries, use diarized transcript with timestamps when available
+    // This enables Gemini to extract real timestamps for chronological_breakdown
+    let inputTranscript = transcriptText;
+    if (level === 'deep' && diarizedTranscript?.utterances && diarizedTranscript.utterances.length > 0) {
+      const timestampedTranscript = formatTranscriptWithTimestamps(diarizedTranscript);
+      if (timestampedTranscript.length > 0) {
+        inputTranscript = timestampedTranscript;
+        logWithTime('Using diarized transcript with timestamps for deep summary', {
+          utteranceCount: diarizedTranscript.utterances.length,
+          timestampedLength: timestampedTranscript.length
+        });
+      }
+    }
+
+    const truncatedTranscript = inputTranscript.length > maxTranscriptChars
+      ? inputTranscript.substring(0, maxTranscriptChars) + '\n\n[... transcript truncated for length ...]'
+      : inputTranscript;
+
     const inputLength = (prompt + truncatedTranscript).length;
-    logWithTime(`Generating ${level.toUpperCase()} Summary via Gemini...`, { 
+    logWithTime(`Generating ${level.toUpperCase()} Summary via Gemini...`, {
       model: modelName,
       level,
       inputLength,
-      transcriptTruncated: transcriptText.length > maxTranscriptChars
+      transcriptTruncated: inputTranscript.length > maxTranscriptChars,
+      usedDiarizedTranscript: level === 'deep' && inputTranscript !== transcriptText
     });
 
     const apiStart = Date.now();
@@ -694,7 +795,29 @@ export async function generateSummaryForLevel(
       }
     }
 
-    const content = JSON.parse(jsonText) as QuickSummaryContent | DeepSummaryContent;
+    // Try to parse JSON, with repair on failure
+    let content: QuickSummaryContent | DeepSummaryContent;
+    try {
+      content = JSON.parse(jsonText);
+    } catch (parseError) {
+      const parseMsg = parseError instanceof Error ? parseError.message : String(parseError);
+      // Log the area around the failure for debugging
+      const posMatch = parseMsg.match(/position (\d+)/);
+      const failPos = posMatch ? parseInt(posMatch[1]) : -1;
+      logWithTime('Initial JSON parse failed, attempting repair...', {
+        error: parseMsg,
+        failContext: failPos >= 0 ? jsonText.substring(Math.max(0, failPos - 60), failPos + 60) : undefined
+      });
+      const repaired = repairJsonString(jsonText);
+      try {
+        content = JSON.parse(repaired);
+        logWithTime('JSON repair succeeded');
+      } catch (repairError) {
+        const repairMsg = repairError instanceof Error ? repairError.message : String(repairError);
+        logWithTime('JSON repair also failed', { error: repairMsg });
+        throw new Error(`Invalid JSON from Gemini (repair failed): ${parseMsg}`);
+      }
+    }
 
     logWithTime('Saving summary to DB...');
     const saveStart = Date.now();

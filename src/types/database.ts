@@ -89,19 +89,43 @@ export interface DeepSummaryActionPrompt {
   details: string;
 }
 
+// Structured action item with resource names (no AI-generated URLs)
+export interface ActionItemResource {
+  name: string;       // "LangChain", "The Pragmatic Programmer"
+  type: 'github' | 'tool' | 'book' | 'person' | 'paper' | 'website';
+  context?: string;   // "Python framework for LLM apps discussed by the guest"
+}
+
+export interface ActionItem {
+  text: string;
+  category: 'tool' | 'repo' | 'concept' | 'strategy' | 'resource' | 'habit';
+  priority?: 'high' | 'medium' | 'low';
+  resources?: ActionItemResource[];
+}
+
+// New chronological breakdown section with timestamps
+export interface ChronologicalSection {
+  // New fields (from diarized transcript timestamps)
+  timestamp?: string;          // "12:34" (MM:SS from transcript)
+  timestamp_seconds?: number;  // 754 (for seek())
+  title?: string;              // "The AI Safety Debate"
+  hook?: string;               // 1-sentence teaser
+  // Legacy field (still supported)
+  timestamp_description?: string; // "The Opening Argument" (old format)
+  // Common field
+  content: string;             // Detailed paragraph
+}
+
 export interface DeepSummaryContent {
-  comprehensive_overview: string; // This is the new long summary
+  comprehensive_overview: string; // May contain <<highlighted>> markers
   core_concepts: Array<{
     concept: string;
     explanation: string;
     quote_reference?: string;
   }>;
-  chronological_breakdown: Array<{
-    timestamp_description: string;
-    content: string;
-  }>;
+  chronological_breakdown: ChronologicalSection[];
   contrarian_views: string[];
-  actionable_takeaways: string[];
+  actionable_takeaways: (string | ActionItem)[];  // Backward compat: old=string[], new=ActionItem[]
 }
 
 // Extended transcript with status

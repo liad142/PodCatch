@@ -176,9 +176,9 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
     const allText = [
       content.comprehensive_overview,
       ...content.core_concepts.flatMap(c => [c.concept, c.explanation]),
-      ...content.chronological_breakdown.flatMap(cb => [cb.timestamp_description, cb.content]),
+      ...content.chronological_breakdown.flatMap(cb => [cb.title || cb.timestamp_description || '', cb.content]),
       ...content.contrarian_views,
-      ...content.actionable_takeaways
+      ...content.actionable_takeaways.map(a => typeof a === 'string' ? a : a.text)
     ].join(' ');
     return isRTLText(allText);
   }, [content]);
@@ -235,7 +235,7 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
             <div key={i} className="rounded-lg bg-muted/30 p-4 space-y-2">
               <div className={cn("flex items-center gap-2", isRTL && "flex-row-reverse")}>
                 <Badge variant="outline" className="text-xs">
-                  {section.timestamp_description}
+                  {section.title || section.timestamp_description}
                 </Badge>
               </div>
               <p className={cn("text-sm leading-relaxed", isRTL && "text-right")}>{section.content}</p>
@@ -278,7 +278,7 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
             )}>
               <div className={cn("flex gap-2 items-start", isRTL && "flex-row-reverse text-right")}>
                 <span className="text-green-600 dark:text-green-400 font-bold text-sm">{i + 1}.</span>
-                <p className="text-sm flex-1">{action}</p>
+                <p className="text-sm flex-1">{typeof action === 'string' ? action : action.text}</p>
               </div>
             </div>
           ))}

@@ -413,7 +413,7 @@ function DeepSummaryView({
             <Card key={i}>
               <CardContent className="pt-4 space-y-2">
                 <Badge variant="outline" className="text-xs">
-                  {section.timestamp_description}
+                  {section.title || section.timestamp_description}
                 </Badge>
                 <p className="text-sm">{section.content}</p>
               </CardContent>
@@ -455,7 +455,7 @@ function DeepSummaryView({
               {summary.actionable_takeaways.map((action, i) => (
                 <li key={i} className="flex items-start gap-2">
                   <span className="text-primary font-bold">{i + 1}.</span>
-                  <p className="text-sm flex-1">{action}</p>
+                  <p className="text-sm flex-1">{typeof action === 'string' ? action : action.text}</p>
                 </li>
               ))}
             </ul>
