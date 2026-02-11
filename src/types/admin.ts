@@ -102,6 +102,20 @@ export interface EngagementAnalytics {
   feedItemsBySource: LabeledCount[];
 }
 
+export type TodoStatus = 'idea' | 'planned' | 'in_progress' | 'done';
+export type TodoPriority = 'low' | 'medium' | 'high';
+
+export interface AdminTodo {
+  id: string;
+  title: string;
+  description: string;
+  status: TodoStatus;
+  priority: TodoPriority;
+  plan_prompt: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface SystemHealth {
   redis: {
     connected: boolean;

@@ -8,6 +8,7 @@ import { DataTable } from '@/components/admin/DataTable';
 import { RefreshButton } from '@/components/admin/RefreshButton';
 import { AreaChartWidget } from '@/components/admin/charts/AreaChartWidget';
 import { PieChartWidget } from '@/components/admin/charts/PieChartWidget';
+import { TodoList } from '@/components/admin/TodoList';
 import type { OverviewStats } from '@/types/admin';
 
 export default function OverviewPage() {
@@ -72,6 +73,9 @@ export default function OverviewPage() {
         ]}
         data={data.recentActivity as Record<string, unknown>[]}
       />
+
+      {/* Todo List */}
+      <TodoList />
     </div>
   );
 }

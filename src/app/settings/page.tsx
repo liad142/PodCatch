@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, Moon, Sun, Monitor, LogIn, LogOut, Loader2, X } from 'lucide-react';
+import { Settings, Moon, Sun, Monitor, LogIn, LogOut, Loader2, X, Shield } from 'lucide-react';
+import Link from 'next/link';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCountry } from '@/contexts/CountryContext';
@@ -327,6 +328,22 @@ export default function SettingsPage() {
             </div>
           )}
         </Card>
+
+        {/* Admin Panel — only for liad142@gmail.com */}
+        {user?.email === 'liad142@gmail.com' && (
+          <Card variant="glass" className="p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-2">Administration</h2>
+            <p className="text-muted-foreground text-sm mb-4">
+              Access the admin dashboard to view analytics and manage the platform.
+            </p>
+            <Button asChild variant="outline" className="gap-2">
+              <Link href="/admin/overview">
+                <Shield className="h-4 w-4" />
+                Open Admin Panel
+              </Link>
+            </Button>
+          </Card>
+        )}
 
         <Card variant="glass" className="p-6 opacity-60">
           <h2 className="text-lg font-semibold mb-2">Notifications</h2>
