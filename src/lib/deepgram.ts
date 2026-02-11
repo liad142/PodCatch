@@ -56,6 +56,14 @@ function isDirectAudioUrl(url: string): boolean {
 }
 
 /**
+ * Check if a Deepgram error is a remote content error (host blocked the request)
+ */
+function isRemoteContentError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return msg.includes('REMOTE_CONTENT_ERROR') || msg.includes('403 Forbidden');
+}
+
+/**
  * Follow redirects to get the final audio URL
  * Many podcast URLs go through tracking services that Deepgram can't fetch
  * Optimized: skips redirect following for direct audio URLs and uses timeouts
@@ -132,6 +140,98 @@ async function resolveAudioUrl(url: string, maxRedirects = 5): Promise<string> {
   return currentUrl;
 }
 
+/**
+ * Force-resolve a URL by always following redirects, even for .mp3 URLs.
+ * Used as a fallback when the initial attempt fails.
+ */
+async function forceResolveAudioUrl(url: string, maxRedirects = 10): Promise<string> {
+  let currentUrl = url;
+  let redirectCount = 0;
+  const REDIRECT_TIMEOUT = 5000;
+
+  while (redirectCount < maxRedirects) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REDIRECT_TIMEOUT);
+    try {
+      const response = await fetch(currentUrl, {
+        method: 'HEAD',
+        redirect: 'manual',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'audio/mpeg, audio/*, */*',
+        },
+        signal: controller.signal,
+      });
+
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location');
+        if (!location) break;
+
+        currentUrl = location.startsWith('http')
+          ? location
+          : new URL(location, currentUrl).toString();
+        redirectCount++;
+        logWithTime(`Force-resolve redirect ${redirectCount}`, { to: currentUrl.substring(0, 80) + '...' });
+      } else {
+        break;
+      }
+    } catch {
+      break;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  return currentUrl;
+}
+
+/**
+ * Download audio from URL into a Buffer (our server fetches it, not Deepgram).
+ * This bypasses any host-level blocking of Deepgram's IPs.
+ */
+async function downloadAudioBuffer(url: string): Promise<Buffer> {
+  const DOWNLOAD_TIMEOUT = 120_000; // 2 minutes for large files
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT);
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'audio/mpeg, audio/*, */*',
+      },
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Build Deepgram transcription config
+ */
+function buildDeepgramConfig(language?: string): Record<string, unknown> {
+  const config: Record<string, unknown> = {
+    model: 'whisper-large',
+    diarize: true,
+    utterances: true,
+    smart_format: true,
+    punctuate: true,
+    detect_language: false,
+  };
+
+  config.language = language || 'en';
+  return config;
+}
+
 function parseDeepgramResponse(response: DeepgramResponse): DiarizedTranscript {
   const utterances: Utterance[] = [];
   let fullText = '';
@@ -148,23 +248,23 @@ function parseDeepgramResponse(response: DeepgramResponse): DiarizedTranscript {
       });
     }
     fullText = utterances.map(u => u.text).join(' ');
-  } 
+  }
   // Fallback: Get transcript from channels if no utterances
   else if (response.results.channels?.[0]?.alternatives?.[0]) {
     const channel = response.results.channels[0];
     const alternative = channel.alternatives[0];
     fullText = alternative.transcript || '';
-    
+
     // Create a single utterance from the full transcript if we have words with timing
     if (alternative.words && alternative.words.length > 0) {
       // Group words by speaker for diarization
       let currentSpeaker = 0;
       let currentStart = alternative.words[0].start;
       let currentText: string[] = [];
-      
+
       for (const word of alternative.words) {
         const wordSpeaker = word.speaker ?? 0;
-        
+
         if (wordSpeaker !== currentSpeaker && currentText.length > 0) {
           // Save current utterance
           utterances.push({
@@ -180,7 +280,7 @@ function parseDeepgramResponse(response: DeepgramResponse): DiarizedTranscript {
         }
         currentText.push(word.punctuated_word || word.word);
       }
-      
+
       // Save last utterance
       if (currentText.length > 0) {
         const lastWord = alternative.words[alternative.words.length - 1];
@@ -226,41 +326,28 @@ function parseDeepgramResponse(response: DeepgramResponse): DiarizedTranscript {
   };
 }
 
+/**
+ * Transcribe audio with a 3-step fallback chain:
+ *  1. Pass URL directly to Deepgram (fast path, works for most podcasts)
+ *  2. If REMOTE_CONTENT_ERROR: force-resolve redirects and retry with resolved URL
+ *  3. If still fails: download audio ourselves and send raw bytes to Deepgram
+ */
 export async function transcribeFromUrl(
   audioUrl: string,
   language?: string // Optional: 'en', 'he', etc. If not provided, Deepgram auto-detects
 ): Promise<DiarizedTranscript> {
-  logWithTime('transcribeFromUrl started', { 
+  logWithTime('transcribeFromUrl started', {
     audioUrl: audioUrl.substring(0, 100) + '...',
     language: language || 'auto-detect'
   });
 
   const startTime = Date.now();
+  const config = buildDeepgramConfig(language);
 
+  // ── Step 1: Try with resolved URL (optimized path) ──
   try {
-    // Step 1: Resolve any tracking redirects to get the final audio URL
-    logWithTime('Resolving audio URL (following redirects)...');
+    logWithTime('Step 1: Resolving audio URL (following redirects)...');
     const resolvedUrl = await resolveAudioUrl(audioUrl);
-
-    // Step 2: Configure Deepgram options
-    // Using whisper-large for best multilingual transcription
-    // Language comes from RSS feed - we trust it completely
-    const config: Record<string, unknown> = {
-      model: 'whisper-large',
-      diarize: true,
-      utterances: true,
-      smart_format: true,
-      punctuate: true,
-      detect_language: false, // Language is known from RSS feed
-    };
-    
-    // Always use the provided language (comes from podcast RSS feed)
-    if (language) {
-      config.language = language;
-    } else {
-      // Fallback to English if somehow no language provided
-      config.language = 'en';
-    }
 
     logWithTime('Sending to Deepgram API...', config);
 
@@ -272,35 +359,105 @@ export async function transcribeFromUrl(
     );
 
     if (error) {
-      throw new Error(`Deepgram API error: ${error.message}`);
+      throw new Error(`Deepgram API error: ${JSON.stringify(error)}`);
     }
 
     const duration = Date.now() - startTime;
-    logWithTime('Deepgram transcription completed', {
+    logWithTime('Step 1 succeeded', {
       durationMs: duration,
-      durationSec: (duration / 1000).toFixed(1),
       audioDuration: result.metadata?.duration,
       utteranceCount: result.results?.utterances?.length || 0,
-      detectedLanguage: result.results?.channels?.[0]?.detected_language,
     });
 
-    const transcript = parseDeepgramResponse(result as DeepgramResponse);
+    return parseDeepgramResponse(result as DeepgramResponse);
+  } catch (step1Error) {
+    if (!isRemoteContentError(step1Error)) {
+      // Not a remote content error — don't bother with fallbacks
+      const duration = Date.now() - startTime;
+      const errorMsg = step1Error instanceof Error ? step1Error.message : String(step1Error);
+      logWithTime('Step 1 FAILED (non-recoverable)', { durationMs: duration, error: errorMsg });
+      throw new (class extends Error { name = 'TranscriptionError'; })(
+        `Deepgram transcription failed: ${errorMsg}`
+      );
+    }
 
-    logWithTime('Transcript parsed', {
-      utteranceCount: transcript.utterances.length,
-      speakerCount: transcript.speakerCount,
-      fullTextLength: transcript.fullText.length,
+    logWithTime('Step 1 FAILED with REMOTE_CONTENT_ERROR, trying Step 2 (force-resolve redirects)...');
+  }
+
+  // ── Step 2: Force-resolve all redirects (even for .mp3 URLs) and retry ──
+  try {
+    const resolvedUrl = await forceResolveAudioUrl(audioUrl);
+    logWithTime('Step 2: Force-resolved URL', { resolved: resolvedUrl.substring(0, 100) + '...' });
+
+    // Only try if we got a different URL
+    if (resolvedUrl !== audioUrl) {
+      const { result, error } = await withRetry(() =>
+        deepgram.listen.prerecorded.transcribeUrl(
+          { url: resolvedUrl },
+          config
+        )
+      );
+
+      if (error) {
+        throw new Error(`Deepgram API error: ${JSON.stringify(error)}`);
+      }
+
+      const duration = Date.now() - startTime;
+      logWithTime('Step 2 succeeded', {
+        durationMs: duration,
+        audioDuration: result.metadata?.duration,
+        utteranceCount: result.results?.utterances?.length || 0,
+      });
+
+      return parseDeepgramResponse(result as DeepgramResponse);
+    } else {
+      logWithTime('Step 2: URL unchanged after force-resolve, skipping to Step 3');
+    }
+  } catch (step2Error) {
+    logWithTime('Step 2 FAILED, trying Step 3 (download audio ourselves)...', {
+      error: step2Error instanceof Error ? step2Error.message : String(step2Error),
+    });
+  }
+
+  // ── Step 3: Download audio ourselves and send raw bytes to Deepgram ──
+  try {
+    logWithTime('Step 3: Downloading audio to buffer...');
+    const downloadStart = Date.now();
+    const audioBuffer = await downloadAudioBuffer(audioUrl);
+    logWithTime('Step 3: Audio downloaded', {
+      durationMs: Date.now() - downloadStart,
+      sizeBytes: audioBuffer.length,
+      sizeMB: (audioBuffer.length / (1024 * 1024)).toFixed(1),
     });
 
-    return transcript;
-  } catch (error) {
+    logWithTime('Step 3: Sending audio buffer to Deepgram...');
+    const { result, error } = await withRetry(() =>
+      deepgram.listen.prerecorded.transcribeFile(
+        audioBuffer,
+        config
+      )
+    );
+
+    if (error) {
+      throw new Error(`Deepgram API error: ${JSON.stringify(error)}`);
+    }
+
     const duration = Date.now() - startTime;
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    logWithTime('Deepgram transcription FAILED', { durationMs: duration, error: errorMsg });
+    logWithTime('Step 3 succeeded', {
+      totalDurationMs: duration,
+      audioDuration: result.metadata?.duration,
+      utteranceCount: result.results?.utterances?.length || 0,
+    });
 
-    throw new (class extends Error {
-      name = 'TranscriptionError';
-    })(`Deepgram transcription failed: ${errorMsg}`);
+    return parseDeepgramResponse(result as DeepgramResponse);
+  } catch (step3Error) {
+    const duration = Date.now() - startTime;
+    const errorMsg = step3Error instanceof Error ? step3Error.message : String(step3Error);
+    logWithTime('All 3 steps FAILED', { totalDurationMs: duration, error: errorMsg });
+
+    throw new (class extends Error { name = 'TranscriptionError'; })(
+      `Deepgram transcription failed after all fallbacks: ${errorMsg}`
+    );
   }
 }
 
@@ -320,7 +477,7 @@ export function formatTranscriptWithTimestamps(transcript: DiarizedTranscript): 
 // Merges consecutive utterances from the same speaker into paragraphs
 export function formatTranscriptWithSpeakerNames(transcript: DiarizedTranscript): string {
   const speakerMap = new Map<number, string>();
-  
+
   // Build speaker name map
   if (transcript.speakers) {
     for (const speaker of transcript.speakers) {
@@ -336,14 +493,14 @@ export function formatTranscriptWithSpeakerNames(transcript: DiarizedTranscript)
   // Only split when: speaker changes OR there's a gap > 5 seconds
   const MAX_GAP_SECONDS = 5;
   const mergedBlocks: { speaker: number; start: number; texts: string[] }[] = [];
-  
+
   let currentBlock: { speaker: number; start: number; texts: string[] } | null = null;
   let lastEnd = 0;
 
   for (const u of transcript.utterances) {
     const gap = u.start - lastEnd;
-    const shouldStartNewBlock = 
-      !currentBlock || 
+    const shouldStartNewBlock =
+      !currentBlock ||
       currentBlock.speaker !== u.speaker ||
       gap > MAX_GAP_SECONDS;
 
@@ -359,7 +516,7 @@ export function formatTranscriptWithSpeakerNames(transcript: DiarizedTranscript)
     } else if (currentBlock) {
       currentBlock.texts.push(u.text);
     }
-    
+
     lastEnd = u.end;
   }
 

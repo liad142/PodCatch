@@ -127,6 +127,7 @@ export function DiscoverySummarizeButton({
 
     // If processing failed, retry
     if (state === 'failed' && importedEpisodeId) {
+      setInitialStatus('not_ready');
       retryEpisode(importedEpisodeId);
       return;
     }

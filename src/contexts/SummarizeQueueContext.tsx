@@ -254,8 +254,26 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
   }, []);
 
   const retryEpisode = useCallback((episodeId: string) => {
-    updateQueueItem(episodeId, { state: 'queued', retryCount: 0, error: undefined });
-  }, [updateQueueItem]);
+    setQueue(prev => {
+      const existing = prev.find(item => item.episodeId === episodeId);
+      if (existing) {
+        // Reset existing queue item
+        return prev.map(item =>
+          item.episodeId === episodeId
+            ? { ...item, state: 'queued' as QueueItemState, retryCount: 0, error: undefined }
+            : item
+        );
+      }
+      // No queue item (failed in a previous session) — create a new one
+      return [...prev, {
+        episodeId,
+        state: 'queued' as QueueItemState,
+        retryCount: 0,
+        addedAt: Date.now(),
+      }];
+    });
+    setStats(prev => ({ ...prev, total: prev.total + 1 }));
+  }, []);
 
   const clearStats = useCallback(() => {
     setStats({ completed: 0, failed: 0, total: 0 });
