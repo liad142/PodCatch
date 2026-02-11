@@ -112,6 +112,7 @@ export interface AdminTodo {
   status: TodoStatus;
   priority: TodoPriority;
   plan_prompt: string | null;
+  images: string[];
   created_at: string;
   updated_at: string;
 }

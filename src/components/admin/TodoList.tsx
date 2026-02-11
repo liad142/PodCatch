@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Copy, Trash2, Check, X, ListTodo, ChevronRight } from 'lucide-react';
+import { Plus, Copy, Trash2, Check, X, ListTodo, ChevronRight, ImagePlus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { glass } from '@/lib/glass';
 import { Badge } from '@/components/ui/badge';
@@ -60,8 +60,12 @@ export function TodoList() {
   const [editDescription, setEditDescription] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [uploadingTodoId, setUploadingTodoId] = useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const editTitleRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadTodoIdRef = useRef<string | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -161,10 +165,72 @@ export function TodoList() {
     setEditingId(null);
   };
 
+  const triggerUpload = (todoId: string) => {
+    uploadTodoIdRef.current = todoId;
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    const todoId = uploadTodoIdRef.current;
+    if (!files || files.length === 0 || !todoId) return;
+
+    setUploadingTodoId(todoId);
+
+    const formData = new FormData();
+    for (const file of Array.from(files)) {
+      formData.append('file', file);
+    }
+
+    try {
+      const res = await fetch(`/api/admin/todos/${todoId}/images`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (res.ok) {
+        const updated: AdminTodo = await res.json();
+        setTodos(prev => prev.map(t => t.id === todoId ? updated : t));
+        showToast(`Uploaded ${files.length} image${files.length > 1 ? 's' : ''}`);
+      } else {
+        const err = await res.json();
+        showToast(err.error || 'Upload failed');
+      }
+    } catch {
+      showToast('Upload failed');
+    } finally {
+      setUploadingTodoId(null);
+      // Reset file input so the same file can be selected again
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const deleteImage = async (todoId: string, url: string) => {
+    const res = await fetch(`/api/admin/todos/${todoId}/images`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    if (res.ok) {
+      const updated: AdminTodo = await res.json();
+      setTodos(prev => prev.map(t => t.id === todoId ? updated : t));
+      if (lightboxUrl === url) setLightboxUrl(null);
+    }
+  };
+
   const filtered = filter === 'all' ? todos : todos.filter(t => t.status === filter);
 
   return (
     <div className={cn(glass.card, 'rounded-xl p-5')}>
+      {/* Hidden file input shared by all todos */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={handleFileSelect}
+      />
+
       <div className="flex items-center gap-2 mb-4">
         <ListTodo className="h-5 w-5 text-muted-foreground" />
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
@@ -295,6 +361,11 @@ export function TodoList() {
                     )}
                   >
                     {todo.title}
+                    {todo.images?.length > 0 && (
+                      <span className="ml-1.5 text-[10px] text-muted-foreground font-normal">
+                        ({todo.images.length} img)
+                      </span>
+                    )}
                   </button>
 
                   {/* Badges & actions */}
@@ -353,9 +424,10 @@ export function TodoList() {
                   </div>
                 </div>
 
-                {/* Expanded description */}
+                {/* Expanded section: description + images */}
                 {expandedId === todo.id && (
-                  <div className="mt-2 ml-6">
+                  <div className="mt-2 ml-6 space-y-3">
+                    {/* Description */}
                     {todo.description ? (
                       <p className="text-xs text-muted-foreground whitespace-pre-wrap">{todo.description}</p>
                     ) : (
@@ -366,6 +438,51 @@ export function TodoList() {
                         Click to add a description...
                       </button>
                     )}
+
+                    {/* Image gallery */}
+                    <div className="flex flex-wrap gap-2 items-start">
+                      {(todo.images || []).map((url) => (
+                        <div
+                          key={url}
+                          className="relative group rounded-md overflow-hidden border border-border/50"
+                        >
+                          <button
+                            onClick={() => setLightboxUrl(url)}
+                            className="block"
+                          >
+                            <img
+                              src={url}
+                              alt=""
+                              className="h-20 w-20 object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                            />
+                          </button>
+                          <button
+                            onClick={() => deleteImage(todo.id, url)}
+                            className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+
+                      {/* Upload button */}
+                      <button
+                        onClick={() => triggerUpload(todo.id)}
+                        disabled={uploadingTodoId === todo.id}
+                        className={cn(
+                          'h-20 w-20 rounded-md border border-dashed border-border/50 flex items-center justify-center',
+                          'text-muted-foreground/50 hover:text-muted-foreground hover:border-border transition-colors',
+                          uploadingTodoId === todo.id && 'pointer-events-none'
+                        )}
+                        title="Upload images"
+                      >
+                        {uploadingTodoId === todo.id ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <ImagePlus className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 )}
               </>
@@ -373,6 +490,27 @@ export function TodoList() {
           </div>
         ))}
       </div>
+
+      {/* Lightbox overlay */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={lightboxUrl}
+            alt=""
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       <Toast open={toastOpen} onOpenChange={setToastOpen}>
         <p className="text-sm font-medium">{toastMessage}</p>
