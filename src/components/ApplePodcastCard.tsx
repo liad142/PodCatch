@@ -54,54 +54,54 @@ export const ApplePodcastCard = React.memo(function ApplePodcastCard({ podcast, 
 
   return (
     <Link href={`/browse/podcast/${podcast.id}`} className={cn('block group', className)}>
-      <Card variant="glass" className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
-        <div className="relative aspect-square overflow-hidden bg-muted">
+      <Card className="bg-white border-slate-100 shadow-[0_2px_8px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgb(0,0,0,0.12)] hover:border-violet-100 overflow-hidden transition-all duration-300 hover:-translate-y-1">
+        <div className="relative aspect-square overflow-hidden bg-slate-100">
           <Image
             src={imageUrl}
             alt={podcast.name}
             fill
             sizes="(max-width: 640px) 160px, 180px"
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
             priority={priority}
             unoptimized={imageUrl.includes('mzstatic.com')}
           />
           {podcast.contentAdvisoryRating === 'Explicit' && (
             <Badge
-              variant="secondary"
-              className="absolute top-2 left-2 bg-red-500/90 text-white text-xs px-1.5 py-0.5"
+              variant="destructive"
+              className="absolute top-2 left-2 px-1.5 py-0.5 text-[10px] uppercase tracking-wider font-bold shadow-sm"
             >
-              E
+              Explicit
             </Badge>
           )}
           {/* Love Button */}
           <button
             onClick={handleLove}
             disabled={isLoading}
-            className={`absolute top-2 right-2 p-2 rounded-full transition-all ${
-              isLoading ? 'opacity-50 cursor-not-allowed' : ''
-            } ${
+            className={cn(
+              "absolute top-2 right-2 p-2 rounded-full transition-all duration-300 shadow-sm opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0",
+              isLoading ? 'opacity-50 cursor-not-allowed' : '',
               subscribed
-                ? 'bg-red-500 text-white'
-                : 'bg-black/50 hover:bg-black/70 text-white'
-            }`}
+                ? 'bg-white text-rose-500 opacity-100 translate-y-0 shadow-md'
+                : 'bg-white/90 text-slate-400 hover:text-rose-500 hover:bg-white'
+            )}
             title={subscribed ? 'Remove from My Podcasts' : 'Add to My Podcasts'}
           >
-            <Heart className={`w-5 h-5 ${subscribed ? 'fill-current' : ''}`} />
+            <Heart className={cn("w-4 h-4", subscribed && "fill-current")} />
           </button>
         </div>
-        <CardContent className="p-3 space-y-1">
-          <h3 className="font-medium text-sm line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+        <div className="p-4 space-y-1.5">
+          <h3 className="font-bold text-slate-900 text-sm line-clamp-2 leading-tight group-hover:text-violet-700 transition-colors">
             {podcast.name}
           </h3>
-          <p className="text-xs text-muted-foreground line-clamp-1">
+          <p className="text-xs text-slate-500 font-medium line-clamp-1">
             {podcast.artistName}
           </p>
           {podcast.genres && podcast.genres.length > 0 && (
-            <p className="text-xs text-muted-foreground/70 line-clamp-1">
+            <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold line-clamp-1">
               {podcast.genres[0]}
             </p>
           )}
-        </CardContent>
+        </div>
       </Card>
     </Link>
   );

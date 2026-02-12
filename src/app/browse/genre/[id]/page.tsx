@@ -21,7 +21,7 @@ const LOAD_MORE_COUNT = 30;
 export default function GenrePage({ params }: PageProps) {
   const { id: genreId } = use(params);
   const { country, countryInfo } = useCountry();
-  
+
   const [podcasts, setPodcasts] = useState<ApplePodcast[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -36,7 +36,7 @@ export default function GenrePage({ params }: PageProps) {
       setIsLoading(true);
       setOffset(0);
     }
-    
+
     setError(null);
     try {
       const currentOffset = reset ? 0 : offset;
@@ -46,7 +46,7 @@ export default function GenrePage({ params }: PageProps) {
       if (!response.ok) throw new Error('Failed to fetch podcasts');
       const data = await response.json();
       const newPodcasts = data.podcasts || [];
-      
+
       if (reset) {
         setPodcasts(newPodcasts);
       } else {
@@ -57,7 +57,7 @@ export default function GenrePage({ params }: PageProps) {
           return [...prev, ...uniqueNew];
         });
       }
-      
+
       // iTunes RSS feed typically returns up to 200 items max
       setHasMore(newPodcasts.length === (reset ? INITIAL_COUNT : LOAD_MORE_COUNT) && currentOffset + newPodcasts.length < 200);
     } catch (err) {
@@ -75,11 +75,11 @@ export default function GenrePage({ params }: PageProps) {
 
   const handleLoadMore = async () => {
     if (isLoadingMore || !hasMore) return;
-    
+
     setIsLoadingMore(true);
     const newOffset = offset + LOAD_MORE_COUNT;
     setOffset(newOffset);
-    
+
     try {
       const response = await fetch(
         `/api/apple/genres/${genreId}/podcasts?country=${country.toLowerCase()}&limit=${LOAD_MORE_COUNT}`
@@ -87,14 +87,14 @@ export default function GenrePage({ params }: PageProps) {
       if (!response.ok) throw new Error('Failed to load more podcasts');
       const data = await response.json();
       const newPodcasts = data.podcasts || [];
-      
+
       // Filter out duplicates
       setPodcasts(prev => {
         const existingIds = new Set(prev.map(p => p.id));
         const uniqueNew = newPodcasts.filter((p: ApplePodcast) => !existingIds.has(p.id));
         return [...prev, ...uniqueNew];
       });
-      
+
       setHasMore(newPodcasts.length === LOAD_MORE_COUNT);
     } catch (err) {
       console.error('Error loading more podcasts:', err);
@@ -105,32 +105,32 @@ export default function GenrePage({ params }: PageProps) {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <section className="bg-gradient-to-b from-primary/10 to-transparent py-8">
+      <section className="bg-white border-b border-slate-100 py-8 shadow-sm">
         <div className="container mx-auto px-4">
           <Link href="/discover">
-            <Button variant="ghost" size="sm" className="mb-4">
+            <Button variant="ghost" size="sm" className="mb-4 text-slate-500 hover:text-slate-900 hover:bg-slate-50">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Discover
             </Button>
           </Link>
-          
+
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm text-muted-foreground">Podcasts</span>
+                <span className="text-xs font-semibold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full uppercase tracking-wider">Category</span>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-bold">{genreName}</h1>
-              <p className="text-muted-foreground mt-2 flex items-center gap-2">
+              <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">{genreName}</h1>
+              <p className="text-slate-500 mt-2 flex items-center gap-2 font-medium">
                 <Globe className="h-4 w-4" />
                 Top podcasts in {genreName} • {countryInfo?.flag} {countryInfo?.name}
               </p>
             </div>
-            
+
             {!isLoading && podcasts.length > 0 && (
-              <div className="text-sm text-muted-foreground">
-                Showing {podcasts.length} podcasts
+              <div className="text-sm font-semibold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+                {podcasts.length} podcasts found
               </div>
             )}
           </div>

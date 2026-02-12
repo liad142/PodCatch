@@ -74,11 +74,11 @@ export default function MyPodcastsPage() {
 
   if (authLoading) {
     return (
-      <div className="p-6">
+      <div className="p-6 min-h-screen bg-slate-50">
         <h1 className="text-2xl font-bold mb-6">My Podcasts</h1>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="aspect-square rounded-xl" />
+            <Skeleton key={i} className="aspect-square rounded-xl bg-white" />
           ))}
         </div>
       </div>
@@ -87,7 +87,7 @@ export default function MyPodcastsPage() {
 
   if (!user) {
     return (
-      <div className="p-6">
+      <div className="p-6 min-h-screen bg-slate-50">
         <h1 className="text-2xl font-bold mb-6">My Podcasts</h1>
         <SignInPrompt message="Sign in to see your podcasts" />
       </div>
@@ -96,7 +96,7 @@ export default function MyPodcastsPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="p-6 min-h-screen bg-slate-50">
         <h1 className="text-2xl font-bold mb-6">My Podcasts</h1>
         <LoadingState message="Loading your podcasts..." />
       </div>
@@ -105,7 +105,7 @@ export default function MyPodcastsPage() {
 
   if (error) {
     return (
-      <div className="p-6">
+      <div className="p-6 min-h-screen bg-slate-50">
         <h1 className="text-2xl font-bold mb-6">My Podcasts</h1>
         <p className="text-red-500">{error}</p>
       </div>
@@ -114,7 +114,7 @@ export default function MyPodcastsPage() {
 
   if (podcasts.length === 0) {
     return (
-      <div className="p-6">
+      <div className="p-6 min-h-screen bg-slate-50">
         <h1 className="text-2xl font-bold mb-6">My Podcasts</h1>
         <EmptyState
           type="podcasts"

@@ -8,6 +8,7 @@ import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppShell } from "@/components/AppShell";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const inter = Inter({ subsets: ["latin"] });
 const crimsonText = Crimson_Text({
@@ -40,6 +41,7 @@ export default function RootLayout({
                 <SubscriptionProvider>
                   <AudioPlayerProvider>
                     <AppShell>{children}</AppShell>
+                    <SpeedInsights />
                   </AudioPlayerProvider>
                 </SubscriptionProvider>
               </SummarizeQueueProvider>

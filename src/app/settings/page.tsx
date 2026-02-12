@@ -148,24 +148,24 @@ export default function SettingsPage() {
     || '';
 
   return (
-    <div className="px-4 py-8">
+    <div className="px-4 py-8 min-h-screen bg-slate-50">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
-            <Settings className="h-6 w-6 text-primary" />
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-white shadow-sm border border-slate-100">
+            <Settings className="h-6 w-6 text-slate-700" />
           </div>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Settings</h1>
-            <p className="text-muted-foreground">Customize your experience</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Settings</h1>
+            <p className="text-slate-500">Customize your experience</p>
           </div>
         </div>
 
         {/* Theme Settings */}
-        <Card variant="glass" className="p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4">Appearance</h2>
+        <Card className="p-6 mb-6 bg-white border-slate-100 shadow-sm rounded-2xl">
+          <h2 className="text-lg font-semibold mb-4 text-slate-900">Appearance</h2>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">Theme</label>
+              <label className="text-sm font-medium mb-2 block text-slate-700">Theme</label>
               <div className="grid grid-cols-3 gap-3">
                 {themeOptions.map((option) => {
                   const Icon = option.icon;
@@ -174,20 +174,20 @@ export default function SettingsPage() {
                       key={option.value}
                       onClick={() => setTheme(option.value)}
                       className={cn(
-                        'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-colors',
+                        'flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
                         theme === option.value
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/50'
+                          ? 'border-violet-500 bg-violet-50 shadow-sm'
+                          : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50'
                       )}
                     >
                       <Icon className={cn(
                         'h-5 w-5',
-                        theme === option.value ? 'text-primary' : 'text-muted-foreground'
+                        theme === option.value ? 'text-violet-600' : 'text-slate-400'
                       )} />
                       <span className={cn(
                         'text-sm font-medium',
-                        theme === option.value ? 'text-primary' : 'text-muted-foreground'
+                        theme === option.value ? 'text-violet-700' : 'text-slate-500'
                       )}>
                         {option.label}
                       </span>
@@ -195,7 +195,7 @@ export default function SettingsPage() {
                   );
                 })}
               </div>
-              <p className="text-sm text-muted-foreground mt-2">
+              <p className="text-sm text-slate-500 mt-2">
                 Choose your preferred color scheme. System will follow your device settings.
               </p>
             </div>
@@ -203,39 +203,39 @@ export default function SettingsPage() {
         </Card>
 
         {/* Account Settings */}
-        <Card variant="glass" className="p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4">Account</h2>
+        <Card className="p-6 mb-6 bg-white border-slate-100 shadow-sm rounded-2xl">
+          <h2 className="text-lg font-semibold mb-4 text-slate-900">Account</h2>
 
           {authLoading ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
+            <div className="flex items-center gap-2 text-slate-500">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading...
             </div>
           ) : !user ? (
             <div className="text-center py-4">
-              <p className="text-muted-foreground text-sm mb-4">
+              <p className="text-slate-500 text-sm mb-4">
                 Sign in to manage your account and personalize your experience.
               </p>
-              <Button onClick={() => setShowAuthModal(true)} className="gap-2">
+              <Button onClick={() => setShowAuthModal(true)} className="gap-2 bg-slate-900 text-white hover:bg-slate-800">
                 <LogIn className="h-4 w-4" />
                 Sign In
               </Button>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {/* Display Name */}
               <div>
-                <label className="text-sm font-medium mb-1 block">Display Name</label>
+                <label className="text-sm font-medium mb-1.5 block text-slate-700">Display Name</label>
                 {editingName ? (
                   <div className="flex items-center gap-2">
                     <Input
                       value={nameInput}
                       onChange={(e) => setNameInput(e.target.value)}
                       placeholder="Enter display name"
-                      className="max-w-xs"
+                      className="max-w-xs bg-white border-slate-200 focus:ring-violet-500/20 focus:border-violet-500"
                       autoFocus
                     />
-                    <Button size="sm" onClick={handleSaveName} disabled={isSaving}>
+                    <Button size="sm" onClick={handleSaveName} disabled={isSaving} className="bg-slate-900 text-white hover:bg-slate-800">
                       {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}>
@@ -244,10 +244,11 @@ export default function SettingsPage() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className="text-sm">{displayName}</span>
+                    <span className="text-sm text-slate-900 font-medium">{displayName}</span>
                     <Button
                       size="sm"
                       variant="ghost"
+                      className="h-8 px-2 text-slate-500 hover:text-slate-900"
                       onClick={() => { setNameInput(displayName); setEditingName(true); }}
                     >
                       Edit
@@ -258,15 +259,15 @@ export default function SettingsPage() {
 
               {/* Email */}
               <div>
-                <label className="text-sm font-medium mb-1 block">Email</label>
-                <span className="text-sm text-muted-foreground">{user.email}</span>
+                <label className="text-sm font-medium mb-1.5 block text-slate-700">Email</label>
+                <span className="text-sm text-slate-500">{user.email}</span>
               </div>
 
               {/* Preferred Genres */}
               <div>
-                <label className="text-sm font-medium mb-2 block">Preferred Genres</label>
+                <label className="text-sm font-medium mb-2 block text-slate-700">Preferred Genres</label>
                 {isLoadingProfile ? (
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <div className="flex items-center gap-2 text-slate-500 text-sm">
                     <Loader2 className="h-3 w-3 animate-spin" />
                     Loading...
                   </div>
@@ -279,18 +280,18 @@ export default function SettingsPage() {
                           return genre ? (
                             <span
                               key={genreId}
-                              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
+                              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-100"
                             >
                               {genre.name}
                             </span>
                           ) : null;
                         })}
-                        <Button size="sm" variant="ghost" onClick={openGenreDialog}>
+                        <Button size="sm" variant="ghost" onClick={openGenreDialog} className="h-7 text-xs rounded-full border border-slate-200 hover:bg-slate-50 hover:text-slate-900">
                           Edit
                         </Button>
                       </>
                     ) : (
-                      <Button size="sm" variant="outline" onClick={openGenreDialog}>
+                      <Button size="sm" variant="outline" onClick={openGenreDialog} className="bg-white border-slate-200 hover:bg-slate-50">
                         Select genres
                       </Button>
                     )}
@@ -300,11 +301,11 @@ export default function SettingsPage() {
 
               {/* Preferred Country */}
               <div>
-                <label className="text-sm font-medium mb-1 block">Preferred Country</label>
+                <label className="text-sm font-medium mb-1.5 block text-slate-700">Preferred Country</label>
                 <select
                   value={profile?.preferred_country || 'us'}
                   onChange={(e) => handleSaveCountry(e.target.value)}
-                  className="text-sm border border-border rounded-md px-3 py-2 bg-background"
+                  className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
                 >
                   {APPLE_PODCAST_COUNTRIES.map(country => (
                     <option key={country.code} value={country.code}>
@@ -315,11 +316,11 @@ export default function SettingsPage() {
               </div>
 
               {/* Sign Out */}
-              <div className="pt-4 border-t border-border">
+              <div className="pt-6 border-t border-slate-100">
                 <Button
                   variant="outline"
                   onClick={signOut}
-                  className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                  className="gap-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
                 >
                   <LogOut className="h-4 w-4" />
                   Sign Out
@@ -331,12 +332,12 @@ export default function SettingsPage() {
 
         {/* Admin Panel — only for liad142@gmail.com */}
         {user?.email === 'liad142@gmail.com' && (
-          <Card variant="glass" className="p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-2">Administration</h2>
-            <p className="text-muted-foreground text-sm mb-4">
+          <Card className="p-6 mb-6 bg-white border-slate-100 shadow-sm rounded-2xl">
+            <h2 className="text-lg font-semibold mb-2 text-slate-900">Administration</h2>
+            <p className="text-slate-500 text-sm mb-4">
               Access the admin dashboard to view analytics and manage the platform.
             </p>
-            <Button asChild variant="outline" className="gap-2">
+            <Button asChild variant="outline" className="gap-2 border-slate-200 hover:bg-slate-50">
               <Link href="/admin/overview">
                 <Shield className="h-4 w-4" />
                 Open Admin Panel
@@ -345,9 +346,9 @@ export default function SettingsPage() {
           </Card>
         )}
 
-        <Card variant="glass" className="p-6 opacity-60">
-          <h2 className="text-lg font-semibold mb-2">Notifications</h2>
-          <p className="text-muted-foreground text-sm">
+        <Card className="p-6 bg-slate-50 border-slate-100/50 shadow-none rounded-2xl opacity-80">
+          <h2 className="text-lg font-semibold mb-2 text-slate-700">Notifications</h2>
+          <p className="text-slate-500 text-sm">
             Notification preferences coming soon.
           </p>
         </Card>

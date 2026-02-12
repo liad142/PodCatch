@@ -121,7 +121,7 @@ export default function EpisodePage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-50">
       <Header />
       <div className="flex">
         {/* Main content */}
@@ -255,7 +255,7 @@ export default function EpisodePage() {
 
         {/* Summary Side Panel (desktop) */}
         {showSummaryPanel && episode && (
-          <aside className="hidden lg:block fixed right-0 top-0 h-screen w-[450px] border-l bg-background overflow-hidden">
+          <aside className="hidden lg:block fixed right-0 top-0 h-screen w-[450px] bg-white border-l border-slate-100 overflow-hidden">
             <SummaryPanel
               episodeId={episodeId}
               episodeTitle={episode.title}

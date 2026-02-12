@@ -72,37 +72,44 @@ export function CuriosityFeed({
       <div className="space-y-4">
         {isLoading && episodes.length === 0
           ? Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className={`rounded-2xl p-5 space-y-3 ${glass.card}`}>
-                <div className="flex items-center gap-3">
-                  <Skeleton className="w-10 h-10 rounded-lg" />
-                  <div className="space-y-1">
-                    <Skeleton className="w-24 h-4" />
-                    <Skeleton className="w-16 h-3" />
-                  </div>
-                </div>
-                <Skeleton className="w-full h-6" />
-                <Skeleton className="w-3/4 h-4" />
-                <div className="flex justify-end">
-                  <Skeleton className="w-28 h-9" />
+            <div key={i} className="bg-white border border-slate-100 shadow-sm rounded-2xl p-5 space-y-4">
+              <div className="flex items-center gap-4">
+                <Skeleton className="w-12 h-12 rounded-xl bg-slate-100" />
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="w-1/3 h-4 bg-slate-100" />
+                  <Skeleton className="w-1/4 h-3 bg-slate-100" />
                 </div>
               </div>
-            ))
+              <Skeleton className="w-3/4 h-6 bg-slate-100" />
+              <div className="space-y-2">
+                <Skeleton className="w-full h-4 bg-slate-100" />
+                <Skeleton className="w-5/6 h-4 bg-slate-100" />
+              </div>
+              <div className="flex justify-between items-center pt-2">
+                <div className="flex gap-2">
+                  <Skeleton className="w-16 h-6 rounded-full bg-slate-100" />
+                  <Skeleton className="w-16 h-6 rounded-full bg-slate-100" />
+                </div>
+                <Skeleton className="w-24 h-9 rounded-lg bg-slate-100" />
+              </div>
+            </div>
+          ))
           : episodes.map((episode) => (
-              <InsightCard
-                key={`${episode.podcastId}-${episode.id}`}
-                episodeId={episode.id}
-                title={episode.title}
-                description={episode.description}
-                publishedAt={episode.publishedAt}
-                audioUrl={episode.audioUrl}
-                duration={episode.duration}
-                podcastId={episode.podcastId}
-                podcastName={episode.podcastName}
-                podcastArtist={episode.podcastArtist}
-                podcastArtwork={episode.podcastArtwork}
-                podcastFeedUrl={episode.podcastFeedUrl}
-              />
-            ))}
+            <InsightCard
+              key={`${episode.podcastId}-${episode.id}`}
+              episodeId={episode.id}
+              title={episode.title}
+              description={episode.description}
+              publishedAt={episode.publishedAt}
+              audioUrl={episode.audioUrl}
+              duration={episode.duration}
+              podcastId={episode.podcastId}
+              podcastName={episode.podcastName}
+              podcastArtist={episode.podcastArtist}
+              podcastArtwork={episode.podcastArtwork}
+              podcastFeedUrl={episode.podcastFeedUrl}
+            />
+          ))}
       </div>
 
       {/* Infinite scroll trigger */}

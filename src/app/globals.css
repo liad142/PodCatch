@@ -81,18 +81,10 @@
 }
 
 .glass-bg {
-  background: linear-gradient(135deg, 
-    hsl(var(--primary) / 0.1) 0%, 
-    hsl(var(--background)) 50%,
-    hsl(262 70% 90% / 0.1) 100%
-  );
+  background-color: hsl(210 40% 98%); /* slate-50 */
 }
 .dark .glass-bg {
-  background: linear-gradient(135deg, 
-    hsl(var(--primary) / 0.15) 0%, 
-    hsl(var(--background)) 50%,
-    hsl(262 70% 20% / 0.2) 100%
-  );
+  background-color: hsl(222.2 84% 4.9%); /* slate-950 / existing dark bg */
 }
 
 body {

@@ -155,7 +155,7 @@ export function SemanticSearchBar() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className={`absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50 ${glass.card}`}
+            className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50 bg-white border border-slate-100 shadow-xl ring-1 ring-black/5"
           >
             {isSearching ? (
               <div className="p-6 flex items-center justify-center gap-3">
@@ -173,8 +173,8 @@ export function SemanticSearchBar() {
                     href={getPodcastHref(podcast)}
                     onClick={() => setShowResults(false)}
                     className={`flex items-center gap-4 px-4 py-3 transition-colors ${index === selectedIndex
-                        ? 'bg-muted/70'
-                        : 'hover:bg-muted/50'
+                      ? 'bg-muted/70'
+                      : 'hover:bg-muted/50'
                       }`}
                   >
                     <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
