@@ -195,98 +195,75 @@ export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
   const hiddenCount = sortedActions.length - INITIAL_SHOW;
 
   return (
-    <div className="px-4">
+    <div className="px-4 md:px-0 max-w-3xl mx-auto pb-24">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.4 }}
-        className="space-y-6"
+        className="space-y-8"
       >
         {/* Header */}
         <div className="text-center">
-          <h2 className="text-lg font-semibold mb-1">What&apos;s next?</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-lg font-semibold text-slate-900 mb-1">What&apos;s next?</h2>
+          <p className="text-sm text-slate-500">
             Continue exploring or take action on what you&apos;ve learned
           </p>
         </div>
 
-        {/* Main Actions */}
-        <div className="space-y-3">
-          {/* Ask AI - Primary Action */}
+        {/* Secondary Actions - Grid (Moved up since Ask AI is floating) */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* Save to Library */}
           <Button
+            variant="outline"
             size="lg"
-            className="w-full gap-3 h-14 text-base"
+            className="h-16 flex-col gap-1.5 border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 shadow-sm rounded-2xl"
             onClick={() => {
-              alert("AI Chat feature coming soon!");
+              alert("Save feature coming soon!");
             }}
           >
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-              <MessageSquare className="h-4 w-4" />
-            </div>
-            <div className="flex-1 text-left">
-              <div className="font-semibold">Ask AI about this episode</div>
-              <div className="text-xs opacity-80">
-                &ldquo;What did they say about...&rdquo;
-              </div>
-            </div>
-            <Sparkles className="h-5 w-5 opacity-60" />
+            <BookmarkPlus className="h-5 w-5 text-slate-600" />
+            <span className="text-xs font-medium text-slate-600">Save to Library</span>
           </Button>
 
-          {/* Secondary Actions - Grid */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* Save to Library */}
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-14 flex-col gap-1"
-              onClick={() => {
-                alert("Save feature coming soon!");
-              }}
-            >
-              <BookmarkPlus className="h-5 w-5" />
-              <span className="text-xs">Save to Library</span>
-            </Button>
-
-            {/* Share */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="lg" className="h-14 flex-col gap-1">
-                  <Share2 className="h-5 w-5" />
-                  <span className="text-xs">Share Insight</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={handleCopyLink} className="gap-2">
-                  {copied ? (
-                    <Check className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                  {copied ? "Copied!" : "Copy link"}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleNativeShare} className="gap-2">
-                  <ExternalLink className="h-4 w-4" />
-                  Share...
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          {/* Share */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="lg" className="h-16 flex-col gap-1.5 border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 shadow-sm rounded-2xl">
+                <Share2 className="h-5 w-5 text-slate-600" />
+                <span className="text-xs font-medium text-slate-600">Share Insight</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={handleCopyLink} className="gap-2">
+                {copied ? (
+                  <Check className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+                {copied ? "Copied!" : "Copy link"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleNativeShare} className="gap-2">
+                <ExternalLink className="h-4 w-4" />
+                Share...
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Structured Action Items */}
         {sortedActions.length > 0 && (
-          <div className="rounded-xl border bg-card p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-sm flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <Target className="h-5 w-5 text-violet-600" />
                 Action Items
               </h3>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
                 {checkedItems.size}/{sortedActions.length} done
               </span>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-1">
               {visibleActions.map((action, displayIndex) => {
                 // Find the actual index in sortedActions for checkbox persistence
                 const actualIndex = sortedActions.indexOf(action);
@@ -301,34 +278,35 @@ export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: displayIndex * 0.05 }}
                     className={cn(
-                      "rounded-lg border p-3 transition-all",
-                      isChecked && "bg-primary/5 border-primary/20 opacity-70"
+                      "group py-4 border-b border-slate-100 last:border-0 transition-all",
+                      isChecked && "opacity-60"
                     )}
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-4">
                       {/* Checkbox */}
                       <button
                         onClick={() => toggleItem(actualIndex)}
-                        className="shrink-0 mt-0.5"
+                        className="shrink-0 mt-1 transition-transform active:scale-95"
                       >
                         {isChecked ? (
-                          <CheckCircle2 className="h-5 w-5 text-primary" />
+                          <div className="w-6 h-6 rounded-full bg-violet-100 flex items-center justify-center">
+                            <CheckCircle2 className="h-5 w-5 text-violet-600" />
+                          </div>
                         ) : (
-                          <Circle className="h-5 w-5 text-muted-foreground hover:text-primary transition-colors" />
+                          <div className="w-6 h-6 rounded-full border-2 border-slate-300 group-hover:border-violet-400 transition-colors" />
                         )}
                       </button>
 
                       <div className="flex-1 min-w-0 space-y-2">
                         {/* Header: category + title + priority */}
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="secondary" className="gap-1 text-xs shrink-0">
-                            <CategoryIcon className="h-3 w-3" />
+                          <Badge variant="secondary" className="gap-1 text-[10px] uppercase tracking-wider bg-slate-100 text-slate-500 font-medium border-0">
                             {getCategoryLabel(action.category)}
                           </Badge>
                           {priorityStyles && (
                             <Badge
                               variant="outline"
-                              className={cn("text-[10px] h-5 px-1.5 shrink-0", priorityStyles.className)}
+                              className={cn("text-[10px] h-5 px-1.5 shrink-0 uppercase tracking-wider border-0 font-medium", priorityStyles.className)}
                             >
                               {priorityStyles.label}
                             </Badge>
@@ -338,8 +316,8 @@ export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
                         {/* Action text */}
                         <p
                           className={cn(
-                            "text-sm leading-relaxed",
-                            isChecked && "line-through text-muted-foreground"
+                            "text-base text-slate-700 leading-relaxed font-medium",
+                            isChecked && "line-through text-slate-400"
                           )}
                         >
                           {action.text}
@@ -347,7 +325,7 @@ export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
 
                         {/* Resource pills */}
                         {action.resources && action.resources.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="flex flex-wrap gap-2 mt-1">
                             {action.resources.map((resource, ri) => {
                               const ResourceIcon = getResourceIcon(resource.type);
                               return (
@@ -357,15 +335,13 @@ export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className={cn(
-                                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs",
-                                    "border bg-muted/50 hover:bg-muted transition-colors",
-                                    "text-foreground hover:text-primary"
+                                    "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium",
+                                    "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200 transition-all"
                                   )}
                                   title={resource.context || `Search for ${resource.name}`}
                                 >
                                   <ResourceIcon className="h-3 w-3" />
                                   {resource.name}
-                                  <ExternalLink className="h-2.5 w-2.5 opacity-50" />
                                 </a>
                               );
                             })}
@@ -384,57 +360,61 @@ export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowAll(true)}
-                className="w-full gap-2 text-muted-foreground"
+                className="w-full gap-2 text-slate-500 hover:text-slate-800 hover:bg-slate-50 mt-2"
               >
                 <ChevronDown className="h-4 w-4" />
                 Show {hiddenCount} more
               </Button>
-            )}
-
-            {/* Progress bar */}
-            {sortedActions.length > 0 && (
-              <div className="pt-2">
-                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-primary rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{
-                      width: `${(checkedItems.size / sortedActions.length) * 100}%`,
-                    }}
-                    transition={{ duration: 0.3 }}
-                  />
-                </div>
-              </div>
             )}
           </div>
         )}
 
         {/* Podcast Info Card */}
         {episode.podcast && (
-          <div className="rounded-xl border bg-muted/30 p-4">
-            <div className="flex items-center gap-3">
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-4">
               {episode.podcast.image_url && (
                 <img
                   src={episode.podcast.image_url}
                   alt={episode.podcast.title || "Podcast"}
-                  className="w-12 h-12 rounded-lg object-cover"
+                  className="w-14 h-14 rounded-xl object-cover shadow-sm bg-slate-100"
                 />
               )}
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">
+                <p className="font-bold text-slate-900 text-sm truncate">
                   {episode.podcast.title}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-slate-500 mt-0.5">
                   {episode.podcast.author || "Podcast"}
                 </p>
               </div>
-              <Button variant="outline" size="sm" asChild>
+              <Button variant="outline" size="sm" className="rounded-full px-4 border-slate-200 text-slate-600" asChild>
                 <a href={`/podcast/${episode.podcast_id}`}>View Show</a>
               </Button>
             </div>
           </div>
         )}
       </motion.div>
+
+      {/* Floating Ask AI Input Bar */}
+      <div className="fixed bottom-6 left-4 right-4 z-50 pointer-events-none flex justify-center">
+        <div className="pointer-events-auto w-full max-w-xl">
+          <div
+            className="bg-white rounded-full shadow-2xl p-2 pl-6 flex items-center gap-3 border border-slate-100 cursor-text group transition-transform hover:scale-[1.01]"
+            onClick={() => alert("AI Chat feature coming soon!")}
+          >
+            <div className="bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full p-1.5 shrink-0">
+              <Sparkles className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex-1 text-slate-400 text-sm font-medium truncate">
+              Ask anything about this episode...
+            </div>
+            <Button size="icon" className="rounded-full w-10 h-10 bg-slate-900 text-white hover:bg-slate-800 shrink-0 shadow-lg">
+              <MessageSquare className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

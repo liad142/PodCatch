@@ -281,16 +281,16 @@ export default function DiscoverPage() {
 
   return (
     <EpisodeLookupProvider>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-white text-slate-900">
         {/* Sticky Semantic Search */}
-        <div className="sticky top-14 lg:top-0 z-40 bg-background/80 backdrop-blur-lg border-b">
+        <div className="sticky top-14 lg:top-0 z-40 bg-white/80 backdrop-blur-md">
           <div className="max-w-3xl mx-auto px-4 py-3">
             <SemanticSearchBar />
           </div>
         </div>
 
         {/* Main Content */}
-        <main className="max-w-3xl mx-auto px-4 py-6 space-y-8">
+        <main className="max-w-3xl mx-auto px-4 py-8 space-y-12">
           {/* Daily Mix Hero - shows when hero episodes are ready */}
           <DailyMixCarousel episodes={heroEpisodes} isLoading={isLoadingHero} />
 

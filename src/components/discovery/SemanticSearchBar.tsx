@@ -136,14 +136,14 @@ export function SemanticSearchBar() {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => results.length > 0 && setShowResults(true)}
-          className={`pl-12 pr-12 h-12 text-base rounded-full transition-all ${glass.input}`}
+          className="pl-12 pr-12 h-12 text-base rounded-full bg-slate-100 border-0 ring-0 focus-visible:ring-0 placeholder:text-slate-400 transition-all"
         />
         {query ? (
           <button
             onClick={clearSearch}
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full transition-colors"
+            className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-200 rounded-full transition-colors"
           >
-            <X className="h-4 w-4 text-muted-foreground" />
+            <X className="h-4 w-4 text-slate-500" />
           </button>
         ) : null}
       </div>
@@ -172,11 +172,10 @@ export function SemanticSearchBar() {
                     key={podcast.id}
                     href={getPodcastHref(podcast)}
                     onClick={() => setShowResults(false)}
-                    className={`flex items-center gap-4 px-4 py-3 transition-colors ${
-                      index === selectedIndex
+                    className={`flex items-center gap-4 px-4 py-3 transition-colors ${index === selectedIndex
                         ? 'bg-muted/70'
                         : 'hover:bg-muted/50'
-                    }`}
+                      }`}
                   >
                     <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
                       <Image

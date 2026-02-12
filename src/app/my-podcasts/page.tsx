@@ -126,9 +126,9 @@ export default function MyPodcastsPage() {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">My Podcasts</h1>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+    <div className="p-6 min-h-screen bg-slate-50">
+      <h1 className="text-2xl font-bold tracking-tight mb-8">My Podcasts</h1>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
         {podcasts.map((podcast) => (
           <PodcastCard
             key={podcast.id}

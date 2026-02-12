@@ -21,15 +21,15 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
   const handleRemove = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (isRemoving || !onRemove) return;
-    
+
     setIsRemoving(true);
     try {
       const response = await fetch(`/api/podcasts/${podcast.id}`, {
         method: 'DELETE',
       });
-      
+
       if (response.ok) {
         onRemove(podcast.id);
       } else {
@@ -44,7 +44,7 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
   // Handle image_url that might be an array or invalid
   let imageUrl: string | null = null;
   const rawImageUrl = podcast.image_url;
-  
+
   if (rawImageUrl) {
     try {
       // If it's already an array, get the first element
@@ -60,7 +60,7 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
       else {
         imageUrl = rawImageUrl;
       }
-      
+
       // Validate URL
       if (imageUrl) {
         new URL(imageUrl);
@@ -71,74 +71,75 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
   }
 
   return (
-    <Link href={`/podcast/${podcast.id}`}>
-      <Card variant="glass" className="group h-full overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 cursor-pointer">
-        <CardHeader className="p-0">
-          <div className="relative aspect-square w-full overflow-hidden bg-muted">
-            {imageUrl ? (
-              <Image
-                src={imageUrl}
-                alt={podcast.title}
-                fill
-                className="object-cover transition-transform group-hover:scale-105"
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                unoptimized
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
-                <Mic2 className="h-16 w-16 text-primary/40" />
-              </div>
-            )}
-            {/* NEW Badge */}
-            {hasNewEpisodes && (
-              <div className="absolute top-2 left-2 bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                NEW
-              </div>
-            )}
-            {/* Remove Button */}
-            {onRemove && (
-              <button
-                onClick={handleRemove}
-                disabled={isRemoving}
-                className={cn(
-                  'absolute top-2 right-2 p-1.5 rounded-full transition-all duration-200',
-                  'bg-black/50 text-white hover:bg-red-500 hover:scale-110',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-                  isRemoving && 'opacity-50 cursor-wait'
-                )}
-                aria-label="Remove from My Podcasts"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="p-4">
-          <h3 className="font-semibold text-lg line-clamp-2 group-hover:text-primary transition-colors">
+    <Link href={`/podcast/${podcast.id}`} className="block h-full">
+      <div className="group h-full bg-white rounded-2xl overflow-hidden transition-all duration-300 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:scale-[1.02]">
+        <div className="relative aspect-square w-full bg-slate-100">
+          {imageUrl ? (
+            <Image
+              src={imageUrl}
+              alt={podcast.title}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              unoptimized
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-slate-50">
+              <Mic2 className="h-12 w-12 text-slate-300" />
+            </div>
+          )}
+
+          {/* NEW Badge */}
+          {hasNewEpisodes && (
+            <div className="absolute top-3 left-3 bg-violet-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm z-10">
+              NEW
+            </div>
+          )}
+
+          {/* Remove Button - Glassmorphism */}
+          {onRemove && (
+            <button
+              onClick={handleRemove}
+              disabled={isRemoving}
+              className={cn(
+                'absolute top-3 right-3 p-2 rounded-full transition-all duration-200 z-20',
+                'bg-white/30 backdrop-blur-md border border-white/20 text-white shadow-sm',
+                'hover:bg-white/50 hover:scale-105',
+                isRemoving && 'opacity-50 cursor-wait'
+              )}
+              aria-label="Remove from My Podcasts"
+            >
+              <X className="h-3.5 w-3.5 drop-shadow-sm" />
+            </button>
+          )}
+        </div>
+
+        <div className="p-5">
+          <h3 className="font-bold text-base leading-tight tracking-tight text-slate-900 line-clamp-1 mb-1 group-hover:text-violet-700 transition-colors">
             {podcast.title}
           </h3>
+
           {podcast.author && (
-            <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
+            <p className="text-xs text-slate-500 line-clamp-1 mb-4">
               {podcast.author}
             </p>
           )}
-          <div className="flex items-center gap-2 mt-3">
+
+          <div className="flex items-center gap-2 flex-wrap">
             {podcast.episode_count !== undefined && (
-              <Badge variant="secondary">
-                {podcast.episode_count} episode{podcast.episode_count !== 1 ? "s" : ""}
-              </Badge>
+              <span className="text-xs text-slate-400 font-medium">
+                {podcast.episode_count} eps
+              </span>
             )}
+
             {podcast.language && (
-              <Badge variant="outline">{podcast.language.toUpperCase()}</Badge>
+              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
+                {podcast.language.toUpperCase()}
+              </span>
             )}
           </div>
-          {podcast.description && (
-            <p className="text-sm text-muted-foreground mt-3 line-clamp-2">
-              {podcast.description}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </Link>
   );
 });

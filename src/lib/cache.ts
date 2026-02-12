@@ -172,7 +172,7 @@ export const CacheTTL = {
   PODCAST_DETAILS: 3600,   // 1 hour
   YOUTUBE_FEED: 1800,      // 30 minutes
   YOUTUBE_TRENDING: 1800,  // 30 minutes
-  BATCH_REQUESTS: 900,     // 15 minutes
+  BATCH_REQUESTS: 3600,    // 1 hour (aligned with TOP_PODCASTS TTL)
 
   // Podcastindex TTLs
   PI_SEARCH: 1800,           // 30 minutes

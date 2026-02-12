@@ -143,7 +143,8 @@ export async function getPodcastByFeedId(feedId: string): Promise<Podcast | null
     const podcast = transformFeed(data.feed);
     await setCached(cacheKey, podcast, CacheTTL.PI_PODCAST);
     return podcast;
-  } catch {
+  } catch (error) {
+    console.error(`[PodcastIndex] Failed to fetch podcast by feedId ${feedId}:`, error);
     return null;
   }
 }
@@ -161,7 +162,8 @@ export async function getPodcastByItunesId(itunesId: string): Promise<Podcast | 
     const podcast = transformFeed(data.feed);
     await setCached(cacheKey, podcast, CacheTTL.PI_PODCAST);
     return podcast;
-  } catch {
+  } catch (error) {
+    console.error(`[PodcastIndex] Failed to fetch podcast by itunesId ${itunesId}:`, error);
     return null;
   }
 }

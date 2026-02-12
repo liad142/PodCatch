@@ -117,22 +117,22 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
       <button
         onClick={() => setShowDropdown(!showDropdown)}
         className={cn(
-          'flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors w-full text-left',
+          'flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors w-full text-left group',
         )}
       >
-        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 shrink-0">
+        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-violet-100 shrink-0 ring-2 ring-white shadow-sm group-hover:shadow-md transition-all">
           {avatarUrl ? (
-            <img src={avatarUrl} alt={displayName} className="w-8 h-8 rounded-full object-cover" />
+            <img src={avatarUrl} alt={displayName} className="w-10 h-10 rounded-full object-cover" />
           ) : (
-            <span className="text-sm font-medium text-primary">{initials}</span>
+            <span className="text-base font-semibold text-violet-700">{initials}</span>
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{displayName}</p>
-          <p className="text-xs text-muted-foreground truncate">{email}</p>
+          <p className="text-sm font-semibold text-slate-900 truncate">{displayName}</p>
+          <p className="text-xs text-slate-500 truncate">{email}</p>
         </div>
         <ChevronDown className={cn(
-          'h-4 w-4 text-muted-foreground transition-transform',
+          'h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-transform',
           showDropdown && 'rotate-180'
         )} />
       </button>

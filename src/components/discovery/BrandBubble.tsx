@@ -18,7 +18,7 @@ export function BrandBubble({ id, name, artworkUrl }: BrandBubbleProps) {
       <motion.div
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
-        className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden ring-2 ring-transparent group-hover:ring-primary/50 transition-all shadow-md"
+        className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden group-hover:shadow-lg transition-all shadow-md"
       >
         <Image
           src={imageUrl}
@@ -28,7 +28,7 @@ export function BrandBubble({ id, name, artworkUrl }: BrandBubbleProps) {
           unoptimized
         />
       </motion.div>
-      <span className="text-xs text-muted-foreground text-center line-clamp-1 max-w-[80px] group-hover:text-foreground transition-colors">
+      <span className="text-xs text-muted-foreground text-center w-24 leading-tight group-hover:text-foreground transition-colors break-words">
         {name}
       </span>
     </Link>

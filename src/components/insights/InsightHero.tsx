@@ -277,7 +277,7 @@ export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }
   const isQuickReady = quickSummary?.status === "ready" && quickContent;
   const isDeepReady = deepSummary?.status === "ready" && deepContent;
   const isProcessing = ["queued", "transcribing", "summarizing"].includes(quickSummary?.status || "") ||
-                       ["queued", "transcribing", "summarizing"].includes(deepSummary?.status || "");
+    ["queued", "transcribing", "summarizing"].includes(deepSummary?.status || "");
 
   // Get the hook text (executive_brief or hook_headline or description fallback)
   const hookText = useMemo(() => {
@@ -290,42 +290,34 @@ export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }
   // Detect RTL
   const isRTL = useMemo(() => {
     const textToCheck = quickContent?.executive_brief || quickContent?.hook_headline ||
-                        deepContent?.comprehensive_overview || episode.description || "";
+      deepContent?.comprehensive_overview || episode.description || "";
     return isRTLText(textToCheck);
   }, [quickContent?.executive_brief, quickContent?.hook_headline, deepContent?.comprehensive_overview, episode.description]);
 
-  // Get gradient color from podcast image (simplified - uses CSS filter approach)
-  const gradientStyle = useMemo(() => {
-    // Default gradient
-    return {
-      background: "linear-gradient(135deg, hsl(var(--primary) / 0.08) 0%, hsl(var(--primary) / 0.02) 100%)",
-    };
-  }, []);
-
   return (
-    <div className="px-4">
+    <div className="px-4 md:px-0 max-w-3xl mx-auto">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="rounded-2xl border overflow-hidden"
-        style={gradientStyle}
+        className="bg-white rounded-3xl shadow-sm overflow-hidden relative"
       >
         {/* Main Content - Quick Summary */}
-        <div className="p-6" dir={isRTL ? "rtl" : "ltr"}>
+        <div className="p-8 md:p-10 relative" dir={isRTL ? "rtl" : "ltr"}>
           {/* Processing State */}
           {isProcessing && !isQuickReady && (
-            <div className="flex items-center gap-3 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
+            <div className="flex items-center gap-3 text-slate-500 mb-6">
+              <Loader2 className="h-5 w-5 animate-spin text-violet-600" />
               <span>Generating summary...</span>
             </div>
           )}
 
           {/* Loading Skeleton */}
           {isGenerating && !quickSummary && (
-            <div className="space-y-3">
-              <Skeleton className="h-6 w-3/4" />
-              <Skeleton className="h-6 w-1/2" />
+            <div className="space-y-4">
+              <Skeleton className="h-8 w-3/4 bg-slate-100" />
+              <Skeleton className="h-4 w-full bg-slate-100" />
+              <Skeleton className="h-4 w-5/6 bg-slate-100" />
             </div>
           )}
 
@@ -335,7 +327,7 @@ export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }
               {/* Hook Headline */}
               {isQuickReady && quickContent.hook_headline && (
                 <h2 className={cn(
-                  "text-xl md:text-2xl font-bold mb-3",
+                  "text-2xl md:text-3xl font-bold mb-6 text-slate-900 tracking-tight",
                   isRTL && "text-right"
                 )}>
                   {quickContent.hook_headline}
@@ -345,7 +337,7 @@ export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }
               {/* Executive Brief */}
               <p
                 className={cn(
-                  "text-base md:text-lg leading-relaxed text-muted-foreground",
+                  "text-lg leading-relaxed text-slate-700 font-serif", // Using font-serif for book-like feel if available, or just keeping default sans but relaxed
                   isRTL && "text-right"
                 )}
               >
@@ -355,30 +347,30 @@ export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }
               {/* Golden Nugget */}
               {isQuickReady && quickContent.golden_nugget && (
                 <div className={cn(
-                  "mt-4 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800",
-                  isRTL ? "border-r-4 border-r-yellow-500" : "border-l-4 border-l-yellow-500"
+                  "mt-8 p-6 rounded-2xl bg-amber-50/50 border border-amber-100",
+                  isRTL ? "border-r-4 border-r-amber-400" : "border-l-4 border-l-amber-400"
                 )}>
-                  <div className={cn("flex items-center gap-2 mb-1", isRTL && "flex-row-reverse")}>
-                    <Sparkles className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
-                    <span className="text-xs font-semibold text-yellow-900 dark:text-yellow-100 uppercase tracking-wide">Golden Nugget</span>
+                  <div className={cn("flex items-center gap-2 mb-2", isRTL && "flex-row-reverse")}>
+                    <Sparkles className="h-4 w-4 text-amber-500 fill-amber-500" />
+                    <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">Golden Nugget</span>
                   </div>
-                  <p className={cn("text-sm italic", isRTL && "text-right")}>
-                    {quickContent.golden_nugget}
+                  <p className={cn("text-base italic text-slate-800 font-medium", isRTL && "text-right")}>
+                    &ldquo;{quickContent.golden_nugget}&rdquo;
                   </p>
                 </div>
               )}
 
               {/* Perfect For & Tags */}
               {isQuickReady && (quickContent.perfect_for || (quickContent.tags && quickContent.tags.length > 0)) && (
-                <div className={cn("mt-4 flex flex-wrap items-center gap-2", isRTL && "flex-row-reverse")}>
+                <div className={cn("mt-6 flex flex-wrap items-center gap-2", isRTL && "flex-row-reverse")}>
                   {quickContent.perfect_for && (
-                    <Badge variant="secondary" className="gap-1">
+                    <Badge variant="secondary" className="gap-1.5 py-1 px-3 bg-slate-100 text-slate-600 hover:bg-slate-200">
                       <Tag className="h-3 w-3" />
                       {quickContent.perfect_for}
                     </Badge>
                   )}
                   {quickContent.tags?.map((tag, i) => (
-                    <Badge key={i} variant="outline" className="text-xs">
+                    <Badge key={i} variant="outline" className="text-xs border-slate-200 text-slate-500">
                       {tag}
                     </Badge>
                   ))}
@@ -387,35 +379,33 @@ export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }
 
               {/* Show Deep Summary Button */}
               {(isDeepReady || isProcessing) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowDeepSummary(!showDeepSummary)}
-                  className={cn(
-                    "mt-4 gap-2 text-primary hover:text-primary",
-                    isRTL && "flex-row-reverse"
-                  )}
-                >
-                  {showDeepSummary ? (
-                    <>
-                      <ChevronUp className="h-4 w-4" />
-                      Hide Full Analysis
-                    </>
-                  ) : (
-                    <>
-                      <BookOpen className="h-4 w-4" />
-                      Show Full Analysis
-                      <ChevronDown className="h-4 w-4" />
-                    </>
-                  )}
-                </Button>
+                <div className={cn(
+                  "mt-8 flex justify-center sticky bottom-0 pt-12 -mx-10 px-10 pb-4 bg-gradient-to-t from-white via-white to-transparent",
+                  showDeepSummary ? "relative pt-8 bg-none" : ""
+                )}>
+                  <button
+                    onClick={() => setShowDeepSummary(!showDeepSummary)}
+                    className="group flex flex-col items-center gap-1 text-violet-600 hover:text-violet-700 transition-colors focus:outline-none"
+                  >
+                    <span className="text-sm font-semibold tracking-wide uppercase flex items-center gap-2">
+                      {showDeepSummary ? "Less Analysis" : "Show Full Analysis"}
+                    </span>
+                    {showDeepSummary ? (
+                      <ChevronUp className="h-5 w-5 animate-bounce-slow" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 group-hover:translate-y-1 transition-transform" />
+                    )}
+                  </button>
+                </div>
               )}
 
               {/* No summary fallback hint */}
               {!isQuickReady && !isGenerating && !isProcessing && episode.description && (
-                <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-                  <Sparkles className="h-4 w-4" />
-                  <span>Generate insights for AI-powered summary</span>
+                <div className="mt-8 text-center">
+                  <Button variant="outline" size="sm" className="gap-2 text-slate-500" disabled>
+                    <Sparkles className="h-4 w-4" />
+                    Generate Analysis to see more
+                  </Button>
                 </div>
               )}
             </>
@@ -430,15 +420,15 @@ export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="overflow-hidden"
+              className="overflow-hidden bg-slate-50/50"
             >
               <div
-                className="px-6 pb-6 space-y-6 border-t pt-6"
+                className="px-8 pb-10 space-y-8 border-t border-slate-100 pt-8"
                 dir={isRTL ? "rtl" : "ltr"}
               >
                 {/* Processing indicator for Deep Summary */}
                 {!isDeepReady && isProcessing && (
-                  <div className="flex items-center gap-3 text-muted-foreground py-8 justify-center">
+                  <div className="flex items-center gap-3 text-slate-500 py-8 justify-center">
                     <Loader2 className="h-5 w-5 animate-spin" />
                     <span>Generating deep analysis...</span>
                   </div>
@@ -448,15 +438,15 @@ export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }
                   <>
                     {/* Comprehensive Overview with Highlights */}
                     {deepContent.comprehensive_overview && (
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                         <h3 className={cn(
-                          "text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2",
+                          "text-sm font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2",
                           isRTL && "flex-row-reverse"
                         )}>
-                          <BookOpen className="h-4 w-4" />
+                          <BookOpen className="h-4 w-4 text-violet-500" />
                           Comprehensive Overview
                         </h3>
-                        <div className={cn("prose prose-sm dark:prose-invert max-w-none", isRTL && "text-right")}>
+                        <div className={cn("prose prose-lg text-slate-700 max-w-none leading-relaxed", isRTL && "text-right")}>
                           {deepContent.comprehensive_overview.split('\n').map((paragraph, i) => (
                             <AnnotatedParagraph key={i} text={paragraph} isRTL={isRTL} />
                           ))}
@@ -466,30 +456,33 @@ export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }
 
                     {/* Core Concepts */}
                     {deepContent.core_concepts && deepContent.core_concepts.length > 0 && (
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                         <h3 className={cn(
-                          "text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2",
+                          "text-sm font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2",
                           isRTL && "flex-row-reverse"
                         )}>
-                          <Lightbulb className="h-4 w-4 text-yellow-500" />
+                          <Lightbulb className="h-4 w-4 text-violet-500" />
                           Core Concepts
                         </h3>
-                        <div className="space-y-3">
+                        <div className="grid gap-4">
                           {deepContent.core_concepts.map((concept, i) => (
-                            <div key={i} className="rounded-lg border p-4 space-y-2 bg-card">
-                              <h4 className={cn("font-semibold text-primary", isRTL && "text-right")}>
+                            <div key={i} className="bg-white rounded-2xl shadow-[0_2px_15px_rgb(0,0,0,0.03)] p-6 border border-slate-100/50">
+                              <h4 className={cn("font-bold text-slate-900 mb-2 flex items-center gap-2", isRTL && "text-right flex-row-reverse")}>
+                                <div className="w-8 h-8 rounded-full bg-violet-50 flex items-center justify-center shrink-0">
+                                  <Lightbulb className="h-4 w-4 text-violet-600" />
+                                </div>
                                 {concept.concept}
                               </h4>
-                              <p className={cn("text-sm text-muted-foreground leading-relaxed", isRTL && "text-right")}>
+                              <p className={cn("text-slate-600 leading-relaxed", isRTL && "text-right")}>
                                 {concept.explanation}
                               </p>
                               {concept.quote_reference && (
-                                <blockquote className={cn(
-                                  "border-l-4 border-primary/30 pl-4 italic text-sm mt-2",
-                                  isRTL && "border-l-0 border-r-4 pr-4 pl-0 text-right"
+                                <div className={cn(
+                                  "mt-3 pl-4 border-l-2 border-violet-200 italic text-slate-500 text-sm",
+                                  isRTL && "border-l-0 border-r-2 pr-4 pl-0 text-right"
                                 )}>
                                   &ldquo;{concept.quote_reference}&rdquo;
-                                </blockquote>
+                                </div>
                               )}
                             </div>
                           ))}
@@ -507,21 +500,24 @@ export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }
 
                     {/* Contrarian Views */}
                     {deepContent.contrarian_views && deepContent.contrarian_views.length > 0 && (
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                         <h3 className={cn(
-                          "text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2",
+                          "text-sm font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2",
                           isRTL && "flex-row-reverse"
                         )}>
-                          <MessageSquareQuote className="h-4 w-4 text-purple-500" />
-                          Contrarian Views & Insights
+                          <MessageSquareQuote className="h-4 w-4 text-violet-500" />
+                          Contrarian Views
                         </h3>
-                        <div className="space-y-2">
+                        <div className="grid gap-4">
                           {deepContent.contrarian_views.map((view, i) => (
                             <div key={i} className={cn(
-                              "rounded-lg bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800 p-3",
-                              isRTL ? "border-r-4 border-r-purple-500" : "border-l-4 border-l-purple-500"
+                              "bg-white rounded-2xl shadow-[0_2px_15px_rgb(0,0,0,0.03)] p-6 border border-slate-100/50 flex items-start gap-4",
+                              isRTL && "flex-row-reverse"
                             )}>
-                              <p className={cn("text-sm", isRTL && "text-right")}>{view}</p>
+                              <div className="w-8 h-8 rounded-full bg-rose-50 flex items-center justify-center shrink-0 mt-0.5">
+                                <MessageSquareQuote className="h-4 w-4 text-rose-500" />
+                              </div>
+                              <p className={cn("text-slate-700 leading-relaxed", isRTL && "text-right")}>{view}</p>
                             </div>
                           ))}
                         </div>

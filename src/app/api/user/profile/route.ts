@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { getAuthUser } from '@/lib/auth-helpers';
+import { deleteCached } from '@/lib/cache';
 
 // GET: Fetch current user's profile
 export async function GET() {
@@ -57,6 +58,12 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    // Invalidate personalized discovery cache when genres or country change
+    if ('preferred_genres' in filteredUpdates || 'preferred_country' in filteredUpdates) {
+      const country = profile?.preferred_country || 'us';
+      await deleteCached(`personalized:${user.id}:${country}`);
+    }
 
     return NextResponse.json({ profile });
   } catch (error) {

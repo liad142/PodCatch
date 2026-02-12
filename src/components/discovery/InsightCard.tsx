@@ -86,7 +86,7 @@ export const InsightCard = React.memo(function InsightCard({
     <motion.article
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`rounded-2xl p-4 sm:p-5 transition-shadow ${glass.card}`}
+      className="rounded-2xl p-6 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-shadow"
     >
       {/* Header: Podcast Info */}
       <div className="flex items-center gap-3 mb-3">
@@ -110,8 +110,8 @@ export const InsightCard = React.memo(function InsightCard({
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <Link href={`/browse/podcast/${podcastId}`} className="hover:underline">
-            <p className="text-sm font-medium truncate">{podcastName}</p>
+          <Link href={`/browse/podcast/${podcastId}`} className="hover:underline block">
+            <p className="text-sm font-medium leading-tight break-words">{podcastName}</p>
           </Link>
           <p className="text-xs text-muted-foreground flex items-center gap-1">
             <Clock className="h-3 w-3" />
@@ -121,9 +121,8 @@ export const InsightCard = React.memo(function InsightCard({
         <button
           onClick={handleSubscribe}
           disabled={isLoading}
-          className={`p-2 rounded-full transition-all ${
-            subscribed ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-muted-foreground'
-          }`}
+          className={`p-2 rounded-full transition-all ${subscribed ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-muted-foreground'
+            }`}
           title={subscribed ? 'Unsubscribe' : 'Subscribe'}
         >
           <Heart className={`h-4 w-4 ${subscribed ? 'fill-current' : ''}`} />

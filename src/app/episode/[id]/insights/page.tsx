@@ -111,7 +111,7 @@ export default function EpisodeInsightsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       <Header />
 
       {/* Episode Header */}

@@ -226,8 +226,8 @@ export function TranscriptAccordion({
             {isTranscribing || isGenerating
               ? "Transcribing audio..."
               : transcriptStatus === "failed"
-              ? "Transcription failed. Please try again."
-              : "Get a searchable transcript of this episode"}
+                ? "Transcription failed. Please try again."
+                : "Get a searchable transcript of this episode"}
           </p>
           {(isTranscribing || isGenerating) && (
             <div className="flex justify-center">
@@ -251,10 +251,10 @@ export function TranscriptAccordion({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.3 }}
-        className="rounded-2xl border overflow-hidden"
+        className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden"
       >
         {/* Header */}
-        <div className="p-4 border-b bg-card">
+        <div className="p-6 border-b border-slate-100 bg-white">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <ScrollText className="h-5 w-5 text-primary" />
@@ -269,16 +269,16 @@ export function TranscriptAccordion({
 
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
               type="text"
               placeholder="Search transcript..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-20"
+              className="pl-9 pr-4 bg-slate-100 border-0 text-slate-800 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-slate-300"
             />
             {searchQuery && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">
                 {filteredSegments.length} matches
               </span>
             )}
@@ -302,24 +302,24 @@ export function TranscriptAccordion({
                     : segment.text;
 
                 return (
-                  <div key={segment.id} className="bg-card">
+                  <div key={segment.id} className="bg-white hover:bg-slate-50 transition-colors">
                     {/* Accordion Header */}
                     <button
                       onClick={() => setExpandedId(isExpanded ? null : segment.id)}
-                      className="w-full p-4 flex items-start gap-3 hover:bg-muted/50 transition-colors text-left"
+                      className="w-full p-4 flex items-start gap-3 text-left"
                     >
                       {/* Expand Icon */}
                       <div className="shrink-0 mt-0.5">
                         {isExpanded ? (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          <ChevronDown className="h-4 w-4 text-slate-400" />
                         ) : (
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          <ChevronRight className="h-4 w-4 text-slate-400" />
                         )}
                       </div>
 
                       {/* Speaker Avatar */}
                       <div
-                        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm"
                         style={{ backgroundColor: speakerInfo?.color }}
                       >
                         {speakerInfo?.initials}
@@ -328,17 +328,17 @@ export function TranscriptAccordion({
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-sm">{segment.speaker}</span>
+                          <span className="font-bold text-sm text-slate-700">{segment.speaker}</span>
                           {segment.timestamp && (
-                            <Badge variant="outline" className="text-xs">
+                            <span className="text-xs text-slate-400 font-medium font-mono bg-slate-100 px-1.5 py-0.5 rounded">
                               {segment.timestamp}
-                            </Badge>
+                            </span>
                           )}
                         </div>
                         {!isExpanded && (
                           <p
                             className={cn(
-                              "text-sm text-muted-foreground line-clamp-2",
+                              "text-sm text-slate-600 line-clamp-2 leading-relaxed transition-colors group-hover:text-slate-900",
                               segment.isRTL && "text-right"
                             )}
                             dir={segment.isRTL ? "rtl" : "ltr"}
@@ -360,12 +360,12 @@ export function TranscriptAccordion({
                           className="overflow-hidden"
                         >
                           <div
-                            className="px-4 pb-4 pl-16"
+                            className="px-4 pb-4 pl-14 md:pl-16"
                             dir={segment.isRTL ? "rtl" : "ltr"}
                           >
                             <p
                               className={cn(
-                                "text-sm leading-relaxed mb-3",
+                                "text-sm leading-relaxed mb-3 text-slate-800",
                                 segment.isRTL && "text-right"
                               )}
                             >
@@ -374,16 +374,16 @@ export function TranscriptAccordion({
 
                             {segment.timestamp && (
                               <Button
-                                variant="outline"
+                                variant="ghost"
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handlePlayFrom(segment.timestamp);
                                 }}
-                                className="gap-2"
+                                className="gap-2 text-violet-600 hover:text-violet-700 hover:bg-violet-50 h-8 px-3 rounded-full bg-violet-50/50"
                               >
                                 <Play className="h-3 w-3 fill-current" />
-                                Play from {segment.timestamp}
+                                <span className="text-xs font-medium">Play from {segment.timestamp}</span>
                               </Button>
                             )}
                           </div>
@@ -398,8 +398,8 @@ export function TranscriptAccordion({
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t bg-muted/30 text-center">
-          <p className="text-xs text-muted-foreground">
+        <div className="p-3 border-t border-slate-100 bg-slate-50 text-center">
+          <p className="text-xs text-slate-400 font-medium">
             Click a segment to expand • Search to find specific topics
           </p>
         </div>

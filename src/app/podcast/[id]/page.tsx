@@ -379,94 +379,119 @@ export default function PodcastPage() {
           </div>
         ) : podcast ? (
           <div className="space-y-8">
-            {/* Podcast Info Header */}
-            <div className="flex flex-col md:flex-row gap-6">
-              <div className="w-48 h-48 shrink-0 rounded-lg overflow-hidden bg-muted">
+            {/* Immersive Header */}
+            <div className="relative overflow-hidden rounded-3xl bg-slate-900 mb-8 border border-white/10 shadow-2xl">
+              {/* Blurred Background Backdrop */}
+              <div className="absolute inset-0 z-0">
                 {podcast.image_url ? (
                   <Image
                     src={Array.isArray(podcast.image_url) ? podcast.image_url[0] : podcast.image_url}
-                    alt={podcast.title}
-                    width={192}
-                    height={192}
-                    className="w-full h-full object-cover"
+                    alt=""
+                    fill
+                    className="object-cover blur-3xl scale-110 opacity-60"
                     unoptimized
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
-                    <Mic2 className="h-16 w-16 text-primary/40" />
-                  </div>
+                  <div className="w-full h-full bg-gradient-to-br from-violet-900 via-slate-900 to-black" />
                 )}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
               </div>
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold mb-2">{podcast.title}</h1>
-                {podcast.author && (
-                  <p className="text-lg text-muted-foreground mb-3">
-                    by {podcast.author}
-                  </p>
-                )}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <Badge variant="secondary">
-                    {episodes.length} episode{episodes.length !== 1 ? "s" : ""}
-                  </Badge>
-                  {podcast.language && (
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <Globe className="h-3 w-3" />
-                      {podcast.language.toUpperCase()}
-                    </Badge>
+
+              {/* Content Overlay */}
+              <div className="relative z-10 p-8 md:p-12 flex flex-col md:flex-row gap-8 items-center md:items-start text-center md:text-left">
+                <div className="w-48 h-48 md:w-56 md:h-56 shrink-0 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/10 rotate-1 md:rotate-0 transition-transform hover:scale-105 duration-500">
+                  {podcast.image_url ? (
+                    <Image
+                      src={Array.isArray(podcast.image_url) ? podcast.image_url[0] : podcast.image_url}
+                      alt={podcast.title}
+                      width={224}
+                      height={224}
+                      className="w-full h-full object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-white/5">
+                      <Mic2 className="h-16 w-16 text-white/40" />
+                    </div>
                   )}
-                  <Badge variant="outline" className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    Added {formatDate(podcast.created_at)}
-                  </Badge>
                 </div>
-                {podcast.description && (
-                  <p className="text-muted-foreground leading-relaxed line-clamp-3">
-                    {podcast.description}
-                  </p>
-                )}
-                {podcast.rss_feed_url && !podcast.rss_feed_url.startsWith('apple:') && (
-                  <div className="mt-4">
-                    <a
-                      href={podcast.rss_feed_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                    >
-                      <Rss className="h-4 w-4" />
-                      RSS Feed
-                    </a>
+
+                <div className="flex-1 space-y-4">
+                  <div>
+                    <h1 className="text-3xl md:text-5xl font-bold text-white mb-3 tracking-tight leading-tight drop-shadow-sm">
+                      {podcast.title}
+                    </h1>
+                    {podcast.author && (
+                      <p className="text-lg md:text-xl text-slate-300 font-medium tracking-wide">
+                        {podcast.author}
+                      </p>
+                    )}
                   </div>
-                )}
+
+                  <div className="flex flex-wrap justify-center md:justify-start gap-2">
+                    <span className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 text-xs font-semibold text-white/90">
+                      {episodes.length} episodes
+                    </span>
+                    {podcast.language && (
+                      <span className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 text-xs font-semibold text-white/90 uppercase flex items-center gap-1">
+                        <Globe className="h-3 w-3" />
+                        {podcast.language}
+                      </span>
+                    )}
+                    <span className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 text-xs font-semibold text-white/90 flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {formatDate(podcast.created_at)}
+                    </span>
+                  </div>
+
+                  {podcast.description && (
+                    <p className="text-slate-300 leading-relaxed max-w-2xl line-clamp-3 text-sm md:text-base border-l-2 border-white/20 pl-4">
+                      {podcast.description}
+                    </p>
+                  )}
+
+                  {podcast.rss_feed_url && !podcast.rss_feed_url.startsWith('apple:') && (
+                    <div className="pt-2">
+                      <a
+                        href={podcast.rss_feed_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-300 hover:text-violet-200 transition-colors"
+                      >
+                        <Rss className="h-3.5 w-3.5" />
+                        RSS Feed
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Episodes Section */}
-            <section>
-              <h2 className="text-2xl font-semibold mb-6">Episodes</h2>
+            <section className="bg-slate-50 -mx-4 px-4 py-8 md:px-0 md:mx-0 md:bg-transparent md:py-0">
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-6">Episodes</h2>
 
               {isLoadingEpisodes ? (
                 <div className="space-y-4">
                   {[...Array(5)].map((_, i) => (
-                    <Card key={i} variant="glass">
-                      <CardContent className="p-4">
-                        <div className="flex gap-4">
-                          <Skeleton className="w-20 h-20 rounded-lg flex-shrink-0" />
-                          <div className="flex-1 space-y-2">
-                            <Skeleton className="h-5 w-3/4" />
-                            <Skeleton className="h-4 w-1/4" />
-                            <Skeleton className="h-12 w-full" />
-                          </div>
+                    <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/50">
+                      <div className="flex gap-4">
+                        <Skeleton className="w-12 h-12 rounded-lg shrink-0" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-5 w-3/4" />
+                          <Skeleton className="h-4 w-1/4" />
+                          <Skeleton className="h-12 w-full" />
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   ))}
                 </div>
               ) : episodes.length === 0 ? (
-                <div className="text-center py-12 bg-muted/30 rounded-lg">
-                  <p className="text-muted-foreground mb-2">
+                <div className="text-center py-12 bg-white rounded-2xl shadow-sm border border-slate-100">
+                  <p className="text-slate-500 mb-2">
                     No episodes found.
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-slate-400">
                     This might be a temporary issue. Try refreshing the page.
                   </p>
                 </div>
@@ -478,72 +503,100 @@ export default function PodcastPage() {
                     const canNavigate = summaryInfo?.episodeId;
 
                     return (
-                      <Card key={episode.id} variant="glass" className="hover:bg-accent/50 transition-colors">
-                        <CardContent className="p-4">
-                          <div className="flex gap-4">
-                            {episode.artworkUrl && (
-                              <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
-                                <Image
-                                  src={episode.artworkUrl.replace('100x100', '200x200')}
-                                  alt={episode.title}
-                                  fill
-                                  className="object-cover"
-                                  unoptimized
-                                />
-                              </div>
-                            )}
+                      <div key={episode.id} className="group bg-white rounded-2xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300 border-0">
+                        <div className="flex gap-5 items-start">
+                          {/* Thumbnail - Hidden if needed or small */}
+                          {episode.artworkUrl && (
+                            <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100 shadow-inner hidden sm:block">
+                              <Image
+                                src={episode.artworkUrl.replace('100x100', '200x200')}
+                                alt={episode.title}
+                                fill
+                                className="object-cover"
+                                unoptimized
+                              />
+                            </div>
+                          )}
 
-                            <div className="flex-1 min-w-0">
-                              {hasSummary && (
-                                <div className="mb-2">
-                                  <Badge variant="default" className="text-xs">
-                                    <FileText className="h-3 w-3 mr-1" />
-                                    Summary Ready
-                                  </Badge>
-                                </div>
+                          <div className="flex-1 min-w-0 space-y-2">
+                            {/* Meta Top Line */}
+                            <div className="flex items-center gap-3 text-xs font-medium text-slate-400">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                {formatDate(episode.publishedAt)}
+                              </span>
+                              {episode.duration > 0 && (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {formatDuration(episode.duration)}
+                                </span>
                               )}
+                              {hasSummary && (
+                                <span className="text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                  <FileText className="h-3 w-3" />
+                                  Summary Ready
+                                </span>
+                              )}
+                            </div>
 
-                              {canNavigate ? (
-                                <Link href={`/episode/${summaryInfo.episodeId}`}>
-                                  <h3 className="font-medium line-clamp-2 mb-1 hover:text-primary hover:underline cursor-pointer">
-                                    {episode.seasonNumber && episode.episodeNumber && (
-                                      <span className="text-muted-foreground text-sm mr-2">
-                                        S{episode.seasonNumber}E{episode.episodeNumber}
-                                      </span>
-                                    )}
-                                    {episode.title}
-                                  </h3>
-                                </Link>
-                              ) : (
-                                <h3 className="font-medium line-clamp-2 mb-1">
-                                  {episode.seasonNumber && episode.episodeNumber && (
-                                    <span className="text-muted-foreground text-sm mr-2">
-                                      S{episode.seasonNumber}E{episode.episodeNumber}
-                                    </span>
-                                  )}
+                            {/* Title */}
+                            {canNavigate ? (
+                              <Link href={`/episode/${summaryInfo.episodeId}`}>
+                                <h3 className="text-lg font-bold text-slate-900 leading-tight group-hover:text-violet-700 transition-colors cursor-pointer">
                                   {episode.title}
                                 </h3>
+                              </Link>
+                            ) : (
+                              <h3 className="text-lg font-bold text-slate-900 leading-tight">
+                                {episode.title}
+                              </h3>
+                            )}
+
+                            {/* Description */}
+                            <p className="text-sm text-slate-600 leading-relaxed line-clamp-2">
+                              {episode.description}
+                            </p>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-3 pt-2">
+                              {episode.isFromDb || summaryInfo?.episodeId ? (
+                                <SummarizeButton
+                                  episodeId={episode.isFromDb ? episode.id : summaryInfo!.episodeId!}
+                                  initialStatus={
+                                    hasSummary ? 'ready' :
+                                      (() => {
+                                        const status = summaryInfo?.deepStatus || summaryInfo?.quickStatus;
+                                        if (status === 'transcribing') return 'transcribing' as const;
+                                        if (status === 'summarizing') return 'summarizing' as const;
+                                        if (status === 'queued') return 'queued' as const;
+                                        if (status === 'failed') return 'failed' as const;
+                                        return 'not_ready' as const;
+                                      })()
+                                  }
+                                />
+                              ) : (
+                                <Button
+                                  className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-lg shadow-indigo-500/20 border-0 rounded-full h-9 px-5"
+                                  size="sm"
+                                  onClick={() => handleSummarize(episode)}
+                                  disabled={importingEpisodeId === episode.id}
+                                >
+                                  {importingEpisodeId === episode.id ? (
+                                    <>
+                                      <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                      Importing
+                                    </>
+                                  ) : (
+                                    <>
+                                      <FileText className="h-3.5 w-3.5 mr-2" />
+                                      Summarize
+                                    </>
+                                  )}
+                                </Button>
                               )}
 
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  {formatDate(episode.publishedAt)}
-                                </span>
-                                {episode.duration > 0 && (
-                                  <span className="flex items-center gap-1">
-                                    <Clock className="h-3 w-3" />
-                                    {formatDuration(episode.duration)}
-                                  </span>
-                                )}
-                              </div>
-
-                              <p className="text-sm text-muted-foreground line-clamp-2">
-                                {episode.description}
-                              </p>
-
-                              <div className="flex gap-2 mt-2">
-                                {episode.audioUrl && podcast && (
+                              {episode.audioUrl && podcast && (
+                                <div className="scale-90 origin-left">
                                   <InlinePlayButton
                                     track={{
                                       id: episode.id,
@@ -554,47 +607,12 @@ export default function PodcastPage() {
                                       duration: episode.duration,
                                     }}
                                   />
-                                )}
-                                {episode.isFromDb || summaryInfo?.episodeId ? (
-                                  <SummarizeButton
-                                    episodeId={episode.isFromDb ? episode.id : summaryInfo!.episodeId!}
-                                    initialStatus={
-                                      hasSummary ? 'ready' :
-                                      (() => {
-                                        const status = summaryInfo?.deepStatus || summaryInfo?.quickStatus;
-                                        if (status === 'transcribing') return 'transcribing' as const;
-                                        if (status === 'summarizing') return 'summarizing' as const;
-                                        if (status === 'queued') return 'queued' as const;
-                                        if (status === 'failed') return 'failed' as const;
-                                        return 'not_ready' as const;
-                                      })()
-                                    }
-                                  />
-                                ) : (
-                                  <Button
-                                    variant="default"
-                                    size="sm"
-                                    onClick={() => handleSummarize(episode)}
-                                    disabled={importingEpisodeId === episode.id}
-                                  >
-                                    {importingEpisodeId === episode.id ? (
-                                      <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        Importing...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <FileText className="h-4 w-4 mr-2" />
-                                        Summarize
-                                      </>
-                                    )}
-                                  </Button>
-                                )}
-                              </div>
+                                </div>
+                              )}
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
+                        </div>
+                      </div>
                     );
                   })}
 

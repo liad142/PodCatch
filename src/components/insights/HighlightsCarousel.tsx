@@ -151,55 +151,44 @@ export function HighlightsCarousel({ highlights, episodeId }: HighlightsCarousel
                 transition={{ delay: i * 0.05 }}
                 className={cn(
                   "shrink-0 w-[280px] sm:w-[320px] snap-start",
-                  "rounded-xl border border-l-4 p-4",
-                  "bg-card hover:shadow-lg transition-all cursor-pointer",
-                  "group",
-                  styles.borderColor
+                  "rounded-2xl border border-slate-100 p-6",
+                  "bg-white shadow-[0_2px_15px_rgb(0,0,0,0.03)] hover:shadow-lg transition-all cursor-pointer",
+                  "group relative overflow-hidden"
                 )}
                 onClick={() => handleCardClick(highlight)}
               >
-                {/* Importance Badge */}
-                <div className="flex items-center justify-between mb-3">
-                  <Badge variant="secondary" className={cn("gap-1", styles.bgColor)}>
-                    <Icon className={cn("h-3 w-3", styles.color)} />
-                    <span className="capitalize text-xs">{highlight.importance}</span>
-                  </Badge>
+                {/* Decorative faint background based on importance */}
+                <div className={cn("absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full opacity-5 pointer-events-none", styles.color.replace('text-', 'bg-'))} />
 
-                  {hasTimestamp && (
-                    <Badge variant="outline" className="gap-1 text-xs">
-                      <Clock className="h-3 w-3" />
+                {/* Importance Badge */}
+                <div className="flex items-center justify-between mb-4 relative z-10">
+                  <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-slate-50 border border-slate-100")}>
+                    <Icon className={cn("h-3 w-3", styles.color)} />
+                    <span className="capitalize text-slate-600">{highlight.importance}</span>
+                  </div>
+
+                  {highlight.timestamp && (
+                    <span className="text-xs font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">
                       {highlight.timestamp}
-                    </Badge>
+                    </span>
                   )}
                 </div>
 
                 {/* Quote */}
-                <div className="min-h-[80px] mb-3">
-                  <p className="text-sm leading-relaxed italic text-foreground/90">
+                <div className="min-h-[80px] mb-4 relative z-10">
+                  <p className="text-base leading-relaxed italic text-slate-700 font-medium">
                     &ldquo;{truncateQuote(highlight.quote)}&rdquo;
                   </p>
                 </div>
 
-                {/* Context (if available) */}
-                {highlight.context && (
-                  <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
-                    {highlight.context}
-                  </p>
-                )}
-
                 {/* Play Action */}
                 {hasTimestamp && (
-                  <div className="flex items-center gap-2 pt-2 border-t">
-                    <div
-                      className={cn(
-                        "flex items-center gap-2 text-sm font-medium",
-                        "text-primary group-hover:text-primary/80 transition-colors"
-                      )}
-                    >
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <div className="relative z-10 pt-4 border-t border-slate-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm font-medium text-violet-600 group-hover:text-violet-700 transition-colors">
+                      <div className="w-8 h-8 rounded-full bg-violet-50 flex items-center justify-center group-hover:bg-violet-100 transition-colors">
                         <Play className="h-4 w-4 fill-current" />
                       </div>
-                      <span>Play from {highlight.timestamp}</span>
+                      <span>Play Highlight</span>
                     </div>
                   </div>
                 )}

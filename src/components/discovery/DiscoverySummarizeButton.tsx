@@ -197,8 +197,8 @@ export function DiscoverySummarizeButton({
       case 'idle':
         return (
           <>
-            <Sparkles className="mr-2 h-4 w-4" />
-            Summarize
+            <Sparkles className="mr-2 h-4 w-4 text-white fill-white/20" />
+            <span className="font-semibold text-white">Summarize</span>
           </>
         );
 
@@ -286,7 +286,7 @@ export function DiscoverySummarizeButton({
       size="sm"
       onClick={handleClick}
       disabled={!isInteractive}
-      className={`min-w-[140px] transition-all ${className}`}
+      className={`min-w-[140px] px-6 transition-all shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 hover:scale-105 active:scale-95 bg-gradient-to-r from-violet-600 to-indigo-600 border-0 ${className}`}
     >
       {renderContent()}
     </Button>

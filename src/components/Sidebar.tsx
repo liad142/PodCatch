@@ -41,11 +41,11 @@ function NavItem({ item, isActive, onClick }: NavItemProps) {
       href={item.href}
       onClick={onClick}
       className={cn(
-        'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+        'flex items-center gap-3 px-4 py-3 rounded-full text-base font-medium transition-all duration-200',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2',
         isActive
-          ? 'bg-primary text-primary-foreground'
-          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          ? 'bg-violet-50 text-violet-700 shadow-sm'
+          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
       )}
     >
       <Icon className="h-5 w-5 shrink-0" />
@@ -68,7 +68,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex flex-col h-full">
       {/* Brand Header */}
-      <div className="flex items-center justify-between px-4 py-5 border-b border-border">
+      <div className="flex items-center justify-between px-6 py-8">
         <Link href="/" className="flex items-center gap-2" onClick={onNavigate}>
           <Headphones className="h-7 w-7 text-primary" />
           <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
@@ -78,7 +78,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" aria-label="Main navigation">
+      <nav className="flex-1 px-4 py-6 space-y-3 overflow-y-auto" aria-label="Main navigation">
         {NAV_ITEMS.map((item) => (
           <NavItem
             key={item.href}
@@ -90,7 +90,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       {/* Footer - User Status */}
-      <div className="px-4 py-4 border-t border-border">
+      <div className="px-4 py-6 pb-8">
         <SidebarUserSection />
       </div>
     </div>
@@ -123,7 +123,7 @@ function MobileDrawer({
 
   // Focus trap: focus first focusable element when opened
   const drawerRef = React.useRef<HTMLDivElement>(null);
-  
+
   useEffect(() => {
     if (isOpen && drawerRef.current) {
       const firstFocusable = drawerRef.current.querySelector<HTMLElement>(
@@ -152,8 +152,7 @@ function MobileDrawer({
         aria-modal="true"
         aria-label="Navigation menu"
         className={cn(
-          'fixed top-0 left-0 bottom-0 w-72 z-[60] transition-transform lg:hidden',
-          glass.sidebar,
+          'fixed top-0 left-0 bottom-0 w-72 z-[60] transition-transform lg:hidden bg-white/95 backdrop-blur-xl border-r border-slate-100',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -220,10 +219,7 @@ export function Sidebar() {
 
       {/* Desktop Sidebar */}
       <aside
-        className={cn(
-          "fixed top-0 left-0 bottom-0 w-64 hidden lg:flex flex-col z-30",
-          glass.sidebar
-        )}
+        className="fixed top-0 left-0 bottom-0 w-64 hidden lg:flex flex-col z-30 bg-white/90 backdrop-blur-xl border-r border-slate-100"
         aria-label="Main navigation"
       >
         <SidebarContent />
