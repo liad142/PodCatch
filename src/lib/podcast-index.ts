@@ -53,6 +53,9 @@ async function piRequest<T>(path: string, params?: Record<string, string>): Prom
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Unauthorized');
+    }
     throw new Error(`Podcastindex API returned ${response.status}: ${response.statusText}`);
   }
 
@@ -144,6 +147,9 @@ export async function getPodcastByFeedId(feedId: string): Promise<Podcast | null
     await setCached(cacheKey, podcast, CacheTTL.PI_PODCAST);
     return podcast;
   } catch (error) {
+    if ((error as Error).message === 'Unauthorized') {
+      return null;
+    }
     console.error(`[PodcastIndex] Failed to fetch podcast by feedId ${feedId}:`, error);
     return null;
   }
@@ -163,6 +169,9 @@ export async function getPodcastByItunesId(itunesId: string): Promise<Podcast | 
     await setCached(cacheKey, podcast, CacheTTL.PI_PODCAST);
     return podcast;
   } catch (error) {
+    if ((error as Error).message === 'Unauthorized') {
+      return null;
+    }
     console.error(`[PodcastIndex] Failed to fetch podcast by itunesId ${itunesId}:`, error);
     return null;
   }
