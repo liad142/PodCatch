@@ -17,6 +17,16 @@ interface DailyMixCardProps {
   publishedAt: Date;
 }
 
+function isValidImageUrl(url: string): boolean {
+  if (!url) return false;
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return url.startsWith('/');
+  }
+}
+
 function formatDate(date: Date): string {
   const now = new Date();
   const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
@@ -36,6 +46,8 @@ export const DailyMixCard = React.memo(function DailyMixCard({
   podcastId,
   publishedAt,
 }: DailyMixCardProps) {
+  const artwork = isValidImageUrl(podcastArtwork) ? podcastArtwork : '/placeholder-podcast.png';
+
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
@@ -44,27 +56,27 @@ export const DailyMixCard = React.memo(function DailyMixCard({
     >
       {/* Blurred Background */}
       <div className="absolute inset-0">
-        <Image
-          src={podcastArtwork || '/placeholder-podcast.png'}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={artwork}
           alt=""
-          fill
-          className="object-cover scale-110 blur-2xl brightness-[0.6]"
-          sizes="400px"
+          className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl brightness-[0.6]"
         />
         {/* Internal Gradient Overlay for Text Readability */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
       </div>
 
       {/* Content */}
-      <Link href={`/browse/podcast/${podcastId}`} className="absolute inset-0 p-5 flex gap-4">
+      <Link href={`/episode/${episodeId}/insights`} className="absolute inset-0 p-5 flex gap-4">
         {/* Podcast Artwork */}
         <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden shadow-2xl flex-shrink-0">
           <Image
-            src={podcastArtwork || '/placeholder-podcast.png'}
+            src={artwork}
             alt={podcastName}
             fill
+            unoptimized
             className="object-cover"
-            sizes="400px"
+            sizes="112px"
           />
         </div>
 
