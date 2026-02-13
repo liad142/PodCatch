@@ -64,6 +64,7 @@ const MULTI_SPACE_RE = /\s+/g;
 
 import { createLogger } from "@/lib/logger";
 import { SUMMARY_STATUS_PRIORITY } from "@/lib/status-utils";
+import { triggerPendingNotifications } from "@/lib/notifications/trigger";
 
 const logWithTime = createLogger('SUMMARY-SERVICE');
 
@@ -833,7 +834,14 @@ export async function generateSummaryForLevel(
       .eq('language', language);
     logWithTime('Summary saved', { durationMs: Date.now() - saveStart });
 
-    logWithTime('generateSummaryForLevel completed successfully', { 
+    // Trigger pending notifications (non-blocking)
+    try {
+      await triggerPendingNotifications(episodeId);
+    } catch (notifError) {
+      logWithTime('Notification trigger failed (non-blocking)', { episodeId, error: String(notifError) });
+    }
+
+    logWithTime('generateSummaryForLevel completed successfully', {
       level,
       totalDurationMs: Date.now() - startTime,
       totalDurationSec: ((Date.now() - startTime) / 1000).toFixed(1)

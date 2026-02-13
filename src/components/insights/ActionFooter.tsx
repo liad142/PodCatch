@@ -5,13 +5,8 @@ import { motion } from "framer-motion";
 import {
   Sparkles,
   BookmarkPlus,
-  Share2,
   MessageSquare,
   CheckCircle2,
-  Circle,
-  ExternalLink,
-  Copy,
-  Check,
   ChevronDown,
   Wrench,
   GitBranch,
@@ -23,15 +18,10 @@ import {
   User,
   FileText,
   Globe,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { normalizeActionItems, getResourceSearchUrl } from "@/lib/summary-normalize";
 import type { Episode, Podcast, ActionItem } from "@/types/database";
@@ -39,6 +29,7 @@ import type { Episode, Podcast, ActionItem } from "@/types/database";
 interface ActionFooterProps {
   episode: Episode & { podcast?: Podcast };
   actionPrompts?: (string | ActionItem)[];
+  summaryReady?: boolean;
 }
 
 // Category icon mapping
@@ -117,7 +108,7 @@ function getStorageKey(episodeId: string) {
   return `podcatch:actions:${episodeId}`;
 }
 
-export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
+export function ActionFooter({ episode, actionPrompts, summaryReady = false }: ActionFooterProps) {
   const actions = useMemo(() => normalizeActionItems(actionPrompts), [actionPrompts]);
 
   // Sort: high priority first, then medium, then low
@@ -130,7 +121,6 @@ export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
 
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
   const [showAll, setShowAll] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   // Load checked state from localStorage
   useEffect(() => {
@@ -166,30 +156,6 @@ export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
     }
   };
 
-  // Share handlers
-  const handleCopyLink = async () => {
-    const url = window.location.href;
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleNativeShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: episode.title,
-          text: `Check out this podcast episode: ${episode.title}`,
-          url: window.location.href,
-        });
-      } catch {
-        // User cancelled or error
-      }
-    } else {
-      handleCopyLink();
-    }
-  };
-
   const INITIAL_SHOW = 3;
   const visibleActions = showAll ? sortedActions : sortedActions.slice(0, INITIAL_SHOW);
   const hiddenCount = sortedActions.length - INITIAL_SHOW;
@@ -210,45 +176,12 @@ export function ActionFooter({ episode, actionPrompts }: ActionFooterProps) {
           </p>
         </div>
 
-        {/* Secondary Actions - Grid (Moved up since Ask AI is floating) */}
+        {/* Secondary Actions - REMOVED (Replaced by QuickShare and SubscriptionCard) */}
+        {/* 
         <div className="grid grid-cols-2 gap-4">
-          {/* Save to Library */}
-          <Button
-            variant="outline"
-            size="lg"
-            className="h-16 flex-col gap-1.5 border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 shadow-sm rounded-2xl"
-            onClick={() => {
-              alert("Save feature coming soon!");
-            }}
-          >
-            <BookmarkPlus className="h-5 w-5 text-slate-600" />
-            <span className="text-xs font-medium text-slate-600">Save to Library</span>
-          </Button>
-
-          {/* Share */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="lg" className="h-16 flex-col gap-1.5 border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 shadow-sm rounded-2xl">
-                <Share2 className="h-5 w-5 text-slate-600" />
-                <span className="text-xs font-medium text-slate-600">Share Insight</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={handleCopyLink} className="gap-2">
-                {copied ? (
-                  <Check className="h-4 w-4 text-green-500" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-                {copied ? "Copied!" : "Copy link"}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleNativeShare} className="gap-2">
-                <ExternalLink className="h-4 w-4" />
-                Share...
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+           ...
         </div>
+        */}
 
         {/* Structured Action Items */}
         {sortedActions.length > 0 && (
