@@ -44,8 +44,8 @@ function NavItem({ item, isActive, onClick }: NavItemProps) {
         'flex items-center gap-3 px-4 py-3 rounded-full text-base font-medium transition-all duration-200',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2',
         isActive
-          ? 'bg-violet-50 text-violet-700 shadow-sm'
-          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+          ? 'bg-violet-50 dark:bg-white/10 text-violet-700 dark:text-white shadow-sm'
+          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
       )}
     >
       <Icon className="h-5 w-5 shrink-0" />
@@ -152,7 +152,7 @@ function MobileDrawer({
         aria-modal="true"
         aria-label="Navigation menu"
         className={cn(
-          'fixed top-0 left-0 bottom-0 w-72 z-[60] transition-transform lg:hidden bg-white/95 backdrop-blur-xl border-r border-slate-100',
+          'fixed top-0 left-0 bottom-0 w-72 z-[60] transition-transform lg:hidden bg-white/95 dark:bg-[#0f111a]/95 backdrop-blur-xl border-r border-slate-100 dark:border-white/5',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -219,7 +219,7 @@ export function Sidebar() {
 
       {/* Desktop Sidebar */}
       <aside
-        className="fixed top-0 left-0 bottom-0 w-64 hidden lg:flex flex-col z-30 bg-white/90 backdrop-blur-xl border-r border-slate-100"
+        className="fixed top-0 left-0 bottom-0 w-64 hidden lg:flex flex-col z-30 bg-white/90 dark:bg-[#0f111a] backdrop-blur-xl border-r border-slate-100 dark:border-white/5"
         aria-label="Main navigation"
       >
         <SidebarContent />

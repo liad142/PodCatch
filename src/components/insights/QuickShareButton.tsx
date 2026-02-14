@@ -83,60 +83,60 @@ export function QuickShareButton({
             <Button
                 variant="ghost"
                 size="icon"
-                className="rounded-full bg-white/50 backdrop-blur-md border border-white/20 hover:bg-white/80 transition-all shadow-sm w-10 h-10"
+                className="rounded-full bg-background/50 backdrop-blur-md border border-white/20 hover:bg-accent/50 transition-all shadow-sm w-10 h-10"
                 onClick={handleNativeShare}
             >
-                <Share2 className="h-5 w-5 text-slate-700" />
+                <Share2 className="h-5 w-5 text-foreground" />
             </Button>
 
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-white/95 backdrop-blur-xl border-white/20 shadow-2xl rounded-3xl gap-0">
+                <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-card/95 backdrop-blur-xl border-white/10 dark:border-white/5 shadow-2xl rounded-3xl gap-0">
                     <div className="p-6 pb-8 space-y-6">
                         <div className="text-center space-y-1.5">
-                            <DialogTitle className="text-xl font-bold text-slate-900 tracking-tight">Share this Insight</DialogTitle>
-                            <p className="text-sm text-slate-500 font-medium">Spread the knowledge with your network</p>
+                            <DialogTitle className="text-xl font-bold text-foreground tracking-tight">Share this Insight</DialogTitle>
+                            <p className="text-sm text-muted-foreground font-medium">Spread the knowledge with your network</p>
                         </div>
 
                         <div className="grid grid-cols-3 gap-4">
                             <ShareMethodButton
                                 icon={MessageCircle}
                                 label="WhatsApp"
-                                color="bg-green-100 text-green-600 hover:bg-green-200"
+                                color="bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/60"
                                 onClick={handleWhatsApp}
                             />
                             <ShareMethodButton
                                 icon={Send}
                                 label="Telegram"
-                                color="bg-blue-100 text-blue-600 hover:bg-blue-200"
+                                color="bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/60"
                                 onClick={handleTelegram}
                             />
                             <ShareMethodButton
                                 icon={Mail}
                                 label="Email"
-                                color="bg-violet-100 text-violet-600 hover:bg-violet-200"
+                                color="bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 hover:bg-violet-200 dark:hover:bg-violet-900/60"
                                 onClick={handleEmail}
                             />
                         </div>
 
                         <div className="relative">
                             <div className="absolute inset-0 flex items-center">
-                                <span className="w-full border-t border-slate-100" />
+                                <span className="w-full border-t border-border" />
                             </div>
                             <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-white/95 px-2 text-slate-400 font-medium tracking-wider">Or copy link</span>
+                                <span className="bg-card px-2 text-muted-foreground font-medium tracking-wider">Or copy link</span>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100">
+                        <div className="flex items-center gap-2 p-2 rounded-xl bg-muted/40 border border-border">
                             <div className="flex-1 min-w-0 px-2">
-                                <p className="text-xs text-slate-400 font-mono truncate">{shareUrl}</p>
+                                <p className="text-xs text-muted-foreground font-mono truncate">{shareUrl}</p>
                             </div>
                             <Button
                                 size="sm"
                                 variant="secondary"
                                 className={cn(
                                     "rounded-lg transition-all min-w-[90px]",
-                                    copied ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-white shadow-sm"
+                                    copied ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" : "bg-background shadow-sm hover:bg-accent"
                                 )}
                                 onClick={handleCopyLink}
                             >
@@ -163,13 +163,13 @@ export function QuickShareButton({
 function ShareMethodButton({ icon: Icon, label, color, onClick }: { icon: any, label: string, color: string, onClick: () => void }) {
     return (
         <button
-            className="flex flex-col items-center gap-3 group px-2 py-4 rounded-2xl hover:bg-slate-50 transition-colors"
+            className="flex flex-col items-center gap-3 group px-2 py-4 rounded-2xl hover:bg-muted/50 transition-colors"
             onClick={onClick}
         >
             <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-sm", color)}>
                 <Icon className="h-7 w-7" />
             </div>
-            <span className="text-xs font-semibold text-slate-600 group-hover:text-slate-900">{label}</span>
+            <span className="text-xs font-semibold text-muted-foreground group-hover:text-foreground">{label}</span>
         </button>
     );
 }
