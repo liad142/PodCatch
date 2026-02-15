@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState, useCallback } from 'react';
 
 // Sanitize artwork URLs that may contain malformed data (e.g., wrapped in ["..."])
 function sanitizeImageUrl(url: string | undefined): string | null {
@@ -121,6 +121,145 @@ function PlayerChapters({
   );
 }
 
+// YouTube-style segmented chapter scrubber for the top progress bar
+function ChapterScrubber({
+  chapters,
+  currentTime,
+  duration,
+  onSeek,
+}: {
+  chapters: { title: string; timestamp: string; timestamp_seconds: number }[];
+  currentTime: number;
+  duration: number;
+  onSeek: (time: number) => void;
+}) {
+  const barRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [hoverInfo, setHoverInfo] = useState<{
+    x: number;
+    time: number;
+    chapterTitle: string;
+  } | null>(null);
+
+  const segments = useMemo(() => {
+    return chapters.map((ch, i) => {
+      const start = ch.timestamp_seconds;
+      const end = i < chapters.length - 1 ? chapters[i + 1].timestamp_seconds : duration;
+      return { ...ch, start, end, widthPct: duration > 0 ? ((end - start) / duration) * 100 : 0 };
+    });
+  }, [chapters, duration]);
+
+  const getTimeFromX = useCallback(
+    (clientX: number) => {
+      if (!barRef.current) return 0;
+      const rect = barRef.current.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      return pct * duration;
+    },
+    [duration]
+  );
+
+  const getHoverInfo = useCallback(
+    (clientX: number) => {
+      if (!barRef.current) return null;
+      const rect = barRef.current.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const time = getTimeFromX(clientX);
+      const chapter = segments.findLast((s) => time >= s.start) ?? segments[0];
+      return { x, time, chapterTitle: chapter?.title ?? '' };
+    },
+    [getTimeFromX, segments]
+  );
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      setIsDragging(true);
+      const time = getTimeFromX(e.clientX);
+      onSeek(time);
+      setHoverInfo(getHoverInfo(e.clientX));
+    },
+    [getTimeFromX, getHoverInfo, onSeek]
+  );
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      const info = getHoverInfo(e.clientX);
+      setHoverInfo(info);
+      if (isDragging && info) {
+        onSeek(info.time);
+      }
+    },
+    [isDragging, getHoverInfo, onSeek]
+  );
+
+  const handlePointerUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const handlePointerLeave = useCallback(() => {
+    if (!isDragging) setHoverInfo(null);
+  }, [isDragging]);
+
+  // Total gap pixels: 2px per gap
+  const gapCount = segments.length - 1;
+
+  return (
+    <div
+      ref={barRef}
+      className="absolute top-0 left-0 right-0 h-1 group cursor-pointer hover:h-1.5 transition-all"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerLeave}
+      style={{ touchAction: 'none' }}
+    >
+      {/* Segments */}
+      <div className="flex h-full items-stretch" style={{ gap: gapCount > 0 ? '2px' : 0 }}>
+        {segments.map((seg, i) => {
+          let fillPct = 0;
+          if (currentTime >= seg.end) fillPct = 100;
+          else if (currentTime > seg.start) fillPct = ((currentTime - seg.start) / (seg.end - seg.start)) * 100;
+
+          return (
+            <div
+              key={i}
+              className="relative h-full rounded-[1px] overflow-hidden bg-white/15"
+              style={{ flex: `${seg.widthPct} 0 0%` }}
+            >
+              <div
+                className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary via-primary to-violet-400 rounded-[1px]"
+                style={{ width: `${fillPct}%` }}
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Glow effect on progress */}
+      <div
+        className="absolute top-0 h-full bg-primary/50 blur-sm pointer-events-none"
+        style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+      />
+
+      {/* Hover tooltip */}
+      {hoverInfo && barRef.current && (
+        <div
+          className="absolute bottom-full mb-2 pointer-events-none z-10 -translate-x-1/2 whitespace-nowrap"
+          style={{
+            left: Math.max(60, Math.min(hoverInfo.x, barRef.current.getBoundingClientRect().width - 60)),
+          }}
+        >
+          <div className="bg-black/90 text-white text-xs rounded px-2 py-1 shadow-lg">
+            {hoverInfo.chapterTitle} &middot; {formatTime(hoverInfo.time)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function StickyAudioPlayer() {
   const player = useAudioPlayerSafe();
 
@@ -185,29 +324,38 @@ export function StickyAudioPlayer() {
           'lg:left-64' // Account for desktop sidebar
         )}
       >
+        {/* Integrated Ask AI Bar (shown on insights pages) — sits above the player */}
+        <AskAIBar mode="integrated" />
+
         {/* Glassmorphic Container */}
         <div className="relative bg-black/90 dark:bg-black/95 backdrop-blur-xl border-t border-white/10">
-          {/* Integrated Ask AI Bar (shown on insights pages) */}
-          <AskAIBar mode="integrated" />
-
           {/* Progress Bar - Top Edge */}
-          <div className="absolute top-0 left-0 right-0 h-1 group cursor-pointer">
-            <Slider
-              value={[progressPercentage]}
-              onValueChange={handleProgressChange}
-              max={100}
-              step={0.1}
-              className="h-1 rounded-none"
-              trackClassName="h-1 rounded-none bg-white/5 group-hover:h-1.5 transition-all"
-              rangeClassName="bg-gradient-to-r from-primary via-primary to-violet-400"
-              thumbClassName="opacity-0 group-hover:opacity-100 h-3 w-3 -mt-1 border-primary bg-white"
+          {currentTrack.chapters && currentTrack.chapters.length > 0 ? (
+            <ChapterScrubber
+              chapters={currentTrack.chapters}
+              currentTime={currentTime}
+              duration={duration}
+              onSeek={seek}
             />
-            {/* Glow effect on progress */}
-            <div 
-              className="absolute top-0 h-1 bg-primary/50 blur-sm pointer-events-none transition-all"
-              style={{ width: `${progressPercentage}%` }}
-            />
-          </div>
+          ) : (
+            <div className="absolute top-0 left-0 right-0 h-1 group cursor-pointer">
+              <Slider
+                value={[progressPercentage]}
+                onValueChange={handleProgressChange}
+                max={100}
+                step={0.1}
+                className="h-1 rounded-none"
+                trackClassName="h-1 rounded-none bg-white/5 group-hover:h-1.5 transition-all"
+                rangeClassName="bg-gradient-to-r from-primary via-primary to-violet-400"
+                thumbClassName="opacity-0 group-hover:opacity-100 h-3 w-3 -mt-1 border-primary bg-white"
+              />
+              {/* Glow effect on progress */}
+              <div
+                className="absolute top-0 h-1 bg-primary/50 blur-sm pointer-events-none transition-all"
+                style={{ width: `${progressPercentage}%` }}
+              />
+            </div>
+          )}
 
           {/* Main Content */}
           <div className="px-4 py-3">

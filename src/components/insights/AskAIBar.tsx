@@ -48,23 +48,19 @@ export function AskAIBar({ mode }: { mode: "standalone" | "integrated" }) {
   if (!active) return null;
 
   return (
-    <div
-      className="px-4 py-2 border-b border-white/5 flex items-center gap-3 cursor-text hover:bg-white/[0.02] transition-colors"
-      onClick={() => alert("AI Chat feature coming soon!")}
-    >
-      <div className="bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full p-1 shrink-0">
-        <Sparkles className="h-3.5 w-3.5 text-white" />
-      </div>
-      <div className="flex-1 text-white/50 text-sm truncate">
-        Ask anything about this episode...
-      </div>
-      <Button
-        size="icon"
-        variant="ghost"
-        className="rounded-full w-8 h-8 text-white/40 hover:text-white hover:bg-white/10 shrink-0"
+    <div className="px-3 py-2 bg-black/60 backdrop-blur-sm">
+      <div
+        className="flex items-center gap-2.5 px-3 py-2 rounded-full border border-white/15 bg-white/[0.07] cursor-text hover:bg-white/10 hover:border-white/20 transition-colors"
+        onClick={() => alert("AI Chat feature coming soon!")}
       >
-        <MessageSquare className="h-3.5 w-3.5" />
-      </Button>
+        <div className="bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full p-1 shrink-0">
+          <Sparkles className="h-3 w-3 text-white" />
+        </div>
+        <div className="flex-1 text-white/50 text-sm truncate">
+          Ask anything about this episode...
+        </div>
+        <MessageSquare className="h-3.5 w-3.5 text-white/30 shrink-0" />
+      </div>
     </div>
   );
 }
