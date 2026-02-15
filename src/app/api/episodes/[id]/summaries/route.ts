@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requestSummary, getSummariesStatus } from "@/lib/summary-service";
 import { getAuthUser } from "@/lib/auth-helpers";
 import { resolvePodcastLanguage } from "@/lib/language-utils";
@@ -82,6 +83,36 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       language || undefined,
       episode.transcript_url || undefined  // Priority A: FREE transcript from RSS
     );
+
+    // Record user ownership of this summary
+    if (result.status === 'ready' || result.status === 'transcribing' || result.status === 'summarizing' || result.status === 'queued') {
+      try {
+        const admin = createAdminClient();
+        // Find the summary record to get its ID
+        const { data: summaryRecord } = await admin
+          .from('summaries')
+          .select('id')
+          .eq('episode_id', id)
+          .eq('level', level)
+          .eq('language', language || 'en')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (summaryRecord) {
+          await admin
+            .from('user_summaries')
+            .upsert({
+              user_id: user.id,
+              summary_id: summaryRecord.id,
+              episode_id: id,
+            }, { onConflict: 'user_id,summary_id', ignoreDuplicates: true });
+        }
+      } catch (err) {
+        // Non-blocking - don't fail the request if user_summaries insert fails
+        logWithTime('Failed to record user_summary (non-blocking)', { error: String(err) });
+      }
+    }
 
     logWithTime('POST request completed', {
       episodeId: id,

@@ -1,13 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getAuthUser } from '@/lib/auth-helpers';
 
-// GET: List all episodes with summaries
+// GET: List episodes with summaries for the authenticated user
 export async function GET(request: NextRequest) {
   try {
-    // Get all summaries with their episodes and podcasts in a single query
-    const { data: summaries, error: summariesError } = await createAdminClient()
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const admin = createAdminClient();
+
+    // Get this user's summary IDs from the junction table
+    const { data: userSummaries, error: userSummariesError } = await admin
+      .from('user_summaries')
+      .select('summary_id')
+      .eq('user_id', user.id);
+
+    if (userSummariesError) {
+      console.error('Error fetching user_summaries:', userSummariesError);
+      return NextResponse.json({ error: 'Failed to fetch summaries' }, { status: 500 });
+    }
+
+    if (!userSummaries || userSummaries.length === 0) {
+      return NextResponse.json({ episodes: [] });
+    }
+
+    const summaryIds = userSummaries.map(us => us.summary_id);
+
+    // Get the actual summaries with episode/podcast data, filtered to user's summaries
+    const { data: summaries, error: summariesError } = await admin
       .from('summaries')
       .select(`
+        id,
         episode_id,
         updated_at,
         episodes!inner (
@@ -25,6 +51,7 @@ export async function GET(request: NextRequest) {
           )
         )
       `)
+      .in('id', summaryIds)
       .eq('level', 'deep')
       .eq('status', 'ready')
       .order('updated_at', { ascending: false });

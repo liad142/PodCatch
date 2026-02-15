@@ -9,6 +9,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SignInPrompt } from '@/components/auth/SignInPrompt';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface EpisodeWithSummary {
   id: string;
@@ -43,12 +45,18 @@ function formatDate(dateString: string | null): string {
 }
 
 export default function SummariesPage() {
+  const { user, isLoading: authLoading } = useAuth();
   const [episodes, setEpisodes] = useState<EpisodeWithSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
     async function fetchSummaries() {
       try {
         setIsLoading(true);
@@ -68,7 +76,7 @@ export default function SummariesPage() {
     }
 
     fetchSummaries();
-  }, []);
+  }, [user]);
 
   // Filter episodes by search query
   const filteredEpisodes = episodes.filter(episode => {
@@ -80,6 +88,60 @@ export default function SummariesPage() {
       episode.description?.toLowerCase().includes(query)
     );
   });
+
+  if (authLoading) {
+    return (
+      <div className="px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <FileText className="h-6 w-6 text-primary" />
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold">My Summaries</h1>
+            </div>
+          </div>
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <Card key={i}>
+                <CardContent className="p-4">
+                  <div className="flex gap-4">
+                    <Skeleton className="w-16 h-16 rounded-lg flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-5 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-4 w-1/4" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <FileText className="h-6 w-6 text-primary" />
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold">My Summaries</h1>
+            </div>
+          </div>
+          <SignInPrompt
+            message="Sign in to view your summaries"
+            description="Your AI-generated episode summaries will appear here after you sign in."
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 py-8">
