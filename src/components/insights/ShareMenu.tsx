@@ -210,10 +210,10 @@ export function ShareMenu({
           <Button
             variant="outline"
             size="lg"
-            className="h-16 flex-col gap-1.5 border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 shadow-sm rounded-2xl"
+            className="h-16 flex-col gap-1.5 border-border bg-card hover:bg-muted hover:border-border/80 shadow-sm rounded-2xl transition-colors"
           >
-            <Share2 className="h-5 w-5 text-slate-600" />
-            <span className="text-xs font-medium text-slate-600">
+            <Share2 className="h-5 w-5 text-muted-foreground group-hover:text-foreground" />
+            <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">
               Share Insight
             </span>
           </Button>
@@ -241,7 +241,7 @@ export function ShareMenu({
                 Telegram
               </DropdownMenuItem>
 
-              <div className="h-px bg-slate-100 my-1" />
+              <div className="h-px bg-border my-1" />
 
               <DropdownMenuItem
                 onClick={() => openEmailDialog(false)}
@@ -289,7 +289,7 @@ export function ShareMenu({
             </DialogTitle>
           </DialogHeader>
           <div className="mt-4 space-y-3">
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               {isScheduled
                 ? "We'll email you when insights for this episode are ready."
                 : `Share insights for "${episodeTitle}" via email.`}

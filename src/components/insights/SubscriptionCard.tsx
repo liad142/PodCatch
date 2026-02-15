@@ -36,19 +36,19 @@ export function SubscriptionCard({ podcastName, podcastId, onSubscribe }: Subscr
     };
 
     return (
-        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-8 sm:p-10 relative overflow-hidden group">
+        <div className="bg-card rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-border p-8 sm:p-10 relative overflow-hidden group transition-colors">
             {/* Background decoration */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-bl-[100px] -z-0 opacity-50 group-hover:scale-110 transition-transform duration-700" />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-muted/50 rounded-bl-[100px] -z-0 opacity-50 group-hover:scale-110 transition-transform duration-700" />
 
             <div className="relative z-10 flex flex-col items-center text-center space-y-8">
                 <div className="space-y-3 max-w-lg">
-                    <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4 rotate-3 text-indigo-600">
+                    <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl flex items-center justify-center mx-auto mb-4 rotate-3 text-indigo-600 dark:text-indigo-400">
                         <BellRing className="h-6 w-6" />
                     </div>
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-                        Get future summaries for <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">{podcastName}</span> delivered to you.
+                    <h2 className="text-2xl font-bold text-foreground tracking-tight">
+                        Get future summaries for <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600 dark:from-indigo-400 dark:to-violet-400">{podcastName}</span> delivered to you.
                     </h2>
-                    <p className="text-slate-500 font-medium text-lg leading-relaxed">
+                    <p className="text-muted-foreground font-medium text-lg leading-relaxed">
                         We'll send you a concise insight summary the moment a new episode drops.
                     </p>
                 </div>
@@ -57,8 +57,8 @@ export function SubscriptionCard({ podcastName, podcastId, onSubscribe }: Subscr
                     <SubscriptionButton
                         icon={MessageCircle}
                         label="WhatsApp"
-                        activeColor="border-green-500 bg-green-50/50 text-green-700 shadow-green-100"
-                        iconColor="text-green-600 bg-green-100"
+                        activeColor="border-green-500 bg-green-50/50 dark:bg-green-900/20 text-green-700 dark:text-green-300 shadow-green-100 dark:shadow-none"
+                        iconColor="text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/40"
                         onClick={() => handleSubscribe('whatsapp')}
                         isLoading={loading === 'whatsapp'}
                         isSubscribed={subscribed.has('whatsapp')}
@@ -66,8 +66,8 @@ export function SubscriptionCard({ podcastName, podcastId, onSubscribe }: Subscr
                     <SubscriptionButton
                         icon={Send}
                         label="Telegram"
-                        activeColor="border-blue-500 bg-blue-50/50 text-blue-700 shadow-blue-100"
-                        iconColor="text-blue-600 bg-blue-100"
+                        activeColor="border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 shadow-blue-100 dark:shadow-none"
+                        iconColor="text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/40"
                         onClick={() => handleSubscribe('telegram')}
                         isLoading={loading === 'telegram'}
                         isSubscribed={subscribed.has('telegram')}
@@ -75,15 +75,15 @@ export function SubscriptionCard({ podcastName, podcastId, onSubscribe }: Subscr
                     <SubscriptionButton
                         icon={Mail}
                         label="Email"
-                        activeColor="border-violet-500 bg-violet-50/50 text-violet-700 shadow-violet-100"
-                        iconColor="text-violet-600 bg-violet-100"
+                        activeColor="border-violet-500 bg-violet-50/50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 shadow-violet-100 dark:shadow-none"
+                        iconColor="text-violet-600 dark:text-violet-400 bg-violet-100 dark:bg-violet-900/40"
                         onClick={() => handleSubscribe('email')}
                         isLoading={loading === 'email'}
                         isSubscribed={subscribed.has('email')}
                     />
                 </div>
 
-                <p className="text-xs text-slate-400 font-medium">
+                <p className="text-xs text-muted-foreground/60 font-medium">
                     No spam. Unsubscribe anytime.
                 </p>
             </div>
@@ -118,7 +118,7 @@ function SubscriptionButton({
                 "relative flex flex-col items-center justify-center gap-4 p-6 rounded-2xl border-2 transition-all duration-300 h-40 w-full group/btn",
                 isSubscribed
                     ? cn(activeColor, "shadow-lg scale-[1.02]")
-                    : "bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50/80 hover:shadow-md hover:-translate-y-1 text-slate-600"
+                    : "bg-background border-border hover:border-muted-foreground/30 hover:bg-muted/50 hover:shadow-md hover:-translate-y-1 text-muted-foreground"
             )}
         >
             {isSubscribed && (
@@ -126,7 +126,7 @@ function SubscriptionButton({
                     <motion.div
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
-                        className="w-6 h-6 bg-white rounded-full shadow-sm flex items-center justify-center"
+                        className="w-6 h-6 bg-background rounded-full shadow-sm flex items-center justify-center"
                     >
                         <CheckCircle2 className="h-4 w-4 text-inherit" />
                     </motion.div>
@@ -136,7 +136,7 @@ function SubscriptionButton({
             <div
                 className={cn(
                     "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm",
-                    isSubscribed ? "bg-white" : iconColor,
+                    isSubscribed ? "bg-background" : iconColor,
                     "group-hover/btn:scale-110"
                 )}
             >

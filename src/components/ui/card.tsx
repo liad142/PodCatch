@@ -11,7 +11,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({ className, variant =
     ref={ref}
     className={cn(
       "rounded-lg text-card-foreground shadow-sm",
-      variant === 'default' && "border bg-card",
+      variant === 'default' && "border bg-card dark:border-white/10",
       variant === 'glass' && glass.card,
       variant === 'glass-subtle' && glass.cardSubtle,
       className

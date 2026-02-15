@@ -136,14 +136,14 @@ export function SemanticSearchBar() {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => results.length > 0 && setShowResults(true)}
-          className="pl-12 pr-12 h-12 text-base rounded-full bg-slate-100 border-0 ring-0 focus-visible:ring-0 placeholder:text-slate-400 transition-all"
+          className="pl-12 pr-12 h-12 text-base rounded-full bg-secondary dark:bg-white/10 dark:text-white border-0 dark:border-transparent ring-0 focus-visible:ring-0 placeholder:text-muted-foreground dark:placeholder:text-slate-400 transition-all"
         />
         {query ? (
           <button
             onClick={clearSearch}
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-200 rounded-full transition-colors"
+            className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full transition-colors"
           >
-            <X className="h-4 w-4 text-slate-500" />
+            <X className="h-4 w-4 text-muted-foreground" />
           </button>
         ) : null}
       </div>
@@ -155,7 +155,7 @@ export function SemanticSearchBar() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50 bg-white border border-slate-100 shadow-xl ring-1 ring-black/5"
+            className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50 bg-popover border border-border shadow-xl ring-1 ring-border/5"
           >
             {isSearching ? (
               <div className="p-6 flex items-center justify-center gap-3">

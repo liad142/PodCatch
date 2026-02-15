@@ -52,7 +52,7 @@ export const DailyMixCard = React.memo(function DailyMixCard({
     <motion.div
       whileHover={{ scale: 1.02 }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      className="relative w-[320px] sm:w-[400px] h-[200px] rounded-2xl overflow-hidden flex-shrink-0 group shadow-xl shadow-slate-200/50"
+      className="relative w-[320px] sm:w-[400px] h-[200px] rounded-2xl overflow-hidden flex-shrink-0 group shadow-xl shadow-slate-200/50 dark:shadow-none dark:border dark:border-white/10"
     >
       {/* Blurred Background */}
       <div className="absolute inset-0">

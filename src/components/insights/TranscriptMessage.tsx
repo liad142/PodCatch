@@ -93,7 +93,7 @@ export function TranscriptMessage({
 
         <div
           className={`
-            text-base leading-relaxed text-slate-800 dark:text-slate-200
+            text-base leading-relaxed text-foreground
             ${isRTL ? 'text-right' : 'text-left'}
           `}
           style={{
