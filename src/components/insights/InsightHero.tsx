@@ -97,6 +97,7 @@ function EpisodeChapters({
 
   return (
     <div className="space-y-3">
+      {/* Header */}
       <div className={cn(
         "flex items-center justify-between",
         isRTL && "flex-row-reverse"
@@ -130,14 +131,16 @@ function EpisodeChapters({
         )}
       </div>
 
-      {/* Timeline */}
-      <div className={cn("relative", isRTL ? "pr-4" : "pl-4")}>
-        {/* Vertical line */}
-        <div className={cn(
-          "absolute top-0 bottom-0 w-0.5 bg-border",
-          isRTL ? "right-[7px]" : "left-[7px]"
-        )} />
-
+      {/* Timeline list */}
+      <div
+        dir={isRTL ? "rtl" : "ltr"}
+        className={cn(
+          "relative",
+          isRTL
+            ? "border-r-2 border-slate-200 dark:border-white/10"
+            : "border-l-2 border-slate-200 dark:border-white/10"
+        )}
+      >
         {normalized.map((section, i) => {
           const isActive = i === activeIndex;
           const isExpanded = allExpanded || expandedIndex === i;
@@ -145,103 +148,97 @@ function EpisodeChapters({
           const hasTimestamp = showTimestamps && (section.timestamp_seconds ?? 0) > 0;
 
           return (
-            <div key={i} className="relative pb-4 last:pb-0">
-              {/* Timeline dot */}
+            <div key={i} className="relative">
+              {/* Timeline dot — anchored to the line edge */}
               <div className={cn(
-                "absolute top-1.5 w-3 h-3 rounded-full border-2 z-10",
-                isRTL ? "-right-[2px]" : "-left-[2px]",
+                "absolute top-3.5 w-2.5 h-2.5 rounded-full z-10 transition-colors",
+                isRTL ? "-right-[7px]" : "-left-[7px]",
                 isActive
-                  ? "bg-primary border-primary"
-                  : "bg-background border-muted-foreground/40"
+                  ? "bg-primary ring-2 ring-primary/30"
+                  : "bg-slate-300 dark:bg-white/20"
               )} />
 
-              {/* Content card */}
-              <div className={cn(
-                "rounded-lg border transition-all",
-                isRTL ? "mr-5" : "ml-5",
-                isActive && "border-primary/40 bg-primary/5"
-              )}>
-                {/* Header - always visible */}
-                <button
-                  onClick={() => toggleExpand(i)}
-                  className={cn(
-                    "w-full p-3 flex items-start gap-2 text-left hover:bg-muted/50 transition-colors rounded-lg",
-                    isRTL && "flex-row-reverse text-right"
-                  )}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className={cn(
-                      "flex items-center gap-2 flex-wrap",
-                      isRTL && "flex-row-reverse"
-                    )}>
-                      {/* Timestamp badge */}
-                      {hasTimestamp && (
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-xs gap-1 cursor-pointer hover:bg-primary/10 transition-colors shrink-0",
-                            isActive && "border-primary text-primary"
-                          )}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSeekTo(section.timestamp_seconds!);
-                          }}
-                        >
-                          <Clock className="h-3 w-3" />
-                          ~{section.timestamp}
-                        </Badge>
+              {/* Clickable row */}
+              <button
+                onClick={() => toggleExpand(i)}
+                className={cn(
+                  "w-full p-2.5 rounded-lg transition-colors",
+                  "hover:bg-slate-50 dark:hover:bg-white/5",
+                  isRTL ? "pr-4 text-right" : "pl-4 text-left",
+                  isActive && "bg-primary/5"
+                )}
+              >
+                {/* Timestamp + Title — tight, inline */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {hasTimestamp && (
+                    <span
+                      role="button"
+                      className={cn(
+                        "text-xs font-mono tabular-nums px-2 py-0.5 rounded-full cursor-pointer transition-colors shrink-0",
+                        isActive
+                          ? "bg-primary/15 text-primary font-semibold"
+                          : "bg-slate-100 dark:bg-white/10 text-muted-foreground hover:bg-primary/10 hover:text-primary"
                       )}
-                      <span className={cn(
-                        "font-medium text-sm",
-                        isActive && "text-primary"
-                      )}>
-                        {sectionTitle}
-                      </span>
-                      {isActive && (
-                        <Badge variant="default" className="text-[10px] h-5 px-1.5 shrink-0">
-                          NOW PLAYING
-                        </Badge>
-                      )}
-                    </div>
-                    {/* Hook (teaser) */}
-                    {!isExpanded && section.hook && (
-                      <p className={cn(
-                        "text-xs text-muted-foreground mt-1 line-clamp-1",
-                        isRTL && "text-right"
-                      )}>
-                        {section.hook}
-                      </p>
-                    )}
-                  </div>
-                  <div className="shrink-0 mt-0.5">
-                    {isExpanded ? (
-                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </div>
-                </button>
-
-                {/* Expanded content */}
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSeekTo(section.timestamp_seconds!);
+                      }}
                     >
-                      <div className={cn("px-3 pb-3 space-y-3", isRTL && "text-right")} dir={isRTL ? "rtl" : "ltr"}>
-                        {section.hook && (
-                          <p className="text-xs italic text-muted-foreground">
-                            {section.hook}
-                          </p>
-                        )}
-                        <p className="text-sm leading-relaxed">
-                          {section.content}
+                      {section.timestamp}~
+                    </span>
+                  )}
+                  <span className={cn(
+                    "font-semibold text-sm",
+                    isActive ? "text-primary" : "text-foreground"
+                  )}>
+                    {sectionTitle}
+                  </span>
+                  {isActive && (
+                    <span className="text-[10px] font-bold text-primary/70 uppercase tracking-wider shrink-0">
+                      Playing
+                    </span>
+                  )}
+                  {/* Chevron: only when collapsed */}
+                  {!isExpanded && (
+                    <ChevronDown className={cn(
+                      "h-4 w-4 text-muted-foreground shrink-0",
+                      isRTL ? "mr-auto" : "ml-auto"
+                    )} />
+                  )}
+                </div>
+
+                {/* Summary teaser (collapsed only) */}
+                {!isExpanded && section.hook && (
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                    {section.hook}
+                  </p>
+                )}
+              </button>
+
+              {/* Expanded detail */}
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className={cn(
+                      "pb-3 space-y-2",
+                      isRTL ? "pr-4" : "pl-4"
+                    )}>
+                      {section.hook && (
+                        <p className="text-sm text-slate-500 dark:text-slate-400 italic">
+                          {section.hook}
                         </p>
-                        {hasTimestamp && (
+                      )}
+                      <p className="text-sm leading-relaxed text-foreground">
+                        {section.content}
+                      </p>
+                      {hasTimestamp && (
+                        <div className="pt-1">
                           <Button
                             variant="outline"
                             size="sm"
@@ -254,12 +251,12 @@ function EpisodeChapters({
                             <Play className="h-3 w-3 fill-current" />
                             Play from ~{section.timestamp}
                           </Button>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           );
         })}
