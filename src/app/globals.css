@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -49,29 +51,38 @@
 }
 
 .dark {
-  --background: 222.2 84% 4.9%;
+  --background: 229 27% 8%;
+  /* #0f111a */
   --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
+  --card: 232 21% 15%;
+  /* #1e202e */
   --card-foreground: 210 40% 98%;
-  --popover: 222.2 84% 4.9%;
+  --popover: 235 22% 20%;
+  /* #27293d */
   --popover-foreground: 210 40% 98%;
   --primary: 263 70% 50%;
   --primary-foreground: 210 40% 98%;
-  --secondary: 217.2 32.6% 17.5%;
+  --secondary: 232 21% 15%;
+  /* #1e202e */
   --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
+  --muted: 232 21% 15%;
+  /* #1e202e - matching card for inputs */
   --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
+  /* slate-400 */
+  --accent: 235 22% 20%;
+  /* #27293d */
   --accent-foreground: 210 40% 98%;
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
+  --border: 235 22% 20%;
+  /* #27293d - slightly lighter than card for borders */
+  --input: 235 22% 20%;
   --ring: 263 70% 50%;
-  
+
   --glass-blur: 16px;
   --glass-bg-light: rgba(255, 255, 255, 0.7);
-  --glass-bg-dark: rgba(255, 255, 255, 0.05);
+  --glass-bg-dark: rgba(15, 17, 26, 0.8);
+  /* #0f111a with 0.8 opacity */
   --glass-border-light: rgba(255, 255, 255, 0.5);
   --glass-border-dark: rgba(255, 255, 255, 0.1);
 }
@@ -81,10 +92,13 @@
 }
 
 .glass-bg {
-  background-color: hsl(210 40% 98%); /* slate-50 */
+  background-color: hsl(210 40% 98%);
+  /* slate-50 */
 }
+
 .dark .glass-bg {
-  background-color: hsl(222.2 84% 4.9%); /* slate-950 / existing dark bg */
+  background-color: hsl(222.2 84% 4.9%);
+  /* slate-950 / existing dark bg */
 }
 
 body {
@@ -107,10 +121,13 @@ html:not(.dark) {
 
 /* Transcript Wave Animation */
 @keyframes wave {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scaleY(0.5);
     opacity: 0.5;
   }
+
   50% {
     transform: scaleY(1);
     opacity: 1;
@@ -122,6 +139,7 @@ html:not(.dark) {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -132,6 +150,7 @@ html:not(.dark) {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -142,6 +161,7 @@ html:not(.dark) {
     opacity: 0;
     transform: translateY(40px) scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -163,6 +183,7 @@ html:not(.dark) {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;

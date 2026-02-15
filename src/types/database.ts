@@ -243,3 +243,6 @@ export interface PodcastWithSubscription extends Podcast {
   subscription?: PodcastSubscription;
   has_new_episodes?: boolean;
 }
+
+// Re-export notification types for convenience
+export type { NotificationRequest, TelegramConnection, NotificationChannel, NotificationStatus } from './notifications';

@@ -329,7 +329,7 @@ export default function PodcastPage({ params }: PageProps) {
 
   if (error && !podcast) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0f111a]">
         <div className="text-center">
           <p className="text-destructive mb-4">{error}</p>
           <Link href="/discover">
@@ -341,11 +341,11 @@ export default function PodcastPage({ params }: PageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0f111a]">
       <div className="container mx-auto px-4 py-8">
         {/* Back Button */}
         <Link href="/discover">
-          <Button variant="ghost" className="mb-6 -ml-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100">
+          <Button variant="ghost" className="mb-6 -ml-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Discover
           </Button>
@@ -454,9 +454,9 @@ export default function PodcastPage({ params }: PageProps) {
             {/* Episodes Section */}
             <div>
               <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+                <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
                   Latest Episodes
-                  <Badge variant="secondary" className="bg-slate-100 text-slate-600 hover:bg-slate-200">
+                  <Badge variant="secondary" className="bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/10 dark:text-slate-400 dark:hover:bg-white/15">
                     {totalCount}
                   </Badge>
                 </h2>
@@ -465,15 +465,15 @@ export default function PodcastPage({ params }: PageProps) {
               {isLoadingEpisodes ? (
                 <div className="space-y-4">
                   {[...Array(5)].map((_, i) => (
-                    <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                    <div key={i} className="bg-white dark:bg-[#1e202e] rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-white/5">
                       <div className="flex gap-6">
-                        <Skeleton className="w-16 h-16 rounded-xl shrink-0 bg-slate-100" />
+                        <Skeleton className="w-16 h-16 rounded-xl shrink-0 bg-slate-100 dark:bg-white/10" />
                         <div className="flex-1 space-y-3">
-                          <Skeleton className="h-5 w-2/3 bg-slate-100" />
-                          <Skeleton className="h-4 w-full bg-slate-100" />
+                          <Skeleton className="h-5 w-2/3 bg-slate-100 dark:bg-white/10" />
+                          <Skeleton className="h-4 w-full bg-slate-100 dark:bg-white/10" />
                           <div className="flex gap-2">
-                            <Skeleton className="h-8 w-24 rounded-full bg-slate-100" />
-                            <Skeleton className="h-8 w-24 rounded-full bg-slate-100" />
+                            <Skeleton className="h-8 w-24 rounded-full bg-slate-100 dark:bg-white/10" />
+                            <Skeleton className="h-8 w-24 rounded-full bg-slate-100 dark:bg-white/10" />
                           </div>
                         </div>
                       </div>
@@ -481,12 +481,12 @@ export default function PodcastPage({ params }: PageProps) {
                   ))}
                 </div>
               ) : episodes.length === 0 ? (
-                <div className="text-center py-20 bg-white rounded-3xl border border-slate-100 shadow-sm">
-                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <FileText className="h-8 w-8 text-slate-300" />
+                <div className="text-center py-20 bg-white dark:bg-[#1e202e] rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm">
+                  <div className="w-16 h-16 bg-slate-50 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FileText className="h-8 w-8 text-slate-300 dark:text-slate-600" />
                   </div>
-                  <p className="text-lg font-medium text-slate-900 mb-1">No episodes found</p>
-                  <p className="text-slate-500">Check back later for new content.</p>
+                  <p className="text-lg font-medium text-slate-900 dark:text-white mb-1">No episodes found</p>
+                  <p className="text-slate-500 dark:text-slate-400">Check back later for new content.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -498,12 +498,12 @@ export default function PodcastPage({ params }: PageProps) {
                     return (
                       <div
                         key={episode.id}
-                        className="group bg-white rounded-2xl p-5 md:p-6 shadow-[0_2px_8px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgb(0,0,0,0.06)] border border-slate-100 hover:border-violet-100 transition-all duration-300"
+                        className="group bg-white dark:bg-[#1e202e] rounded-2xl p-5 md:p-6 shadow-[0_2px_8px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgb(0,0,0,0.06)] border border-slate-100 dark:border-white/5 hover:border-violet-100 dark:hover:border-violet-500/20 transition-all duration-300"
                       >
                         <div className="flex gap-5 items-start">
                           {/* Episode Thumbnail */}
                           <div className="shrink-0 hidden sm:block">
-                            <div className="w-16 h-16 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden relative group-hover:scale-105 transition-transform duration-500">
+                            <div className="w-16 h-16 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 overflow-hidden relative group-hover:scale-105 transition-transform duration-500">
                               {episode.artworkUrl ? (
                                 <Image
                                   src={episode.artworkUrl.replace('100x100', '200x200')}
@@ -529,7 +529,7 @@ export default function PodcastPage({ params }: PageProps) {
                               </span>
                               {episode.duration > 0 && (
                                 <>
-                                  <span className="w-0.5 h-3 bg-slate-200" />
+                                  <span className="w-0.5 h-3 bg-slate-200 dark:bg-white/10" />
                                   <span className="flex items-center gap-1.5">
                                     <Clock className="h-3 w-3" />
                                     {formatDuration(episode.duration)}
@@ -537,7 +537,7 @@ export default function PodcastPage({ params }: PageProps) {
                                 </>
                               )}
                               {hasSummary && (
-                                <span className="ml-auto flex items-center gap-1 text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full normal-case">
+                                <span className="ml-auto flex items-center gap-1 text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-500/10 px-2 py-0.5 rounded-full normal-case">
                                   <FileText className="h-3 w-3 fill-violet-600/20" />
                                   Summary Ready
                                 </span>
@@ -547,18 +547,18 @@ export default function PodcastPage({ params }: PageProps) {
                             {/* Title */}
                             {canNavigate ? (
                               <Link href={`/episode/${summaryInfo.episodeId}`}>
-                                <h3 className="text-lg font-bold text-slate-900 leading-tight mb-2 group-hover:text-violet-700 transition-colors line-clamp-2">
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight mb-2 group-hover:text-violet-700 transition-colors line-clamp-2">
                                   {episode.title}
                                 </h3>
                               </Link>
                             ) : (
-                              <h3 className="text-lg font-bold text-slate-900 leading-tight mb-2 line-clamp-2">
+                              <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight mb-2 line-clamp-2">
                                 {episode.title}
                               </h3>
                             )}
 
                             {/* Description */}
-                            <p className="text-sm text-slate-600 leading-relaxed line-clamp-2 mb-4 pr-4">
+                            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-2 mb-4 pr-4">
                               {episode.description}
                             </p>
 
@@ -589,7 +589,7 @@ export default function PodcastPage({ params }: PageProps) {
 
                                   return (
                                     <Button
-                                      className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-violet-200 hover:text-violet-700 rounded-full h-9 px-4 gap-2 transition-all"
+                                      className="bg-white dark:bg-[#1e202e] hover:bg-slate-50 dark:hover:bg-[#27293d] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 hover:border-violet-200 dark:hover:border-violet-500/30 hover:text-violet-700 dark:hover:text-violet-400 rounded-full h-9 px-4 gap-2 transition-all"
                                       size="sm"
                                       onClick={() => handleSummarize(episode)}
                                       disabled={importingEpisodeId === episode.id}
@@ -636,7 +636,7 @@ export default function PodcastPage({ params }: PageProps) {
                     onClick={handleLoadMore}
                     disabled={isLoadingMore}
                     variant="outline"
-                    className="rounded-full px-8 h-10 border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-white shadow-sm"
+                    className="rounded-full px-8 h-10 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-white/20 hover:bg-white dark:hover:bg-[#1e202e] shadow-sm"
                   >
                     {isLoadingMore ? (
                       <>

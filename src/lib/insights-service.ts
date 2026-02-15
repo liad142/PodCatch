@@ -10,6 +10,10 @@ import type {
   ShownotesSection,
   MindmapNode
 } from "@/types/database";
+import { triggerPendingNotifications } from "@/lib/notifications/trigger";
+import { createLogger } from "@/lib/logger";
+
+const logWithTime = createLogger('INSIGHTS-SERVICE');
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
 const model = genAI.getGenerativeModel({ 
@@ -118,6 +122,13 @@ export async function generateInsights(
       .eq('episode_id', episodeId)
       .eq('level', 'insights')
       .eq('language', language);
+
+    // Trigger pending notifications (non-blocking)
+    try {
+      await triggerPendingNotifications(episodeId);
+    } catch (notifError) {
+      logWithTime('Notification trigger failed (non-blocking)', { episodeId, error: String(notifError) });
+    }
 
     return { status: 'ready', content };
   } catch (err) {

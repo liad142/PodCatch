@@ -151,8 +151,8 @@ export function HighlightsCarousel({ highlights, episodeId }: HighlightsCarousel
                 transition={{ delay: i * 0.05 }}
                 className={cn(
                   "shrink-0 w-[280px] sm:w-[320px] snap-start",
-                  "rounded-2xl border border-slate-100 p-6",
-                  "bg-white shadow-[0_2px_15px_rgb(0,0,0,0.03)] hover:shadow-lg transition-all cursor-pointer",
+                  "rounded-2xl border border-border p-6",
+                  "bg-card shadow-[0_2px_15px_rgb(0,0,0,0.03)] dark:shadow-none hover:shadow-lg transition-all cursor-pointer",
                   "group relative overflow-hidden"
                 )}
                 onClick={() => handleCardClick(highlight)}
@@ -162,13 +162,13 @@ export function HighlightsCarousel({ highlights, episodeId }: HighlightsCarousel
 
                 {/* Importance Badge */}
                 <div className="flex items-center justify-between mb-4 relative z-10">
-                  <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-slate-50 border border-slate-100")}>
+                  <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-muted border border-border text-muted-foreground")}>
                     <Icon className={cn("h-3 w-3", styles.color)} />
-                    <span className="capitalize text-slate-600">{highlight.importance}</span>
+                    <span className="capitalize">{highlight.importance}</span>
                   </div>
 
                   {highlight.timestamp && (
-                    <span className="text-xs font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">
+                    <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                       {highlight.timestamp}
                     </span>
                   )}
@@ -176,16 +176,16 @@ export function HighlightsCarousel({ highlights, episodeId }: HighlightsCarousel
 
                 {/* Quote */}
                 <div className="min-h-[80px] mb-4 relative z-10">
-                  <p className="text-base leading-relaxed italic text-slate-700 font-medium">
+                  <p className="text-base leading-relaxed italic text-card-foreground/90 font-medium">
                     &ldquo;{truncateQuote(highlight.quote)}&rdquo;
                   </p>
                 </div>
 
                 {/* Play Action */}
                 {hasTimestamp && (
-                  <div className="relative z-10 pt-4 border-t border-slate-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm font-medium text-violet-600 group-hover:text-violet-700 transition-colors">
-                      <div className="w-8 h-8 rounded-full bg-violet-50 flex items-center justify-center group-hover:bg-violet-100 transition-colors">
+                  <div className="relative z-10 pt-4 border-t border-border flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm font-medium text-violet-600 dark:text-violet-400 group-hover:text-violet-700 dark:group-hover:text-violet-300 transition-colors">
+                      <div className="w-8 h-8 rounded-full bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center group-hover:bg-violet-100 dark:group-hover:bg-violet-900/40 transition-colors">
                         <Play className="h-4 w-4 fill-current" />
                       </div>
                       <span>Play Highlight</span>

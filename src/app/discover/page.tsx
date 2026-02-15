@@ -11,6 +11,16 @@ import { BrandShelf } from '@/components/discovery/BrandShelf';
 import { CuriosityFeed } from '@/components/discovery/CuriosityFeed';
 import { ApplePodcast } from '@/components/ApplePodcastCard';
 
+interface DailyMixEpisode {
+  id: string;
+  title: string;
+  description: string;
+  publishedAt: Date;
+  podcastId: string;
+  podcastName: string;
+  podcastArtwork: string;
+}
+
 interface FeedEpisode {
   id: string;
   title: string;
@@ -77,10 +87,10 @@ export default function DiscoverPage() {
 
   // PROGRESSIVE loading states - each section loads independently
   const [topPodcasts, setTopPodcasts] = useState<ApplePodcast[]>([]);
-  const [heroEpisodes, setHeroEpisodes] = useState<FeedEpisode[]>([]);
+  const [dailyMixEpisodes, setDailyMixEpisodes] = useState<DailyMixEpisode[]>([]);
   const [feedEpisodes, setFeedEpisodes] = useState<FeedEpisode[]>([]);
   const [isLoadingPodcasts, setIsLoadingPodcasts] = useState(true);
-  const [isLoadingHero, setIsLoadingHero] = useState(true);
+  const [isLoadingDailyMix, setIsLoadingDailyMix] = useState(true);
   const [isLoadingFeed, setIsLoadingFeed] = useState(true);
   const [feedPage, setFeedPage] = useState(0);
   const [hasMoreFeed, setHasMoreFeed] = useState(true);
@@ -89,20 +99,40 @@ export default function DiscoverPage() {
   const [personalizedSections, setPersonalizedSections] = useState<PersonalizedSection[]>([]);
   const [isLoadingPersonalized, setIsLoadingPersonalized] = useState(false);
 
-  // Phase 1: Fetch top podcasts (shows Brand Shelf immediately when ready)
-  // Phase 2: Fetch hero episodes (shows Daily Mix when ready)
-  // Phase 3: Fetch feed episodes (shows Curiosity Feed when ready)
-  // Each phase renders independently - no waiting for all data
+  // Daily Mix: Fetch summarized episodes from DB (independent of Apple RSS)
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoadingDailyMix(true);
+
+    fetch('/api/discover/daily-mix')
+      .then(res => res.json())
+      .then(data => {
+        if (cancelled) return;
+        setDailyMixEpisodes(
+          (data.episodes || []).map((ep: any) => ({
+            ...ep,
+            publishedAt: new Date(ep.publishedAt),
+          }))
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setDailyMixEpisodes([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingDailyMix(false);
+      });
+
+    return () => { cancelled = true; };
+  }, []);
+
+  // Brand Shelf + Curiosity Feed: Fetch from Apple RSS
   useEffect(() => {
     let cancelled = false;
 
     const fetchData = async () => {
-      // Reset all states
       setTopPodcasts([]);
-      setHeroEpisodes([]);
       setFeedEpisodes([]);
       setIsLoadingPodcasts(true);
-      setIsLoadingHero(true);
       setIsLoadingFeed(true);
       setFeedPage(0);
       setHasMoreFeed(true);
@@ -110,8 +140,7 @@ export default function DiscoverPage() {
       allPodcastsRef.current = [];
 
       try {
-        // PHASE 1: Fetch top podcasts from BOTH countries in parallel
-        // This is the fastest call (cached after first load)
+        // Fetch top podcasts from BOTH countries in parallel
         const [primaryRes, usRes] = await Promise.allSettled([
           fetch(`/api/apple/top?country=${country.toLowerCase()}&limit=30`),
           country.toLowerCase() !== 'us'
@@ -123,13 +152,11 @@ export default function DiscoverPage() {
 
         let allPodcasts: ApplePodcast[] = [];
 
-        // Primary country podcasts
         if (primaryRes.status === 'fulfilled' && primaryRes.value) {
           const data = await primaryRes.value.json();
           allPodcasts = data.podcasts || [];
         }
 
-        // Merge US podcasts if different country (deduplicated)
         if (usRes.status === 'fulfilled' && usRes.value) {
           const usData = await usRes.value.json();
           const usPodcasts = usData.podcasts || [];
@@ -138,63 +165,35 @@ export default function DiscoverPage() {
           allPodcasts = [...allPodcasts, ...uniqueUs];
         }
 
-        // IMMEDIATELY show Brand Shelf - no waiting for episodes
         setTopPodcasts(allPodcasts);
         setIsLoadingPodcasts(false);
         allPodcastsRef.current = allPodcasts;
 
         if (cancelled || allPodcasts.length === 0) {
-          setIsLoadingHero(false);
           setIsLoadingFeed(false);
           return;
         }
 
-        // PHASE 2 & 3: Fetch hero + feed episodes IN PARALLEL
-        // Hero: first 5 podcasts, 1 episode each
-        // Feed: next 5 podcasts, 3 episodes each
-        const heroPodcasts = allPodcasts.slice(0, 5);
-        const feedPodcasts = allPodcasts.slice(5, 10);
-
-        const [heroRes, feedRes] = await Promise.allSettled([
-          fetch('/api/apple/podcasts/batch-episodes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              podcasts: heroPodcasts.map((p: ApplePodcast) => ({ podcastId: p.id, limit: 1 })),
-              country: country.toLowerCase(),
-            }),
+        // Fetch feed episodes for Curiosity Feed
+        const feedPodcasts = allPodcasts.slice(0, 10);
+        const feedRes = await fetch('/api/apple/podcasts/batch-episodes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            podcasts: feedPodcasts.map((p: ApplePodcast) => ({ podcastId: p.id, limit: 3 })),
+            country: country.toLowerCase(),
           }),
-          fetch('/api/apple/podcasts/batch-episodes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              podcasts: feedPodcasts.map((p: ApplePodcast) => ({ podcastId: p.id, limit: 3 })),
-              country: country.toLowerCase(),
-            }),
-          }),
-        ]);
+        });
 
         if (cancelled) return;
 
-        // Show hero as soon as it's ready
-        if (heroRes.status === 'fulfilled') {
-          const heroData = await heroRes.value.json();
-          setHeroEpisodes(mapEpisodes(heroData.results, heroPodcasts, subscribedAppleIds));
-        }
-        setIsLoadingHero(false);
-
-        // Show feed as soon as it's ready
-        if (feedRes.status === 'fulfilled') {
-          const feedData = await feedRes.value.json();
-          setFeedEpisodes(mapEpisodes(feedData.results, feedPodcasts, subscribedAppleIds));
-          setFeedPage(1);
-        }
+        const feedData = await feedRes.json();
+        setFeedEpisodes(mapEpisodes(feedData.results, feedPodcasts, subscribedAppleIds));
+        setFeedPage(1);
         setIsLoadingFeed(false);
-
       } catch (error) {
         console.error('Error fetching discover data:', error);
         setIsLoadingPodcasts(false);
-        setIsLoadingHero(false);
         setIsLoadingFeed(false);
       }
     };
@@ -281,9 +280,9 @@ export default function DiscoverPage() {
 
   return (
     <EpisodeLookupProvider>
-      <div className="min-h-screen bg-slate-50 text-slate-900">
+      <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
         {/* Sticky Semantic Search */}
-        <div className="sticky top-14 lg:top-0 z-40 bg-slate-50/80 backdrop-blur-md border-b border-slate-100/50">
+        <div className="sticky top-14 lg:top-0 z-40 bg-background/80 dark:bg-[#0f111a]/80 backdrop-blur-md border-b border-border/50 transition-colors duration-200">
           <div className="max-w-3xl mx-auto px-4 py-3">
             <SemanticSearchBar />
           </div>
@@ -291,8 +290,8 @@ export default function DiscoverPage() {
 
         {/* Main Content */}
         <main className="max-w-3xl mx-auto px-4 py-8 space-y-12">
-          {/* Daily Mix Hero - shows when hero episodes are ready */}
-          <DailyMixCarousel episodes={heroEpisodes} isLoading={isLoadingHero} />
+          {/* Daily Mix - summarized episodes from DB */}
+          <DailyMixCarousel episodes={dailyMixEpisodes} isLoading={isLoadingDailyMix} />
 
           {/* Personalized Sections - for authenticated users with genre preferences */}
           {personalizedSections.length > 0 && personalizedSections.map((section) => (

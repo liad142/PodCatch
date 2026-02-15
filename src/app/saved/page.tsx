@@ -80,12 +80,12 @@ export default function SavedPage() {
 
   if (authLoading) {
     return (
-      <div className="px-4 py-8 min-h-screen bg-slate-50">
+      <div className="px-4 py-8 min-h-screen bg-slate-50 dark:bg-[#0f111a]">
         <div className="max-w-5xl mx-auto">
-          <Skeleton className="h-10 w-48 mb-4 bg-white" />
+          <Skeleton className="h-10 w-48 mb-4 bg-white dark:bg-white/10" />
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="aspect-video rounded-xl bg-white" />
+              <Skeleton key={i} className="aspect-video rounded-xl bg-white dark:bg-white/10" />
             ))}
           </div>
         </div>
@@ -95,10 +95,10 @@ export default function SavedPage() {
 
   if (!user) {
     return (
-      <div className="px-4 py-8 min-h-screen bg-slate-50">
+      <div className="px-4 py-8 min-h-screen bg-slate-50 dark:bg-[#0f111a]">
         <div className="max-w-5xl mx-auto mb-8">
           <div className="flex items-center gap-4 mb-6">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-white shadow-sm border border-slate-100">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-white dark:bg-[#1e202e] shadow-sm border border-slate-100 dark:border-white/5">
               <Bookmark className="h-7 w-7 text-primary" />
             </div>
             <div>
@@ -113,11 +113,11 @@ export default function SavedPage() {
   }
 
   return (
-    <div className="px-4 py-8 min-h-screen bg-slate-50">
+    <div className="px-4 py-8 min-h-screen bg-slate-50 dark:bg-[#0f111a]">
       {/* Header */}
       <div className="max-w-5xl mx-auto mb-8">
         <div className="flex items-center gap-4 mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-white shadow-sm border border-slate-100">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-white dark:bg-[#1e202e] shadow-sm border border-slate-100 dark:border-white/5">
             <Bookmark className="h-7 w-7 text-primary" />
           </div>
           <div>
@@ -130,14 +130,14 @@ export default function SavedPage() {
 
         {/* Tab Navigation */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center rounded-lg bg-white p-1 border border-slate-200">
+          <div className="flex items-center rounded-lg bg-white dark:bg-[#1e202e] p-1 border border-slate-200 dark:border-white/10">
             <Button
               variant={activeTab === 'youtube' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setActiveTab('youtube')}
               className={cn(
                 'rounded-md gap-2',
-                activeTab !== 'youtube' && 'hover:bg-slate-50'
+                activeTab !== 'youtube' && 'hover:bg-slate-50 dark:hover:bg-white/5'
               )}
             >
               <Youtube className="w-4 h-4" />
@@ -149,7 +149,7 @@ export default function SavedPage() {
               onClick={() => setActiveTab('podcasts')}
               className={cn(
                 'rounded-md gap-2',
-                activeTab !== 'podcasts' && 'hover:bg-slate-50'
+                activeTab !== 'podcasts' && 'hover:bg-slate-50 dark:hover:bg-white/5'
               )}
             >
               <Radio className="w-4 h-4" />
@@ -163,7 +163,7 @@ export default function SavedPage() {
               size="icon"
               onClick={fetchSavedVideos}
               disabled={isLoading}
-              className="bg-white border-slate-200"
+              className="bg-white dark:bg-[#1e202e] border-slate-200 dark:border-white/10"
               aria-label="Refresh"
             >
               <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
@@ -179,9 +179,9 @@ export default function SavedPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="space-y-3">
-                  <Skeleton className="aspect-video rounded-xl bg-white" />
-                  <Skeleton className="h-4 w-3/4 bg-white" />
-                  <Skeleton className="h-3 w-1/2 bg-white" />
+                  <Skeleton className="aspect-video rounded-xl bg-white dark:bg-white/10" />
+                  <Skeleton className="h-4 w-3/4 bg-white dark:bg-white/10" />
+                  <Skeleton className="h-3 w-1/2 bg-white dark:bg-white/10" />
                 </div>
               ))}
             </div>

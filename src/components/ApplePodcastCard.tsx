@@ -54,8 +54,8 @@ export const ApplePodcastCard = React.memo(function ApplePodcastCard({ podcast, 
 
   return (
     <Link href={`/browse/podcast/${podcast.id}`} className={cn('block group', className)}>
-      <Card className="bg-white border-slate-100 shadow-[0_2px_8px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgb(0,0,0,0.12)] hover:border-violet-100 overflow-hidden transition-all duration-300 hover:-translate-y-1">
-        <div className="relative aspect-square overflow-hidden bg-slate-100">
+      <Card className="bg-white dark:bg-[#1e202e] border-slate-100 dark:border-white/5 shadow-[0_2px_8px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgb(0,0,0,0.12)] hover:border-violet-100 dark:hover:border-violet-500/20 overflow-hidden transition-all duration-300 hover:-translate-y-1">
+        <div className="relative aspect-square overflow-hidden bg-slate-100 dark:bg-white/5">
           <Image
             src={imageUrl}
             alt={podcast.name}
@@ -81,8 +81,8 @@ export const ApplePodcastCard = React.memo(function ApplePodcastCard({ podcast, 
               "absolute top-2 right-2 p-2 rounded-full transition-all duration-300 shadow-sm opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0",
               isLoading ? 'opacity-50 cursor-not-allowed' : '',
               subscribed
-                ? 'bg-white text-rose-500 opacity-100 translate-y-0 shadow-md'
-                : 'bg-white/90 text-slate-400 hover:text-rose-500 hover:bg-white'
+                ? 'bg-white dark:bg-[#27293d] text-rose-500 opacity-100 translate-y-0 shadow-md'
+                : 'bg-white/90 dark:bg-[#1e202e]/90 text-slate-400 hover:text-rose-500 hover:bg-white dark:hover:bg-[#27293d]'
             )}
             title={subscribed ? 'Remove from My Podcasts' : 'Add to My Podcasts'}
           >
@@ -90,14 +90,14 @@ export const ApplePodcastCard = React.memo(function ApplePodcastCard({ podcast, 
           </button>
         </div>
         <div className="p-4 space-y-1.5">
-          <h3 className="font-bold text-slate-900 text-sm line-clamp-2 leading-tight group-hover:text-violet-700 transition-colors">
+          <h3 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-2 leading-tight group-hover:text-violet-700 transition-colors">
             {podcast.name}
           </h3>
-          <p className="text-xs text-slate-500 font-medium line-clamp-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium line-clamp-1">
             {podcast.artistName}
           </p>
           {podcast.genres && podcast.genres.length > 0 && (
-            <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold line-clamp-1">
+            <p className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold line-clamp-1">
               {podcast.genres[0]}
             </p>
           )}

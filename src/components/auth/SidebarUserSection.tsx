@@ -117,22 +117,22 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
       <button
         onClick={() => setShowDropdown(!showDropdown)}
         className={cn(
-          'flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors w-full text-left group',
+          'flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors w-full text-left group',
         )}
       >
-        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-violet-100 shrink-0 ring-2 ring-white shadow-sm group-hover:shadow-md transition-all">
+        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/50 shrink-0 ring-2 ring-white dark:ring-[#1e202e] shadow-sm group-hover:shadow-md transition-all">
           {avatarUrl ? (
             <img src={avatarUrl} alt={displayName} className="w-10 h-10 rounded-full object-cover" />
           ) : (
-            <span className="text-base font-semibold text-violet-700">{initials}</span>
+            <span className="text-base font-semibold text-violet-700 dark:text-violet-400">{initials}</span>
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-900 truncate">{displayName}</p>
-          <p className="text-xs text-slate-500 truncate">{email}</p>
+          <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{displayName}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{email}</p>
         </div>
         <ChevronDown className={cn(
-          'h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-transform',
+          'h-4 w-4 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-400 transition-transform',
           showDropdown && 'rotate-180'
         )} />
       </button>

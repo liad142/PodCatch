@@ -2,6 +2,7 @@ import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai"
 import { createAdminClient } from "@/lib/supabase/admin";
 const supabase = createAdminClient();
 import { transcribeFromUrl, formatTranscriptWithTimestamps, formatTranscriptWithSpeakerNames } from "./deepgram";
+import { isVoxtralSupported, transcribeWithVoxtral } from "./voxtral";
 import type { DiarizedTranscript } from "@/types/deepgram";
 import type {
   SummaryLevel,
@@ -64,6 +65,7 @@ const MULTI_SPACE_RE = /\s+/g;
 
 import { createLogger } from "@/lib/logger";
 import { SUMMARY_STATUS_PRIORITY } from "@/lib/status-utils";
+import { triggerPendingNotifications } from "@/lib/notifications/trigger";
 
 const logWithTime = createLogger('SUMMARY-SERVICE');
 
@@ -629,7 +631,46 @@ export async function ensureTranscript(
     }
 
     // ============================================
-    // PRIORITY B: Use Deepgram with explicit language (if no RSS transcript)
+    // PRIORITY B1: Use Voxtral if language is supported (cheaper, built-in diarization)
+    // ============================================
+    if (!transcriptText && isVoxtralSupported(language)) {
+      logWithTime('PRIORITY B1: Language supported by Voxtral, attempting Voxtral transcription...', { language });
+      try {
+        const voxtralStart = Date.now();
+        diarizedTranscript = await transcribeWithVoxtral(audioUrl, language);
+        provider = 'voxtral';
+        logWithTime('Voxtral transcription succeeded', {
+          durationMs: Date.now() - voxtralStart,
+          utteranceCount: diarizedTranscript.utterances.length,
+          speakerCount: diarizedTranscript.speakerCount,
+        });
+
+        // Check if transcription produced content
+        if (!diarizedTranscript.fullText || diarizedTranscript.fullText.trim().length === 0) {
+          logWithTime('Voxtral returned empty transcript, falling back to Deepgram');
+          diarizedTranscript = null;
+          provider = 'deepgram';
+        } else {
+          // Voxtral gives speaker labels (speaker_0, speaker_1) but NOT names.
+          // Still call identifySpeakers() for name extraction from transcript context.
+          logWithTime('Identifying speakers with LLM (Voxtral path)...');
+          const speakers = await identifySpeakers(diarizedTranscript);
+          diarizedTranscript.speakers = speakers;
+          transcriptText = formatTranscriptWithSpeakerNames(diarizedTranscript);
+        }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        logWithTime('Voxtral transcription FAILED, falling back to Deepgram', { error: errorMsg });
+        // Reset for Deepgram fallback
+        diarizedTranscript = null;
+        provider = 'deepgram';
+      }
+    } else if (!transcriptText) {
+      logWithTime('PRIORITY B1: Language not supported by Voxtral, skipping to Deepgram', { language });
+    }
+
+    // ============================================
+    // PRIORITY B2: Use Deepgram with explicit language (fallback)
     // ============================================
     if (!transcriptText) {
       logWithTime('PRIORITY B: Starting transcription via Deepgram with explicit language...');
@@ -833,7 +874,14 @@ export async function generateSummaryForLevel(
       .eq('language', language);
     logWithTime('Summary saved', { durationMs: Date.now() - saveStart });
 
-    logWithTime('generateSummaryForLevel completed successfully', { 
+    // Trigger pending notifications (non-blocking)
+    try {
+      await triggerPendingNotifications(episodeId);
+    } catch (notifError) {
+      logWithTime('Notification trigger failed (non-blocking)', { episodeId, error: String(notifError) });
+    }
+
+    logWithTime('generateSummaryForLevel completed successfully', {
       level,
       totalDurationMs: Date.now() - startTime,
       totalDurationSec: ((Date.now() - startTime) / 1000).toFixed(1)

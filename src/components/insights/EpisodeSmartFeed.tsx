@@ -9,6 +9,7 @@ import { HighlightsCarousel } from "./HighlightsCarousel";
 import { TranscriptAccordion } from "./TranscriptAccordion";
 import { ActionFooter } from "./ActionFooter";
 import { QuickNav } from "./QuickNav";
+import { SubscriptionCard } from "./SubscriptionCard";
 import type { Episode, Podcast, EpisodeInsightsResponse, DeepSummaryContent } from "@/types/database";
 
 interface EpisodeSmartFeedProps {
@@ -207,8 +208,8 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
               {data?.transcript_status === "transcribing"
                 ? "Transcribing audio..."
                 : data?.insights?.status === "summarizing"
-                ? "Generating insights with AI..."
-                : "Processing..."}
+                  ? "Generating insights with AI..."
+                  : "Processing..."}
             </span>
           </div>
         </motion.div>
@@ -251,6 +252,15 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
           <ActionFooter
             episode={episode}
             actionPrompts={(summaries.deep?.content as DeepSummaryContent | undefined)?.actionable_takeaways}
+            summaryReady={summaries.quick?.status === 'ready' || summaries.deep?.status === 'ready'}
+          />
+        </section>
+
+        {/* Section 6: Automated Subscription */}
+        <section data-section="subscriptions" className="px-4 md:px-0 max-w-3xl mx-auto">
+          <SubscriptionCard
+            podcastName={episode.podcast?.title || "this podcast"}
+            podcastId={episode.podcast?.id || ""}
           />
         </section>
       </div>

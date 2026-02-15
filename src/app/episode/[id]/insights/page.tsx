@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 import type { Episode, Podcast } from "@/types/database";
 import { ArrowLeft, Clock, Calendar } from "lucide-react";
 import { PlayButton } from "@/components/PlayButton";
+import { QuickShareButton } from "@/components/insights/QuickShareButton";
 
 interface EpisodeData extends Episode {
   podcast?: Podcast;
@@ -111,7 +112,7 @@ export default function EpisodeInsightsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0f111a] flex flex-col">
       <Header />
 
       {/* Episode Header */}
@@ -195,6 +196,14 @@ export default function EpisodeInsightsPage() {
                       variant="outline"
                     />
                   )}
+                  <div className="ml-auto sm:ml-2">
+                    <QuickShareButton
+                      episodeId={episode.id}
+                      episodeTitle={episode.title}
+                      podcastName={episode.podcast?.title || "Podcast"}
+                      summaryReady={false} // Default to share-link mode
+                    />
+                  </div>
                 </div>
               </div>
             </div>
