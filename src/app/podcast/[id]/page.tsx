@@ -531,12 +531,6 @@ export default function PodcastPage() {
                                   {formatDuration(episode.duration)}
                                 </span>
                               )}
-                              {hasSummary && (
-                                <span className="text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                  <FileText className="h-3 w-3" />
-                                  Summary Ready
-                                </span>
-                              )}
                             </div>
 
                             {/* Title */}

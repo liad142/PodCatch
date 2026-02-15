@@ -536,12 +536,6 @@ export default function PodcastPage({ params }: PageProps) {
                                   </span>
                                 </>
                               )}
-                              {hasSummary && (
-                                <span className="ml-auto flex items-center gap-1 text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-500/10 px-2 py-0.5 rounded-full normal-case">
-                                  <FileText className="h-3 w-3 fill-violet-600/20" />
-                                  Summary Ready
-                                </span>
-                              )}
                             </div>
 
                             {/* Title */}
