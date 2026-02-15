@@ -183,12 +183,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     if (track) {
       loadTrack(track);
-      // Small delay to ensure source is loaded
-      setTimeout(() => {
-        audio.play().catch(console.error);
-      }, 100);
+      const onCanPlay = () => {
+        audio.removeEventListener('canplay', onCanPlay);
+        audio.play().catch(() => {});
+      };
+      audio.addEventListener('canplay', onCanPlay);
     } else {
-      audio.play().catch(console.error);
+      audio.play().catch(() => {});
     }
   }, [loadTrack, initializeAudio]);
 
@@ -201,7 +202,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       audioRef.current?.pause();
     } else {
       const audio = initializeAudio();
-      audio?.play().catch(console.error);
+      audio?.play().catch(() => {});
     }
   }, [initializeAudio]);
 

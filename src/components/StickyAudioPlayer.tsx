@@ -37,6 +37,7 @@ import {
   Gauge,
 } from 'lucide-react';
 import { useAudioPlayerSafe } from '@/contexts/AudioPlayerContext';
+import { AskAIBar } from '@/components/insights/AskAIBar';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 
@@ -122,6 +123,9 @@ export function StickyAudioPlayer() {
       >
         {/* Glassmorphic Container */}
         <div className="relative bg-black/90 dark:bg-black/95 backdrop-blur-xl border-t border-white/10">
+          {/* Integrated Ask AI Bar (shown on insights pages) */}
+          <AskAIBar mode="integrated" />
+
           {/* Progress Bar - Top Edge */}
           <div className="absolute top-0 left-0 right-0 h-1 group cursor-pointer">
             <Slider

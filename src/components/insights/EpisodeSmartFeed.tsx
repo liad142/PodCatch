@@ -8,6 +8,8 @@ import { InsightHero } from "./InsightHero";
 import { HighlightsCarousel } from "./HighlightsCarousel";
 import { TranscriptAccordion } from "./TranscriptAccordion";
 import { ActionFooter } from "./ActionFooter";
+import { AskAIBar } from "./AskAIBar";
+import { useActivateAskAI } from "@/contexts/AskAIContext";
 import { QuickNav } from "./QuickNav";
 import { SubscriptionCard } from "./SubscriptionCard";
 import type { Episode, Podcast, EpisodeInsightsResponse, DeepSummaryContent } from "@/types/database";
@@ -23,6 +25,9 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Signal to the global AskAI context that we're on an insights page
+  useActivateAskAI(episode.id);
 
   // Section refs for QuickNav
   const sectionRefs = useRef<Record<SectionId, HTMLElement | null>>({
@@ -264,6 +269,9 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
           />
         </section>
       </div>
+
+      {/* Standalone Ask AI Bar (visible when player is not active) */}
+      <AskAIBar mode="standalone" />
 
       {/* Quick Nav (Elevator) */}
       <QuickNav

@@ -3,9 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
-  Sparkles,
   BookmarkPlus,
-  MessageSquare,
   CheckCircle2,
   ChevronDown,
   Wrench,
@@ -328,25 +326,6 @@ export function ActionFooter({ episode, actionPrompts, summaryReady = false }: A
         )}
       </motion.div>
 
-      {/* Floating Ask AI Input Bar */}
-      <div className="fixed bottom-6 left-4 right-4 z-50 pointer-events-none flex justify-center">
-        <div className="pointer-events-auto w-full max-w-xl">
-          <div
-            className="bg-card/90 backdrop-blur-md dark:bg-muted/90 rounded-full shadow-2xl p-2 pl-6 flex items-center gap-3 border border-border cursor-text group transition-transform hover:scale-[1.01]"
-            onClick={() => alert("AI Chat feature coming soon!")}
-          >
-            <div className="bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full p-1.5 shrink-0">
-              <Sparkles className="h-4 w-4 text-white" />
-            </div>
-            <div className="flex-1 text-muted-foreground text-sm font-medium truncate">
-              Ask anything about this episode...
-            </div>
-            <Button size="icon" className="rounded-full w-10 h-10 bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 shadow-lg">
-              <MessageSquare className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
