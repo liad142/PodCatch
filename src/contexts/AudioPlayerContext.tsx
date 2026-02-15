@@ -9,7 +9,10 @@ interface Track {
   artworkUrl: string;
   audioUrl: string;
   duration?: number;
+  chapters?: { title: string; timestamp: string; timestamp_seconds: number }[];
 }
+
+export type { Track };
 
 // Frequently changing state (updates ~60fps during playback)
 interface AudioPlayerFrequentState {
@@ -26,6 +29,7 @@ interface AudioPlayerControlsType {
   playbackRate: number;
   isExpanded: boolean;
   play: (track?: Track) => void;
+  playFromTime: (track: Track, time: number) => void;
   pause: () => void;
   toggle: () => void;
   seek: (time: number) => void;
@@ -193,6 +197,19 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [loadTrack, initializeAudio]);
 
+  const playFromTime = useCallback((track: Track, time: number) => {
+    const audio = initializeAudio();
+    if (!audio) return;
+
+    loadTrack(track);
+    const onCanPlay = () => {
+      audio.removeEventListener('canplay', onCanPlay);
+      audio.currentTime = Math.max(0, time);
+      audio.play().catch(() => {});
+    };
+    audio.addEventListener('canplay', onCanPlay);
+  }, [loadTrack, initializeAudio]);
+
   const pause = useCallback(() => {
     audioRef.current?.pause();
   }, []);
@@ -262,6 +279,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     playbackRate,
     isExpanded,
     play,
+    playFromTime,
     pause,
     toggle,
     seek,
@@ -277,6 +295,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     playbackRate,
     isExpanded,
     play,
+    playFromTime,
     pause,
     toggle,
     seek,

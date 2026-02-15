@@ -50,15 +50,43 @@ function AnnotatedParagraph({ text, isRTL }: { text: string; isRTL: boolean }) {
 function EpisodeChapters({
   sections,
   isRTL,
+  episode,
 }: {
   sections: ChronologicalSection[];
   isRTL: boolean;
+  episode: Episode & { podcast?: Podcast };
 }) {
   const normalized = useMemo(() => normalizeChronologicalSections(sections), [sections]);
   const showTimestamps = useMemo(() => hasRealTimestamps(normalized), [normalized]);
   const [expandedIndex, setExpandedIndex] = useState<number>(0); // First auto-expanded
   const [allExpanded, setAllExpanded] = useState(false);
   const player = useAudioPlayerSafe();
+
+  // Build chapters array for the Track
+  const chapters = useMemo(() => {
+    if (!showTimestamps) return undefined;
+    return normalized
+      .filter((s) => (s.timestamp_seconds ?? 0) >= 0 && s.timestamp)
+      .map((s) => ({
+        title: s.title || s.timestamp_description || 'Untitled',
+        timestamp: s.timestamp!,
+        timestamp_seconds: s.timestamp_seconds!,
+      }));
+  }, [normalized, showTimestamps]);
+
+  // Build track from episode data
+  const track = useMemo(() => {
+    if (!episode.audio_url) return null;
+    return {
+      id: episode.id,
+      title: episode.title,
+      artist: episode.podcast?.title || 'Unknown Podcast',
+      artworkUrl: episode.podcast?.image_url || '',
+      audioUrl: episode.audio_url,
+      duration: episode.duration_seconds ?? undefined,
+      chapters,
+    };
+  }, [episode, chapters]);
 
   // Find active chapter based on current playback time
   const activeIndex = useMemo(() => {
@@ -73,11 +101,17 @@ function EpisodeChapters({
   }, [player?.currentTime, normalized, showTimestamps, player]);
 
   const handleSeekTo = (seconds: number) => {
-    if (seconds >= 0 && player) {
+    if (seconds < 0 || !player) return;
+
+    const isTrackLoaded = player.currentTrack?.audioUrl === track?.audioUrl;
+
+    if (isTrackLoaded) {
+      // Track already loaded — just seek and play
       player.seek(seconds);
-      if (!player.isPlaying) {
-        player.play();
-      }
+      if (!player.isPlaying) player.play();
+    } else if (track) {
+      // No track loaded (or different track) — load, seek to time, and play
+      player.playFromTime(track, seconds);
     }
   };
 
@@ -483,6 +517,7 @@ export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }
                       <EpisodeChapters
                         sections={deepContent.chronological_breakdown}
                         isRTL={isRTL}
+                        episode={episode}
                       />
                     )}
 
