@@ -199,7 +199,7 @@ export function TranscriptAccordion({
     const parts = text.split(regex);
     return parts.map((part, i) =>
       regex.test(part) ? (
-        <mark key={i} className="bg-yellow-200 dark:bg-yellow-800 rounded px-0.5">
+        <mark key={i} className="bg-yellow-200 text-yellow-900 dark:bg-yellow-400/30 dark:text-yellow-200 rounded px-0.5">
           {part}
         </mark>
       ) : (

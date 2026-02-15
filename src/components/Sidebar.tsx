@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Compass,
   Radio,
@@ -12,11 +12,14 @@ import {
   Headphones,
   Menu,
   X,
+  ArrowLeft,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { glass } from '@/lib/glass';
 import { SidebarUserSection } from '@/components/auth/SidebarUserSection';
+
+const ROOT_PATHS = ['/', '/discover', '/my-podcasts', '/summaries', '/saved', '/settings', '/onboarding'];
 
 // Navigation configuration - easy to edit
 const NAV_ITEMS = [
@@ -56,6 +59,7 @@ function NavItem({ item, isActive, onClick }: NavItemProps) {
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const router = useRouter();
 
   const isActive = (href: string) => {
     if (href === '/my-podcasts') {
@@ -64,6 +68,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     }
     return pathname.startsWith(href);
   };
+
+  const isRoot = ROOT_PATHS.some(p => pathname === p);
 
   return (
     <div className="flex flex-col h-full">
@@ -76,6 +82,19 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           </span>
         </Link>
       </div>
+
+      {/* Back Button - shown on sub-pages */}
+      {!isRoot && (
+        <div className="px-4 pb-2">
+          <button
+            onClick={() => { router.back(); onNavigate?.(); }}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-colors w-full"
+          >
+            <ArrowLeft className="h-4 w-4 shrink-0" />
+            Back
+          </button>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-3 overflow-y-auto" aria-label="Main navigation">
@@ -176,6 +195,7 @@ function MobileDrawer({
 
 export function Sidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const router = useRouter();
 
   const closeMobileMenu = useCallback(() => {
     setIsMobileMenuOpen(false);
@@ -187,21 +207,34 @@ export function Sidebar() {
     closeMobileMenu();
   }, [pathname, closeMobileMenu]);
 
+  const isRoot = ROOT_PATHS.some(p => pathname === p);
+
   return (
     <>
       {/* Mobile Header */}
       <header className="fixed top-0 left-0 right-0 h-14 bg-background/95 backdrop-blur border-b border-border z-50 lg:hidden">
         <div className="flex items-center justify-between h-full px-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsMobileMenuOpen(true)}
-            aria-label="Open navigation menu"
-            aria-expanded={isMobileMenuOpen}
-            aria-controls="mobile-navigation"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
+          {isRoot ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Open navigation menu"
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-navigation"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.back()}
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
 
           <Link href="/" className="flex items-center gap-2">
             <Headphones className="h-6 w-6 text-primary" />

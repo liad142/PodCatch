@@ -58,7 +58,7 @@ export function DailyMixCarousel({ episodes, isLoading = false }: DailyMixCarous
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-xl font-bold tracking-tight">Daily Mix</h2>
-          <p className="text-sm text-muted-foreground">Fresh episodes picked for you</p>
+          <p className="text-sm text-muted-foreground">Fresh summaries picked for you</p>
         </div>
         <div className="hidden sm:flex items-center gap-1">
           <Button

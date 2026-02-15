@@ -34,7 +34,7 @@ function AnnotatedParagraph({ text, isRTL }: { text: string; isRTL: boolean }) {
         seg.type === "highlight" ? (
           <mark
             key={i}
-            className="bg-yellow-100/60 dark:bg-yellow-900/30 px-0.5 rounded text-foreground"
+            className="bg-yellow-200 dark:bg-yellow-400/30 dark:text-yellow-200 px-0.5 rounded text-yellow-900"
           >
             {seg.content}
           </mark>
@@ -399,15 +399,6 @@ export function InsightHero({ episode, quickSummary, deepSummary, isGenerating }
                 </div>
               )}
 
-              {/* No summary fallback hint */}
-              {!isQuickReady && !isGenerating && !isProcessing && episode.description && (
-                <div className="mt-8 text-center">
-                  <Button variant="outline" size="sm" className="gap-2 text-muted-foreground border-border" disabled>
-                    <Sparkles className="h-4 w-4" />
-                    Generate Analysis to see more
-                  </Button>
-                </div>
-              )}
             </>
           )}
         </div>

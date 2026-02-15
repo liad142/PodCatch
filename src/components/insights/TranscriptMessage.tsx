@@ -30,7 +30,7 @@ export function TranscriptMessage({
     );
     return segment.text.replace(
       regex,
-      '<mark class="bg-gradient-to-r from-yellow-200 to-yellow-300 dark:from-yellow-600 dark:to-yellow-500 text-yellow-900 dark:text-yellow-100 px-1 py-0.5 rounded font-semibold shadow-sm shadow-yellow-400/30">$1</mark>'
+      '<mark class="bg-yellow-200 text-yellow-900 dark:bg-yellow-400/30 dark:text-yellow-200 px-1 py-0.5 rounded font-semibold">$1</mark>'
     );
   }, [segment.text, searchQuery]);
 
