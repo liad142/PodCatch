@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -146,13 +147,19 @@ export function SummarizeButton({ episodeId, initialStatus = 'not_ready', classN
 
   const isInteractive = ['idle', 'ready', 'failed'].includes(state);
 
+  const isGradientState = state === 'idle' || state === 'ready';
+
   return (
     <Button
       variant={getVariant()}
       size="sm"
       onClick={handleClick}
       disabled={!isInteractive}
-      className={`min-w-[140px] transition-all ${className}`}
+      className={cn(
+        'rounded-full px-5 transition-all hover:scale-105 active:scale-95',
+        isGradientState && 'bg-gradient-to-r from-violet-600 to-indigo-600 border-0 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40',
+        className
+      )}
     >
       {renderContent()}
     </Button>

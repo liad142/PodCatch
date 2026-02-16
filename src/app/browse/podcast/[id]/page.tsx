@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback, use } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Clock, Calendar, Loader2, FileText, Heart } from 'lucide-react';
+import { ArrowLeft, Clock, Calendar, Loader2, FileText, Heart, Sparkles } from 'lucide-react';
 import { SummarizeButton } from '@/components/SummarizeButton';
-import { InlinePlayButton } from '@/components/PlayButton';
+import { PlayButton } from '@/components/PlayButton';
 import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -556,64 +556,62 @@ export default function PodcastPage({ params }: PageProps) {
                               {episode.description}
                             </p>
 
-                            {/* Action Bar */}
-                            <div className="flex items-center gap-3">
-                              {/* Summarize Button */}
-                              <div className="shadow-sm">
-                                {(() => {
-                                  // Determine status logic (same as before)
-                                  const getInitialStatus = (): any => {
-                                    if (hasSummary) return 'ready';
-                                    const status = summaryInfo?.deepStatus || summaryInfo?.quickStatus;
-                                    if (status === 'transcribing') return 'transcribing';
-                                    if (status === 'summarizing') return 'summarizing';
-                                    if (status === 'queued') return 'queued';
-                                    if (status === 'failed') return 'failed';
-                                    return 'not_ready';
-                                  };
-
-                                  if (summaryInfo?.episodeId) {
-                                    return (
-                                      <SummarizeButton
-                                        episodeId={summaryInfo.episodeId}
-                                        initialStatus={getInitialStatus()}
-                                      />
-                                    );
-                                  }
-
-                                  return (
-                                    <Button
-                                      className="bg-white dark:bg-[#1e202e] hover:bg-slate-50 dark:hover:bg-[#27293d] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 hover:border-violet-200 dark:hover:border-violet-500/30 hover:text-violet-700 dark:hover:text-violet-400 rounded-full h-9 px-4 gap-2 transition-all"
-                                      size="sm"
-                                      onClick={() => handleSummarize(episode)}
-                                      disabled={importingEpisodeId === episode.id}
-                                    >
-                                      {importingEpisodeId === episode.id ? (
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                      ) : (
-                                        <FileText className="h-3.5 w-3.5" />
-                                      )}
-                                      {importingEpisodeId === episode.id ? 'Importing' : 'Summarize'}
-                                    </Button>
-                                  );
-                                })()}
-                              </div>
-
-                              {/* Play Button */}
+                            {/* Action Bar — grouped side-by-side */}
+                            <div className="flex items-center gap-2">
+                              {/* Play — small circle */}
                               {episode.audioUrl && podcast && (
-                                <div className="opacity-60 group-hover:opacity-100 transition-opacity">
-                                  <InlinePlayButton
-                                    track={{
-                                      id: episode.id,
-                                      title: episode.title,
-                                      artist: podcast.name,
-                                      artworkUrl: episode.artworkUrl || podcast.artworkUrl,
-                                      audioUrl: episode.audioUrl,
-                                      duration: episode.duration,
-                                    }}
-                                  />
-                                </div>
+                                <PlayButton
+                                  track={{
+                                    id: episode.id,
+                                    title: episode.title,
+                                    artist: podcast.name,
+                                    artworkUrl: episode.artworkUrl || podcast.artworkUrl,
+                                    audioUrl: episode.audioUrl,
+                                    duration: episode.duration,
+                                  }}
+                                  size="md"
+                                  variant="ghost"
+                                  className="shrink-0 border border-white/10 hover:border-violet-500/40 hover:bg-white/5"
+                                />
                               )}
+
+                              {/* Summarize — pill, auto-width */}
+                              {(() => {
+                                const getInitialStatus = (): any => {
+                                  if (hasSummary) return 'ready';
+                                  const status = summaryInfo?.deepStatus || summaryInfo?.quickStatus;
+                                  if (status === 'transcribing') return 'transcribing';
+                                  if (status === 'summarizing') return 'summarizing';
+                                  if (status === 'queued') return 'queued';
+                                  if (status === 'failed') return 'failed';
+                                  return 'not_ready';
+                                };
+
+                                if (summaryInfo?.episodeId) {
+                                  return (
+                                    <SummarizeButton
+                                      episodeId={summaryInfo.episodeId}
+                                      initialStatus={getInitialStatus()}
+                                    />
+                                  );
+                                }
+
+                                return (
+                                  <Button
+                                    className="gap-2 rounded-full px-5 bg-gradient-to-r from-violet-600 to-indigo-600 border-0 text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 hover:scale-105 active:scale-95 transition-all"
+                                    size="sm"
+                                    onClick={() => handleSummarize(episode)}
+                                    disabled={importingEpisodeId === episode.id}
+                                  >
+                                    {importingEpisodeId === episode.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Sparkles className="h-4 w-4 fill-white/20" />
+                                    )}
+                                    {importingEpisodeId === episode.id ? 'Importing…' : 'Summarize'}
+                                  </Button>
+                                );
+                              })()}
                             </div>
                           </div>
                         </div>
