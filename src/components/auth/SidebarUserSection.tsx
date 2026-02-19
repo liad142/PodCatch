@@ -73,42 +73,17 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
 
   if (compact) {
     return (
-      <div className="relative">
-        <button
-          onClick={() => setShowDropdown(!showDropdown)}
-          className="flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
-          aria-label="User menu"
-        >
-          {avatarUrl ? (
-            <img src={avatarUrl} alt={displayName} className="w-9 h-9 rounded-full object-cover" />
-          ) : (
-            <span className="text-sm font-medium text-primary">{initials}</span>
-          )}
-        </button>
-
-        {showDropdown && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
-            <div className="absolute right-0 bottom-full mb-2 w-48 rounded-lg border border-border bg-background shadow-lg z-50 py-1">
-              <Link
-                href="/settings"
-                onClick={() => setShowDropdown(false)}
-                className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors"
-              >
-                <Settings className="h-4 w-4" />
-                Settings
-              </Link>
-              <button
-                onClick={() => { signOut(); setShowDropdown(false); }}
-                className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors w-full text-left text-red-600 dark:text-red-400"
-              >
-                <LogOut className="h-4 w-4" />
-                Sign Out
-              </button>
-            </div>
-          </>
+      <Link
+        href="/settings"
+        className="flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+        aria-label="Settings"
+      >
+        {avatarUrl ? (
+          <img src={avatarUrl} alt={displayName} className="w-9 h-9 rounded-full object-cover" />
+        ) : (
+          <span className="text-sm font-medium text-primary">{initials}</span>
         )}
-      </div>
+      </Link>
     );
   }
 

@@ -1,18 +1,57 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Settings, Moon, Sun, Monitor, LogIn, LogOut, Loader2, X, Shield } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import {
+  Moon, Sun, LogIn, LogOut, Loader2, Pencil, Check, X, Shield, ChevronDown, Search,
+  Palette, Briefcase, Smile, GraduationCap, BookOpen, Landmark, Clock, Heart,
+  Users, Music, Newspaper, Church, FlaskConical, Globe, Trophy, Cpu, Film,
+} from 'lucide-react';
+import { Search as SearchIcon } from 'lucide-react';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCountry } from '@/contexts/CountryContext';
 import { cn } from '@/lib/utils';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
-import { GenreCard } from '@/components/onboarding/GenreCard';
 import { APPLE_PODCAST_GENRES, APPLE_PODCAST_COUNTRIES } from '@/types/apple-podcasts';
+
+// ── Compact genre icon map ──
+const GENRE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  '1301': Palette, '1321': Briefcase, '1303': Smile, '1304': GraduationCap,
+  '1483': BookOpen, '1511': Landmark, '1512': Clock, '1305': Heart,
+  '1307': Users, '1309': Music, '1489': Newspaper, '1314': Church,
+  '1533': FlaskConical, '1324': Globe, '1545': Trophy, '1318': Cpu,
+  '1481': Search, '1310': Film,
+};
+
+// ── Flag image via flagcdn.com (works on Windows, no emoji needed) ──
+// flagcdn.com supported sizes: 16x12, 20x15, 24x18, 28x21, 32x24, 40x30, 48x36, 56x42, 64x48, 80x60
+const FLAG_SIZES = [
+  [16,12],[20,15],[24,18],[28,21],[32,24],[40,30],[48,36],[56,42],[64,48],[80,60],
+] as const;
+
+function flagUrl(code: string, targetW: number) {
+  const match = FLAG_SIZES.find(([w]) => w >= targetW) || FLAG_SIZES[FLAG_SIZES.length - 1];
+  return { url: `https://flagcdn.com/${match[0]}x${match[1]}/${code}.png`, w: match[0], h: match[1] };
+}
+
+function FlagImg({ code, size = 20 }: { code: string; size?: number }) {
+  const x1 = flagUrl(code, size);
+  const x2 = flagUrl(code, size * 2);
+  return (
+    <img
+      src={x1.url}
+      srcSet={`${x2.url} 2x`}
+      width={size}
+      height={Math.round(size * 0.75)}
+      alt=""
+      className="inline-block rounded-sm object-cover"
+      style={{ minWidth: size }}
+    />
+  );
+}
 
 interface UserProfile {
   display_name: string | null;
@@ -30,115 +69,97 @@ export default function SettingsPage() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [showGenreDialog, setShowGenreDialog] = useState(false);
+  const [isSavingName, setIsSavingName] = useState(false);
+  const [isSavingGenres, setIsSavingGenres] = useState(false);
+
   const [selectedGenres, setSelectedGenres] = useState<Set<string>>(new Set());
+  const [genresDirty, setGenresDirty] = useState(false);
+
+  const [countryOpen, setCountryOpen] = useState(false);
+  const [countrySearch, setCountrySearch] = useState('');
+  const countryRef = useRef<HTMLDivElement>(null);
 
   const themeOptions = [
     { value: 'light', label: 'Light', icon: Sun },
     { value: 'dark', label: 'Dark', icon: Moon },
-    { value: 'system', label: 'System', icon: Monitor },
   ] as const;
 
-  // Fetch profile when user changes
   useEffect(() => {
-    if (!user) {
-      setProfile(null);
-      return;
-    }
-
-    const fetchProfile = async () => {
+    if (!user) { setProfile(null); return; }
+    const fetch_ = async () => {
       setIsLoadingProfile(true);
       try {
-        const response = await fetch('/api/user/profile');
-        if (response.ok) {
-          const data = await response.json();
+        const res = await fetch('/api/user/profile');
+        if (res.ok) {
+          const data = await res.json();
           setProfile(data.profile);
+          setSelectedGenres(new Set(data.profile?.preferred_genres || []));
         }
-      } catch (error) {
-        console.error('Error fetching profile:', error);
-      } finally {
-        setIsLoadingProfile(false);
+      } finally { setIsLoadingProfile(false); }
+    };
+    fetch_();
+  }, [user]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (countryRef.current && !countryRef.current.contains(e.target as Node)) {
+        setCountryOpen(false);
+        setCountrySearch('');
       }
     };
-
-    fetchProfile();
-  }, [user]);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const handleSaveName = async () => {
     if (!nameInput.trim()) return;
-    setIsSaving(true);
+    setIsSavingName(true);
     try {
-      const response = await fetch('/api/user/profile', {
+      const res = await fetch('/api/user/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ display_name: nameInput.trim() }),
       });
-      if (response.ok) {
-        const data = await response.json();
-        setProfile(data.profile);
-        setEditingName(false);
-      }
-    } catch (error) {
-      console.error('Error updating name:', error);
-    } finally {
-      setIsSaving(false);
-    }
+      if (res.ok) { const d = await res.json(); setProfile(d.profile); setEditingName(false); }
+    } finally { setIsSavingName(false); }
   };
 
   const handleSaveGenres = async () => {
-    setIsSaving(true);
+    setIsSavingGenres(true);
     try {
-      const response = await fetch('/api/user/profile', {
+      const res = await fetch('/api/user/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ preferred_genres: Array.from(selectedGenres) }),
       });
-      if (response.ok) {
-        const data = await response.json();
-        setProfile(data.profile);
-        setShowGenreDialog(false);
-      }
-    } catch (error) {
-      console.error('Error updating genres:', error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSaveCountry = async (countryCode: string) => {
-    try {
-      const response = await fetch('/api/user/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ preferred_country: countryCode }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setProfile(data.profile);
-        // Sync the global country context so the feed updates immediately
-        setCountry(countryCode.toUpperCase());
-      }
-    } catch (error) {
-      console.error('Error updating country:', error);
-    }
+      if (res.ok) { const d = await res.json(); setProfile(d.profile); setGenresDirty(false); }
+    } finally { setIsSavingGenres(false); }
   };
 
   const toggleGenre = (id: string) => {
     setSelectedGenres(prev => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
+    setGenresDirty(true);
   };
 
-  const openGenreDialog = () => {
-    setSelectedGenres(new Set(profile?.preferred_genres || []));
-    setShowGenreDialog(true);
+  const handleSaveCountry = async (code: string) => {
+    setCountryOpen(false);
+    setCountrySearch('');
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferred_country: code }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setProfile(d.profile);
+        setCountry(code.toUpperCase());
+      }
+    } catch {}
   };
 
   const displayName = profile?.display_name
@@ -147,180 +168,243 @@ export default function SettingsPage() {
     || user?.email?.split('@')[0]
     || '';
 
+  const currentCountry = APPLE_PODCAST_COUNTRIES.find(
+    c => c.code === (profile?.preferred_country || 'us')
+  );
+
+  const filteredCountries = APPLE_PODCAST_COUNTRIES.filter(c =>
+    c.name.toLowerCase().includes(countrySearch.toLowerCase())
+  );
+
+  const initials = (displayName || '?').slice(0, 2).toUpperCase();
+
   return (
-    <div className="px-4 py-8 min-h-screen bg-background transition-colors duration-200">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-card shadow-sm border border-border">
-            <Settings className="h-6 w-6 text-foreground" />
-          </div>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Settings</h1>
-            <p className="text-muted-foreground">Customize your experience</p>
-          </div>
+    <div className="min-h-screen bg-background pb-20">
+      <div className="max-w-2xl mx-auto px-4 pt-8 space-y-8">
+
+        <div>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">Settings</h1>
+          <p className="text-muted-foreground mt-1">Manage your account and preferences</p>
         </div>
 
-        {/* Theme Settings */}
-        <Card className="p-6 mb-6 bg-card border-border shadow-sm rounded-2xl transition-colors duration-200">
-          <h2 className="text-lg font-semibold mb-4 text-foreground">Appearance</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block text-foreground">Theme</label>
-              <div className="grid grid-cols-3 gap-3">
-                {themeOptions.map((option) => {
-                  const Icon = option.icon;
-                  return (
-                    <button
-                      key={option.value}
-                      onClick={() => setTheme(option.value)}
-                      className={cn(
-                        'flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-                        theme === option.value
-                          ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/20 shadow-sm'
-                          : 'border-border bg-card hover:border-muted-foreground/20 hover:bg-accent'
-                      )}
-                    >
-                      <Icon className={cn(
-                        'h-5 w-5',
-                        theme === option.value ? 'text-violet-600 dark:text-violet-400' : 'text-muted-foreground'
-                      )} />
-                      <span className={cn(
-                        'text-sm font-medium',
-                        theme === option.value ? 'text-violet-700 dark:text-violet-300' : 'text-muted-foreground'
-                      )}>
-                        {option.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-sm text-muted-foreground mt-2">
-                Choose your preferred color scheme. System will follow your device settings.
-              </p>
-            </div>
+        {/* ── APPEARANCE ── */}
+        <section>
+          <SectionLabel>Appearance</SectionLabel>
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            {themeOptions.map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                onClick={() => setTheme(value)}
+                className={cn(
+                  'relative flex flex-col items-center gap-2.5 p-4 rounded-2xl border-2 transition-all duration-200',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+                  theme === value
+                    ? 'border-primary bg-primary/8 shadow-sm'
+                    : 'border-border bg-card hover:border-border/80 hover:bg-accent/50'
+                )}
+              >
+                {theme === value && (
+                  <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
+                )}
+                <div className={cn(
+                  'w-10 h-10 rounded-xl flex items-center justify-center',
+                  theme === value ? 'bg-primary/15' : 'bg-muted'
+                )}>
+                  <Icon className={cn('h-5 w-5', theme === value ? 'text-primary' : 'text-muted-foreground')} />
+                </div>
+                <span className={cn(
+                  'text-sm font-semibold',
+                  theme === value ? 'text-primary' : 'text-muted-foreground'
+                )}>
+                  {label}
+                </span>
+              </button>
+            ))}
           </div>
-        </Card>
+          <p className="text-xs text-muted-foreground mt-2.5">Choose your preferred color scheme.</p>
+        </section>
 
-        {/* Account Settings */}
-        <Card className="p-6 mb-6 bg-card border-border shadow-sm rounded-2xl transition-colors duration-200">
-          <h2 className="text-lg font-semibold mb-4 text-foreground">Account</h2>
+        {/* ── ACCOUNT ── */}
+        <section>
+          <SectionLabel>Account</SectionLabel>
 
           {authLoading ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading...
+            <div className="flex items-center gap-2 text-muted-foreground mt-3">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading...
             </div>
           ) : !user ? (
-            <div className="text-center py-4">
+            <div className="mt-3 rounded-2xl border border-border bg-card p-6 text-center">
               <p className="text-muted-foreground text-sm mb-4">
-                Sign in to manage your account and personalize your experience.
+                Sign in to manage your account and personalise your experience.
               </p>
-              <Button onClick={() => setShowAuthModal(true)} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
-                <LogIn className="h-4 w-4" />
-                Sign In
+              <Button onClick={() => setShowAuthModal(true)} className="gap-2">
+                <LogIn className="h-4 w-4" /> Sign In
               </Button>
             </div>
           ) : (
-            <div className="space-y-6">
-              {/* Display Name */}
-              <div>
-                <label className="text-sm font-medium mb-1.5 block text-foreground">Display Name</label>
-                {editingName ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={nameInput}
-                      onChange={(e) => setNameInput(e.target.value)}
-                      placeholder="Enter display name"
-                      className="max-w-xs bg-background border-border focus:ring-violet-500/20 focus:border-violet-500"
-                      autoFocus
-                    />
-                    <Button size="sm" onClick={handleSaveName} disabled={isSaving} className="bg-primary text-primary-foreground hover:bg-primary/90">
-                      {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-foreground font-medium">{displayName}</span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 px-2 text-muted-foreground hover:text-foreground"
-                      onClick={() => { setNameInput(displayName); setEditingName(true); }}
-                    >
-                      Edit
-                    </Button>
-                  </div>
-                )}
+            <div className="mt-3 space-y-6">
+
+              {/* Profile card */}
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-lg shrink-0 select-none">
+                  {initials}
+                </div>
+                <div className="min-w-0">
+                  {editingName ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={nameInput}
+                        onChange={e => setNameInput(e.target.value)}
+                        placeholder="Display name"
+                        className="h-8 text-sm max-w-[180px]"
+                        autoFocus
+                        onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false); }}
+                      />
+                      <button onClick={handleSaveName} disabled={isSavingName} className="p-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors">
+                        {isSavingName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                      </button>
+                      <button onClick={() => setEditingName(false)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-foreground truncate">{displayName}</span>
+                      <button
+                        onClick={() => { setNameInput(displayName); setEditingName(true); }}
+                        className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-sm text-muted-foreground truncate mt-0.5">{user.email}</p>
+                </div>
               </div>
 
-              {/* Email */}
+              {/* ── Genres (compact chips) ── */}
               <div>
-                <label className="text-sm font-medium mb-1.5 block text-foreground">Email</label>
-                <span className="text-sm text-muted-foreground">{user.email}</span>
-              </div>
-
-              {/* Preferred Genres */}
-              <div>
-                <label className="text-sm font-medium mb-2 block text-foreground">Preferred Genres</label>
+                <div className="flex items-center justify-between mb-3">
+                  <FieldLabel>Your Interests</FieldLabel>
+                  <AnimatePresence>
+                    {genresDirty && (
+                      <motion.button
+                        initial={{ opacity: 0, scale: 0.85 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.85 }}
+                        onClick={handleSaveGenres}
+                        disabled={isSavingGenres}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold shadow-sm hover:bg-primary/90 transition-colors"
+                      >
+                        {isSavingGenres
+                          ? <Loader2 className="h-3 w-3 animate-spin" />
+                          : <Check className="h-3 w-3" />
+                        }
+                        Save
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
+                </div>
                 {isLoadingProfile ? (
                   <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Loading...
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading...
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {(profile?.preferred_genres || []).length > 0 ? (
-                      <>
-                        {profile!.preferred_genres.map(genreId => {
-                          const genre = APPLE_PODCAST_GENRES.find(g => g.id === genreId);
-                          return genre ? (
-                            <span
-                              key={genreId}
-                              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border border-violet-100 dark:border-violet-800"
-                            >
-                              {genre.name}
-                            </span>
-                          ) : null;
-                        })}
-                        <Button size="sm" variant="ghost" onClick={openGenreDialog} className="h-7 text-xs rounded-full border border-border hover:bg-accent hover:text-foreground">
-                          Edit
-                        </Button>
-                      </>
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={openGenreDialog} className="bg-background border-border hover:bg-accent">
-                        Select genres
-                      </Button>
-                    )}
+                    {APPLE_PODCAST_GENRES.map(genre => {
+                      const Icon = GENRE_ICONS[genre.id] || Palette;
+                      const selected = selectedGenres.has(genre.id);
+                      return (
+                        <button
+                          key={genre.id}
+                          onClick={() => toggleGenre(genre.id)}
+                          className={cn(
+                            'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
+                            selected
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                          )}
+                        >
+                          <Icon className="h-3 w-3 shrink-0" />
+                          {genre.name}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
 
-              {/* Preferred Country */}
+              {/* ── Country ── */}
               <div>
-                <label className="text-sm font-medium mb-1.5 block text-foreground">Preferred Country</label>
-                <select
-                  value={profile?.preferred_country || 'us'}
-                  onChange={(e) => handleSaveCountry(e.target.value)}
-                  className="text-sm border border-border rounded-lg px-3 py-2 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
-                >
-                  {APPLE_PODCAST_COUNTRIES.map(country => (
-                    <option key={country.code} value={country.code}>
-                      {country.flag} {country.name}
-                    </option>
-                  ))}
-                </select>
+                <FieldLabel>Podcast Region</FieldLabel>
+                <div ref={countryRef} className="relative mt-2">
+                  <button
+                    onClick={() => setCountryOpen(v => !v)}
+                    className={cn(
+                      'w-full sm:w-72 flex items-center gap-3 px-4 py-3 rounded-2xl border-2 bg-card text-left transition-all',
+                      countryOpen ? 'border-primary shadow-sm' : 'border-border hover:border-border/80'
+                    )}
+                  >
+                    {currentCountry && <FlagImg code={currentCountry.code} size={24} />}
+                    <span className="flex-1 font-medium text-foreground text-sm truncate">{currentCountry?.name}</span>
+                    <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform shrink-0', countryOpen && 'rotate-180')} />
+                  </button>
+
+                  <AnimatePresence>
+                    {countryOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute z-50 mt-2 w-full sm:w-72 rounded-2xl border border-border bg-card shadow-xl overflow-hidden"
+                      >
+                        <div className="p-2 border-b border-border">
+                          <div className="relative">
+                            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <input
+                              autoFocus
+                              value={countrySearch}
+                              onChange={e => setCountrySearch(e.target.value)}
+                              placeholder="Search country..."
+                              className="w-full pl-8 pr-3 py-1.5 text-sm bg-muted/50 rounded-lg outline-none focus:bg-muted placeholder:text-muted-foreground"
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-56 overflow-y-auto py-1">
+                          {filteredCountries.map(c => (
+                            <button
+                              key={c.code}
+                              onClick={() => handleSaveCountry(c.code)}
+                              className={cn(
+                                'w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-accent transition-colors text-left',
+                                profile?.preferred_country === c.code && 'bg-primary/8 text-primary font-medium'
+                              )}
+                            >
+                              <FlagImg code={c.code} size={18} />
+                              <span className="truncate">{c.name}</span>
+                              {profile?.preferred_country === c.code && (
+                                <Check className="h-3.5 w-3.5 ml-auto shrink-0 text-primary" />
+                              )}
+                            </button>
+                          ))}
+                          {filteredCountries.length === 0 && (
+                            <p className="text-sm text-muted-foreground text-center py-4">No results</p>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
-              {/* Sign Out */}
-              <div className="pt-6 border-t border-border">
+              {/* ── Sign out ── */}
+              <div className="pt-2 border-t border-border">
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   onClick={signOut}
-                  className="gap-2 text-destructive hover:bg-destructive/10 border-destructive/20 hover:border-destructive/30"
+                  className="gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive px-0"
                 >
                   <LogOut className="h-4 w-4" />
                   Sign Out
@@ -328,66 +412,51 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
-        </Card>
+        </section>
 
-        {/* Admin Panel — only for liad142@gmail.com */}
+        {/* ── ADMIN ── */}
         {user?.email === 'liad142@gmail.com' && (
-          <Card className="p-6 mb-6 bg-card border-border shadow-sm rounded-2xl">
-            <h2 className="text-lg font-semibold mb-2 text-foreground">Administration</h2>
-            <p className="text-muted-foreground text-sm mb-4">
-              Access the admin dashboard to view analytics and manage the platform.
-            </p>
-            <Button asChild variant="outline" className="gap-2 border-border hover:bg-accent">
-              <Link href="/admin/overview">
-                <Shield className="h-4 w-4" />
-                Open Admin Panel
-              </Link>
-            </Button>
-          </Card>
-        )}
-
-        <Card className="p-6 bg-card border-border/50 shadow-none rounded-2xl opacity-60">
-          <h2 className="text-lg font-semibold mb-2 text-foreground">Notifications</h2>
-          <p className="text-muted-foreground text-sm">
-            Notification preferences coming soon.
-          </p>
-        </Card>
-      </div>
-
-      {/* Genre Selection Dialog */}
-      <Dialog open={showGenreDialog} onOpenChange={setShowGenreDialog}>
-        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
-          <DialogClose onClick={() => setShowGenreDialog(false)} />
-          <DialogHeader>
-            <DialogTitle>Select Your Preferred Genres</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 py-4">
-            {APPLE_PODCAST_GENRES.map((genre) => (
-              <GenreCard
-                key={genre.id}
-                id={genre.id}
-                name={genre.name}
-                selected={selectedGenres.has(genre.id)}
-                onToggle={toggleGenre}
-              />
-            ))}
-          </div>
-          <div className="flex items-center justify-between pt-4 border-t border-border">
-            <span className="text-sm text-muted-foreground">
-              {selectedGenres.size} selected
-            </span>
-            <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => setShowGenreDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveGenres} disabled={isSaving}>
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Save Genres
+          <section>
+            <SectionLabel>Administration</SectionLabel>
+            <div className="mt-3 rounded-2xl border border-border bg-card p-5">
+              <p className="text-muted-foreground text-sm mb-4">
+                Access analytics, queue management, and platform controls.
+              </p>
+              <Button asChild variant="outline" className="gap-2">
+                <Link href="/admin/overview">
+                  <Shield className="h-4 w-4" />
+                  Open Admin Panel
+                </Link>
               </Button>
             </div>
+          </section>
+        )}
+
+        {/* ── NOTIFICATIONS (coming soon) ── */}
+        <section className="opacity-50 pointer-events-none">
+          <SectionLabel>Notifications</SectionLabel>
+          <div className="mt-3 rounded-2xl border border-dashed border-border bg-card/50 p-5">
+            <p className="text-muted-foreground text-sm">Notification preferences — coming soon.</p>
           </div>
-        </DialogContent>
-      </Dialog>
+        </section>
+
+      </div>
     </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70">
+      {children}
+    </p>
+  );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-sm font-semibold text-foreground">
+      {children}
+    </p>
   );
 }

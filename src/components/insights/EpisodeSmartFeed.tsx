@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,19 @@ interface EpisodeSmartFeedProps {
 export type SectionId = "hero" | "highlights" | "transcript";
 
 export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
+  // Build a basic track for the AskAIBar Play button (no chapters needed for start-from-0 play)
+  const track = useMemo(() => {
+    if (!episode.audio_url) return undefined;
+    return {
+      id: episode.id,
+      title: episode.title,
+      artist: episode.podcast?.title || 'Unknown Podcast',
+      artworkUrl: episode.podcast?.image_url || '',
+      audioUrl: episode.audio_url,
+      duration: episode.duration_seconds ?? undefined,
+    };
+  }, [episode]);
+
   const [data, setData] = useState<EpisodeInsightsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -271,7 +284,7 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
       </div>
 
       {/* Standalone Ask AI Bar (visible when player is not active) */}
-      <AskAIBar mode="standalone" />
+      <AskAIBar mode="standalone" track={track} />
 
       {/* Quick Nav (Elevator) */}
       <QuickNav

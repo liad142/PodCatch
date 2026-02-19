@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, Loader2, Info } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
@@ -13,6 +14,7 @@ type AuthTab = 'signin' | 'signup';
 
 export function AuthModal() {
   const { showAuthModal, setShowAuthModal, signIn, signUp, signInWithGoogle, authPromptMessage } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<AuthTab>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -59,8 +61,12 @@ export function AuthModal() {
         const result = await signUp(email, password, displayName || undefined);
         if (result.error) {
           setError(result.error);
-        } else {
+        } else if (result.needsConfirmation) {
           setSuccessMessage('Check your email for a confirmation link!');
+        } else {
+          // Immediately signed in (email confirmation disabled) — go to onboarding
+          setShowAuthModal(false);
+          router.push('/onboarding');
         }
       }
     } finally {
