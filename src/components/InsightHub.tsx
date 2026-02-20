@@ -142,12 +142,12 @@ export function InsightHub({ episodeId, initialTab = 'summary' }: InsightHubProp
   };
 
   // Generate specific summary level
-  const handleGenerateSummary = async (level: 'quick' | 'deep') => {
+  const handleGenerateSummary = async (level: 'quick' | 'deep', force = false) => {
     try {
       const res = await fetch(`/api/episodes/${episodeId}/summaries`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ level })
+        body: JSON.stringify({ level, force })
       });
 
       if (!res.ok) throw new Error('Failed to start summary generation');

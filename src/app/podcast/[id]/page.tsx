@@ -535,7 +535,7 @@ export default function PodcastPage() {
 
                             {/* Title */}
                             {canNavigate ? (
-                              <Link href={`/episode/${summaryInfo.episodeId}`}>
+                              <Link href={`/episode/${summaryInfo.episodeId}?from=${podcastId}`}>
                                 <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight group-hover:text-violet-700 transition-colors cursor-pointer">
                                   {episode.title}
                                 </h3>
@@ -556,6 +556,7 @@ export default function PodcastPage() {
                               {episode.isFromDb || summaryInfo?.episodeId ? (
                                 <SummarizeButton
                                   episodeId={episode.isFromDb ? episode.id : summaryInfo!.episodeId!}
+                                  from={podcastId}
                                   initialStatus={
                                     hasSummary ? 'ready' :
                                       (() => {

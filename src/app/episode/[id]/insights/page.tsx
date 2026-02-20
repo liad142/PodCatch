@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/Header";
 import { EpisodeSmartFeed } from "@/components/insights/EpisodeSmartFeed";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,9 @@ interface EpisodeData extends Episode {
 export default function EpisodeInsightsPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const episodeId = params.id as string;
+  const fromPodcastId = searchParams.get('from');
 
   const [episode, setEpisode] = useState<EpisodeData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -82,14 +84,14 @@ export default function EpisodeInsightsPage() {
     });
   };
 
-  // Extract Apple podcast ID from rss_feed_url (format: "apple:123456" or actual RSS URL)
   const getBackLink = () => {
+    // Prefer the podcast the user navigated from (avoids duplicate-entry mismatch)
+    if (fromPodcastId) return `/podcast/${fromPodcastId}`;
     const rssUrl = episode?.podcast?.rss_feed_url;
     if (rssUrl?.startsWith('apple:')) {
       const appleId = rssUrl.replace('apple:', '');
       return `/browse/podcast/${appleId}`;
     }
-    // Fallback to internal podcast page if not an Apple import
     return `/podcast/${episode?.podcast_id}`;
   };
 

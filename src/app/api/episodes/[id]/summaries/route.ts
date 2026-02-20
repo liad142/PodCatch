@@ -41,6 +41,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const body = await request.json();
     const level: SummaryLevel = body.level || 'quick';
+    const force: boolean = body.force === true;
 
     if (!['quick', 'deep'].includes(level)) {
       return NextResponse.json({ error: 'Invalid level. Must be "quick" or "deep".' }, { status: 400 });
@@ -81,7 +82,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       level,
       episode.audio_url,
       language || undefined,
-      episode.transcript_url || undefined  // Priority A: FREE transcript from RSS
+      episode.transcript_url || undefined,  // Priority A: FREE transcript from RSS
+      force
     );
 
     // Record user ownership of this summary

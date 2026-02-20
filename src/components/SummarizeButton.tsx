@@ -19,6 +19,7 @@ interface SummarizeButtonProps {
   episodeId: string;
   initialStatus?: 'not_ready' | 'ready' | 'failed' | 'transcribing' | 'summarizing' | 'queued';
   className?: string;
+  from?: string;
 }
 
 // Map initialStatus to QueueItemState
@@ -33,7 +34,7 @@ function mapInitialStatus(status: string): QueueItemState {
   }
 }
 
-export function SummarizeButton({ episodeId, initialStatus = 'not_ready', className = '' }: SummarizeButtonProps) {
+export function SummarizeButton({ episodeId, initialStatus = 'not_ready', className = '', from }: SummarizeButtonProps) {
   const router = useRouter();
   const { user, setShowCompactPrompt } = useAuth();
   const { addToQueue, retryEpisode, getQueueItem, getQueuePosition } = useSummarizeQueue();
@@ -65,7 +66,7 @@ export function SummarizeButton({ episodeId, initialStatus = 'not_ready', classN
         addToQueue(episodeId);
         break;
       case 'ready':
-        router.push(`/episode/${episodeId}/insights?tab=summary`);
+        router.push(`/episode/${episodeId}/insights?tab=summary${from ? `&from=${from}` : ''}`);
         break;
       case 'failed':
         if (!user) {

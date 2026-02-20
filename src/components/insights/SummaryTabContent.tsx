@@ -15,7 +15,7 @@ interface SummaryTabContentProps {
     deep?: { status: SummaryStatus; content?: DeepSummaryContent };
   };
   isLoading: boolean;
-  onGenerate: (level: 'quick' | 'deep') => void;
+  onGenerate: (level: 'quick' | 'deep', force?: boolean) => void;
 }
 
 export function SummaryTabContent({ summaries, isLoading, onGenerate }: SummaryTabContentProps) {
@@ -42,7 +42,7 @@ export function SummaryTabContent({ summaries, isLoading, onGenerate }: SummaryT
   return (
     <div className="space-y-4 p-4">
       {/* Level Toggle */}
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
         <Button
           variant={activeLevel === 'quick' ? 'default' : 'outline'}
           size="sm"
@@ -67,6 +67,18 @@ export function SummaryTabContent({ summaries, isLoading, onGenerate }: SummaryT
             <CheckCircle className="h-3 w-3 text-green-500" />
           )}
         </Button>
+        {isReady && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onGenerate(activeLevel, true)}
+            className="ml-auto gap-1.5 text-muted-foreground hover:text-foreground"
+            title="Regenerate with latest AI prompts"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Regenerate
+          </Button>
+        )}
       </div>
 
       {/* Status / Generate Button */}

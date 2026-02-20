@@ -24,29 +24,37 @@ const model = genAI.getGenerativeModel({
 });
 
 // Prompt for generating all insights at once
-const INSIGHTS_PROMPT = `Analyze this podcast transcript and generate comprehensive insights in JSON format.
+const INSIGHTS_PROMPT = `You are producing EVIDENCE and NAVIGATION for the episode.
+Deep Summary already defines the episode STRUCTURE. Your job is to extract quotes + keywords and align them to that structure.
 
-Return a JSON object with this EXACT structure (no markdown, just valid JSON):
+You will be given:
+A) Deep Summary Chapters (as JSON) - the single source of truth for structure
+B) Transcript segments
+
+Return ONLY valid JSON with this EXACT structure:
 
 {
   "keywords": [
     {
       "word": "keyword or short phrase",
-      "frequency": 5,
+      "frequency": 0,
       "relevance": "high"
     }
   ],
   "highlights": [
     {
-      "quote": "Exact or near-exact quote from transcript that captures a key moment",
-      "context": "Brief context explaining why this quote matters",
-      "importance": "critical"
+      "quote": "Exact or near-exact quote from transcript (1-3 sentences max)",
+      "context": "Why it matters (one sentence)",
+      "importance": "critical|important|notable",
+      "timestamp": "MM:SS",
+      "timestamp_seconds": 0,
+      "chapter_title": "Must match one of the chapter titles from Deep Summary"
     }
   ],
   "shownotes": [
     {
-      "title": "Chapter/Section title",
-      "content": "Brief description of what's covered in this section"
+      "title": "Must match a Deep Summary chapter title",
+      "content": "One concise sentence describing the chapter (no new structure)."
     }
   ],
   "mindmap": {
@@ -55,25 +63,25 @@ Return a JSON object with this EXACT structure (no markdown, just valid JSON):
     "children": [
       {
         "id": "topic1",
-        "label": "Subtopic 1",
+        "label": "Subtopic 1 (must be grounded in Deep concepts/chapters)",
         "children": [
-          {"id": "topic1.1", "label": "Detail 1"}
+          { "id": "topic1.1", "label": "Detail 1" }
         ]
       }
     ]
   }
 }
 
-RULES:
-- Keywords: Extract 15-25 most important terms/phrases. Relevance: "high", "medium", or "low". Frequency is rough estimate.
-- Highlights: 8-12 key quotes that capture the essence of the episode. Importance: "critical", "important", or "notable".
-- Shownotes: Create 5-8 logical chapters/sections covering the episode flow.
-- Mindmap: 2-3 level hierarchy, max 15 nodes total. The root label should be the episode's main theme.
-- Only include timestamps if clearly identifiable in the transcript.
-- Only include links in shownotes if explicitly mentioned with full URLs.
-- No hallucinated content - extract only what's in the transcript.
-- Keep quotes concise but meaningful (1-3 sentences max).
-- CRITICAL: Write ALL content (keywords, highlights, shownotes, mindmap labels) in the SAME LANGUAGE as the transcript - whether Hebrew, Spanish, French, Japanese, Arabic, or any other language. Match the transcript language exactly.
+HARD RULES:
+1) LANGUAGE: Everything must match transcript language exactly.
+2) NO HALLUCINATION: Quotes must be quotes. No invented facts.
+3) KEYWORDS: 15-25 items. Set frequency to 0 (do not guess). Use relevance only.
+4) HIGHLIGHTS: 8-12 quotes. Provide timestamps if present in transcript; else "00:00" and 0.
+5) ALIGNMENT: shownotes titles MUST be exactly the Deep chapter titles. highlights.chapter_title must match too.
+6) Mindmap: 2-3 levels, max 15 nodes, must reflect the Deep structure (no new themes).
+
+DEEP SUMMARY CHAPTERS (SOURCE OF TRUTH):
+{{DEEP_CHAPTERS_JSON}}
 
 Transcript:
 `;
@@ -93,8 +101,31 @@ export async function generateInsights(
     .eq('language', language);
 
   try {
+    // Fetch deep summary chapters to inject into the prompt as structural anchor
+    let deepChaptersJson = '[]';
+    try {
+      const deepResult = await supabase
+        .from('summaries')
+        .select('content_json')
+        .eq('episode_id', episodeId)
+        .eq('level', 'deep')
+        .eq('status', 'ready')
+        .limit(1)
+        .single();
+      const chapters = (deepResult.data?.content_json as { chronological_breakdown?: unknown[] } | null)?.chronological_breakdown;
+      if (Array.isArray(chapters) && chapters.length > 0) {
+        deepChaptersJson = JSON.stringify(chapters.map((c: unknown) => {
+          const ch = c as { title?: string; timestamp?: string };
+          return { title: ch.title, timestamp: ch.timestamp };
+        }));
+      }
+    } catch {
+      // Deep summary not ready yet — insights will run without chapter alignment
+    }
+
     const systemPrompt = "You are a JSON-only response bot. Respond with ONLY valid JSON. CRITICAL: Detect the language of the transcript and respond in THE SAME LANGUAGE - whether Hebrew, Spanish, French, Japanese, Arabic, or any other language. Match exactly.";
-    const fullPrompt = systemPrompt + "\n\n" + INSIGHTS_PROMPT + transcriptText.substring(0, 100000);
+    const resolvedPrompt = INSIGHTS_PROMPT.replace('{{DEEP_CHAPTERS_JSON}}', deepChaptersJson);
+    const fullPrompt = systemPrompt + "\n\n" + resolvedPrompt + transcriptText.substring(0, 100000);
     
     const result = await model.generateContent(fullPrompt);
     const response = result.response;

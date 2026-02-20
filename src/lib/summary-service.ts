@@ -281,61 +281,62 @@ RULES:
 `;
 
 // DEEP summary prompt - returns DeepSummaryContent JSON
-const DEEP_PROMPT = `You are an expert Ghostwriter and Analyst with a PhD in the subject matter of the transcript.
-Your goal is to write a comprehensive "Executive Briefing" that completely substitutes the need to listen to the episode.
+const DEEP_PROMPT = `You are a senior investigative editor + a product analyst.
+Your job: produce the single source of truth for the episode's STRUCTURE and EXECUTION value.
+This output will power these UI sections: Comprehensive Overview, Core Concepts cards, Episode Chapters, Contrarian Views, Action Items.
 
-Return ONLY a JSON object with this exact structure:
+Return ONLY valid JSON with this exact structure:
 
 {
-  "comprehensive_overview": "A detailed, multi-paragraph essay (400-600 words) summarizing the entire episode, capturing the nuance, the debate, and the narrative arc. Do NOT be brief. Wrap the 3-5 MOST important sentences or phrases in <<double angle brackets>> to highlight them as must-read insights. Example: The discussion revealed that <<quantum computing will make current encryption obsolete within 5 years>>, which has major implications for...",
+  "comprehensive_overview": "400-750 words. Multi-paragraph. Start with the main claim + stakes (no episode meta). Explain the narrative arc. Use markdown for readability. Wrap 4-7 MUST-READ insights in <<>> (complete sentences).",
 
   "core_concepts": [
     {
-      "concept": "Name of the concept/argument",
-      "explanation": "Detailed explanation of what was discussed regarding this concept.",
-      "quote_reference": "A short relevant quote if available (optional)"
+      "concept": "Short, scannable card title (2-6 words)",
+      "explanation": "3-6 sentences: definition + why it matters HERE + practical implication (what it changes for the listener).",
+      "quote_reference": "A short near-exact quote if available (optional; do not invent)."
     }
   ],
 
   "chronological_breakdown": [
     {
-      "timestamp": "05:45",
-      "timestamp_seconds": 345,
-      "title": "The AI Safety Debate",
-      "hook": "Why every hospital will have an AI triage system by 2027",
-      "content": "A meaty paragraph (100-150 words) detailing exactly what was said in this section. Include specific examples given by speakers."
+      "timestamp": "MM:SS",
+      "timestamp_seconds": 0,
+      "title": "Chapter title (short)",
+      "hook": "One-line insight/promise (specific, not generic)",
+      "content": "90-160 words describing what was said in this section with concrete examples (no fluff)."
     }
   ],
 
   "contrarian_views": [
-    "List specific points where speakers disagreed or presented counter-intuitive ideas."
+    "4-8 punchy contrarian statements (max 22 words each). Must reflect real disagreements, counter-intuitive claims, or 'hot takes' in the episode."
   ],
 
   "actionable_takeaways": [
     {
-      "text": "Set up OpenTelemetry tracing for your distributed services",
-      "category": "tool",
-      "priority": "high",
+      "text": "Verb-first, specific task (what to do).",
+      "category": "tool|repo|concept|strategy|resource|habit",
+      "priority": "high|medium|low",
       "resources": [
-        { "name": "OpenTelemetry", "type": "tool", "context": "Monitoring framework discussed as the backbone for distributed tracing" }
-      ]
+        {
+          "name": "EXACT resource name mentioned",
+          "type": "github|book|paper|tool|website|default",
+          "context": "Why this resource matters for THIS task (one sentence).",
+          "resolver_hint": "install|docs|pricing|examples|official (NO URLs)"
+        }
+      ],
+      "proof_of_done": "Observable outcome proving completion (one sentence)."
     }
   ]
 }
 
-RULES:
-1. **Length is Virtue**: Do NOT summarize briefly. Provide depth. The user wants to read this for 10 minutes.
-2. **Language**: CRITICAL - Write ALL content in the SAME LANGUAGE as the transcript (e.g., Hebrew for Hebrew podcasts).
-3. **Tone**: Professional, analytical, but engaging. Avoid robotic phrasing like "The speakers discussed...". Instead, write directly: "Israel's geopolitical situation is shifting because..."
-4. **Format**: Use Markdown formatting inside the JSON strings (e.g., **bold** for emphasis) to make the text readable.
-5. **No Fluff**: Do not say "In this interesting episode...". Dive straight into the content.
-6. **Highlights**: In comprehensive_overview, wrap the 3-5 MOST important sentences in <<double angle brackets>>. These are the must-read insights.
-7. **Timestamps**: The transcript may include [MM:SS] timestamps. For EACH chronological_breakdown section, set "timestamp" to the EXACT [MM:SS] from the transcript where that topic BEGINS. Set "timestamp_seconds" to total seconds (e.g., "05:45" = 345). If the transcript has no timestamps, use "00:00" and 0.
-8. **Action Items**:
-   - category: tool/repo/concept/strategy/resource/habit
-   - priority: high (explicitly recommended), medium (implied), low (general idea)
-   - resources: ONLY include tools/repos/books/people that were EXPLICITLY MENTIONED in the episode. Never invent resources.
-   - Include the resource NAME only — never fabricate URLs.
+HARD RULES:
+1. LANGUAGE: CRITICAL - Write ALL content in the SAME LANGUAGE as the transcript (e.g., Hebrew for Hebrew podcasts).
+2. NO HALLUCINATION: Never invent resources, quotes, or facts. Only extract what is in the transcript.
+3. TIMESTAMPS: For each chronological_breakdown section, set "timestamp" to the EXACT [MM:SS] from the transcript where that topic BEGINS. Set "timestamp_seconds" to total seconds (e.g., "05:45" = 345). If the transcript has no timestamps, use "00:00" and 0.
+4. RESOURCES: Include only tools/repos/books/people EXPLICITLY MENTIONED in the episode. Include the resource NAME only — never fabricate URLs.
+5. TONE: Write directly and analytically. No "In this episode..." fluff. Start with the claim.
+6. FORMAT: Use Markdown inside JSON strings (**bold**, lists) for readability.
 `;
 
 
@@ -906,7 +907,8 @@ export async function requestSummary(
   level: SummaryLevel,
   audioUrl: string,
   language = 'en',
-  transcriptUrl?: string  // NEW: Optional RSS transcript URL for FREE transcription
+  transcriptUrl?: string,
+  force = false
 ): Promise<{ status: SummaryStatus; content?: QuickSummaryContent | DeepSummaryContent }> {
   const startTime = Date.now();
   logWithTime('=== requestSummary STARTED ===', { episodeId, level, language, hasTranscriptUrl: !!transcriptUrl });
@@ -944,7 +946,7 @@ export async function requestSummary(
     status: existing?.status 
   });
 
-  if (existing) {
+  if (existing && !force) {
     if (existing.status === 'ready' && existing.content_json) {
       logWithTime('Returning cached summary', { totalDurationMs: Date.now() - startTime });
       return { status: 'ready', content: existing.content_json };
@@ -973,6 +975,15 @@ export async function requestSummary(
     }
     logWithTime('Summary exists but needs retry', { status: existing.status });
     // If failed or not_ready, we'll try again
+  }
+
+  // If force=true, wipe the existing content so the LLM runs fresh
+  if (force && existing) {
+    logWithTime('Force regenerate: clearing existing content_json');
+    await supabase
+      .from('summaries')
+      .update({ content_json: null, status: 'transcribing', updated_at: new Date().toISOString() })
+      .eq('id', existing.id);
   }
 
   // Create summary record directly as transcribing (Fix 1: single DB write)

@@ -91,9 +91,10 @@ export interface DeepSummaryActionPrompt {
 
 // Structured action item with resource names (no AI-generated URLs)
 export interface ActionItemResource {
-  name: string;       // "LangChain", "The Pragmatic Programmer"
-  type: 'github' | 'tool' | 'book' | 'person' | 'paper' | 'website';
-  context?: string;   // "Python framework for LLM apps discussed by the guest"
+  name: string;          // "LangChain", "The Pragmatic Programmer"
+  type: 'github' | 'tool' | 'book' | 'person' | 'paper' | 'website' | 'default';
+  context?: string;      // "Python framework for LLM apps discussed by the guest"
+  resolver_hint?: string; // "install" | "docs" | "pricing" | "examples" | "official"
 }
 
 export interface ActionItem {
@@ -101,6 +102,7 @@ export interface ActionItem {
   category: 'tool' | 'repo' | 'concept' | 'strategy' | 'resource' | 'habit';
   priority?: 'high' | 'medium' | 'low';
   resources?: ActionItemResource[];
+  proof_of_done?: string; // Observable outcome proving completion
 }
 
 // New chronological breakdown section with timestamps
@@ -182,9 +184,11 @@ export interface KeywordItem {
 // Highlight structure (key quotes/moments)
 export interface HighlightItem {
   quote: string;
-  timestamp?: string; // "12:34" format
+  timestamp?: string;          // "12:34" format
+  timestamp_seconds?: number;  // for seeking
   context?: string;
   importance: 'critical' | 'important' | 'notable';
+  chapter_title?: string;      // matches a chronological_breakdown title from deep summary
 }
 
 // Shownotes section

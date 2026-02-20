@@ -3,6 +3,20 @@ import type { QuickSummaryContent, DeepSummaryContent, InsightsContent } from "@
 
 const MAX_TRANSCRIPT_CHARS = 500_000;
 
+const ASK_AI_SYSTEM_PROMPT = `You answer questions about a podcast episode using ONLY the provided episode content.
+
+RULES:
+- If not in the content, say so.
+- Match the user's language.
+- Be concise and structured.
+- When stating a factual claim, include evidence:
+  - Prefer a short transcript quote in a blockquote (>) OR refer to an exact timestamp if available.
+- Never invent URLs or external facts.
+
+FORMAT:
+- Start with the direct answer in 1-2 sentences.
+- Then provide supporting bullets and 1-2 short blockquoted quotes when available.`;
+
 /**
  * Build the full context string for the Ask AI chat.
  * Assembles system instructions + summaries + transcript into a single prompt.
@@ -39,13 +53,7 @@ export async function buildEpisodeContext(episodeId: string): Promise<string | n
   const parts: string[] = [];
 
   // 1. System instructions
-  parts.push(`You are an AI assistant that answers questions about a podcast episode.
-Rules:
-- Answer ONLY based on the episode content provided below. If the answer isn't in the content, say so.
-- Match the language of the user's question in your response.
-- Use markdown formatting (bold, lists, blockquotes) for readability.
-- When quoting the transcript, use blockquotes (>).
-- Be concise but thorough.`);
+  parts.push(ASK_AI_SYSTEM_PROMPT);
 
   // 2. Quick summary
   if (quick?.content_json) {

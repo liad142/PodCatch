@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { SummaryPanel } from "@/components/SummaryPanel";
@@ -33,7 +33,9 @@ interface SummariesData {
 
 export default function EpisodePage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const episodeId = params.id as string;
+  const fromPodcastId = searchParams.get('from');
 
   const [episode, setEpisode] = useState<EpisodeData | null>(null);
   const [summaries, setSummaries] = useState<SummariesData | null>(null);
@@ -109,14 +111,14 @@ export default function EpisodePage() {
 
   const hasSummaryReady = summaries?.quick?.status === 'ready' || summaries?.deep?.status === 'ready';
 
-  // Extract Apple podcast ID from rss_feed_url (format: "apple:123456" or actual RSS URL)
   const getBackLink = () => {
+    // Prefer the podcast the user navigated from (avoids duplicate-entry mismatch)
+    if (fromPodcastId) return `/podcast/${fromPodcastId}`;
     const rssUrl = episode?.podcast?.rss_feed_url;
     if (rssUrl?.startsWith('apple:')) {
       const appleId = rssUrl.replace('apple:', '');
       return `/browse/podcast/${appleId}`;
     }
-    // Fallback to internal podcast page if not an Apple import
     return `/podcast/${episode?.podcast_id}`;
   };
 
@@ -215,7 +217,7 @@ export default function EpisodePage() {
                         }}
                       />
                     )}
-                    <Link href={`/episode/${episodeId}/insights`}>
+                    <Link href={`/episode/${episodeId}/insights${fromPodcastId ? `?from=${fromPodcastId}` : ''}`}>
                       <Button size="sm">
                         <Brain className="mr-2 h-4 w-4" />
                         View Insights
@@ -223,6 +225,7 @@ export default function EpisodePage() {
                     </Link>
                     <SummarizeButton
                       episodeId={episodeId}
+                      from={fromPodcastId ?? undefined}
                     />
                   </div>
                 </CardContent>
