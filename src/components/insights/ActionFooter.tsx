@@ -299,28 +299,6 @@ export function ActionFooter({ episode, actionPrompts, summaryReady = false }: A
           </div>
         )}
 
-        {/* Podcast Info Card */}
-        {episode.podcast && (
-          <div className="rounded-2xl border border-border dark:border-white/10 bg-card p-4 shadow-sm">
-            <div className="flex items-center gap-4">
-              {episode.podcast.image_url && (
-                <img
-                  src={episode.podcast.image_url}
-                  alt={episode.podcast.title || "Podcast"}
-                  className="w-14 h-14 rounded-xl object-cover shadow-sm bg-muted"
-                />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-foreground text-sm truncate">
-                  {episode.podcast.title}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {episode.podcast.author || "Podcast"}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </motion.div>
 
     </div>
