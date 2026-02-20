@@ -135,31 +135,32 @@ export default function EpisodeInsightsPage() {
           />
         )}
 
-        {/* Dark overlay for readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-black/30" />
+        {/* Dark overlay — fades strongly at top, lightens toward bottom */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/40 to-black/10" />
 
-        {/* Bottom fade into page background */}
-        <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-b from-transparent to-slate-50 dark:to-[#0f111a]" />
+        {/* Bottom fade — tall and smooth into the page background */}
+        <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-b from-transparent to-slate-50 dark:to-[#0f111a]" />
 
         {/* ── Content ── */}
-        <div className="relative z-10 container mx-auto px-4 pt-5 pb-10 max-w-4xl">
+        <div className="relative z-10 container mx-auto px-4 pt-5 pb-20 max-w-4xl">
           {isLoading ? (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <Skeleton className="h-4 w-28 bg-white/20" />
-              <div className="flex gap-4 items-start">
-                <Skeleton className="w-20 h-20 rounded-xl shrink-0 bg-white/20" />
-                <div className="space-y-2.5 flex-1 pt-1">
-                  <Skeleton className="h-7 w-5/6 bg-white/20" />
+              <div className="flex gap-6 items-start">
+                <Skeleton className="w-24 h-24 rounded-xl shrink-0 bg-white/20" />
+                <div className="space-y-3 flex-1 pt-1">
+                  <Skeleton className="h-8 w-5/6 bg-white/20" />
                   <Skeleton className="h-5 w-2/3 bg-white/20" />
                   <div className="flex gap-2 pt-1">
                     <Skeleton className="h-6 w-24 rounded-full bg-white/20" />
                     <Skeleton className="h-6 w-16 rounded-full bg-white/20" />
                   </div>
+                  <Skeleton className="w-14 h-14 rounded-full bg-white/20" />
                 </div>
               </div>
             </div>
           ) : episode ? (
-            <div className="space-y-4">
+            <div className="space-y-5">
               {/* Back nav */}
               <button
                 onClick={() => router.push(getBackLink())}
@@ -172,13 +173,14 @@ export default function EpisodeInsightsPage() {
               </button>
 
               {/* Art + Info */}
-              <div className="flex gap-4 items-start">
+              <div className="flex gap-6 items-start">
                 {artworkUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={artworkUrl}
                     alt={episode.podcast?.title || "Podcast artwork"}
-                    className="w-20 h-20 md:w-24 md:h-24 rounded-xl object-cover shadow-2xl border border-white/10 shrink-0"
+                    className="w-24 h-24 md:w-28 md:h-28 rounded-xl object-cover border border-white/10 shrink-0"
+                    style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.4)" }}
                   />
                 )}
 
@@ -201,7 +203,11 @@ export default function EpisodeInsightsPage() {
                         {formatDuration(episode.duration_seconds)}
                       </span>
                     )}
-                    {episode.audio_url && episode.podcast && (
+                  </div>
+
+                  {/* Large gradient Play CTA */}
+                  {episode.audio_url && episode.podcast && (
+                    <div className="pt-1">
                       <PlayButton
                         track={{
                           id: episode.id,
@@ -211,11 +217,12 @@ export default function EpisodeInsightsPage() {
                           audioUrl: episode.audio_url,
                           duration: episode.duration_seconds || undefined,
                         }}
-                        size="sm"
-                        variant="outline"
+                        size="lg"
+                        variant="primary"
+                        className="w-14 h-14 bg-gradient-to-br from-violet-500 to-fuchsia-500 hover:from-violet-400 hover:to-fuchsia-400 border-0 shadow-lg shadow-violet-500/40 hover:shadow-violet-500/60 text-white"
                       />
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
