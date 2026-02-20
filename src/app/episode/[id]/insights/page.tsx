@@ -190,7 +190,7 @@ export default function EpisodeInsightsPage() {
                   </h1>
 
                   {/* Play CTA + metadata pills — single aligned row */}
-                  <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-3">
                     {episode.audio_url && episode.podcast && (
                       <PlayButton
                         track={{
