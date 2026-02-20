@@ -318,9 +318,6 @@ export function ActionFooter({ episode, actionPrompts, summaryReady = false }: A
                   {episode.podcast.author || "Podcast"}
                 </p>
               </div>
-              <Button variant="outline" size="sm" className="rounded-full px-4 border-border text-muted-foreground hover:text-foreground" asChild>
-                <a href={`/podcast/${episode.podcast_id}`}>View Show</a>
-              </Button>
             </div>
           </div>
         )}
