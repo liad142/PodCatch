@@ -5,13 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
 import { EpisodeSmartFeed } from "@/components/insights/EpisodeSmartFeed";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase";
 import type { Episode, Podcast } from "@/types/database";
 import { ArrowLeft, Clock, Calendar } from "lucide-react";
 import { PlayButton } from "@/components/PlayButton";
-import { QuickShareButton } from "@/components/insights/QuickShareButton";
 
 interface EpisodeData extends Episode {
   podcast?: Podcast;
@@ -116,93 +114,70 @@ export default function EpisodeInsightsPage() {
       <Header />
 
       {/* Episode Header */}
-      <div className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4">
+      <div className="border-b border-border/60 bg-background/80 dark:bg-card/60 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-5 max-w-4xl">
           {isLoading ? (
             <div className="space-y-3">
-              <Skeleton className="h-8 w-32" />
-              <Skeleton className="h-6 w-2/3" />
-              <div className="flex gap-2">
-                <Skeleton className="h-5 w-20" />
-                <Skeleton className="h-5 w-16" />
-              </div>
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-6 w-3/4" />
+              <Skeleton className="h-4 w-36" />
             </div>
           ) : episode ? (
-            <div className="flex items-start gap-4">
-              {/* Podcast Image */}
-              {episode.podcast?.image_url && typeof episode.podcast.image_url === 'string' && episode.podcast.image_url.startsWith('http') && (
-                <div className="hidden sm:block shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+            <div className="space-y-3">
+              {/* Back nav */}
+              <button
+                onClick={() => router.push(getBackLink())}
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors group w-fit"
+              >
+                <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                <span className="truncate max-w-[200px]">{episode.podcast?.title || "Back"}</span>
+              </button>
+
+              {/* Main row: art + info */}
+              <div className="flex gap-3.5 items-start">
+                {episode.podcast?.image_url &&
+                  typeof episode.podcast.image_url === "string" &&
+                  episode.podcast.image_url.startsWith("http") && (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={episode.podcast.image_url}
-                    alt={episode.podcast.title || 'Podcast'}
-                    width={80}
-                    height={80}
-                    className="rounded-lg shadow-md"
+                    alt={episode.podcast.title || "Podcast"}
+                    className="w-14 h-14 rounded-xl object-cover shadow-sm shrink-0"
                   />
-                </div>
-              )}
+                )}
 
-              {/* Episode Info */}
-              <div className="flex-1 min-w-0 space-y-2">
-                {/* Back Button + Podcast Name */}
-                <div className="flex items-center gap-2 text-sm">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 -ml-2"
-                    onClick={() => router.push(getBackLink())}
-                  >
-                    <ArrowLeft className="h-4 w-4 mr-1" />
-                    Back
-                  </Button>
-                  {episode.podcast && (
-                    <span className="text-muted-foreground truncate">
-                      {episode.podcast.title}
-                    </span>
-                  )}
-                </div>
+                <div className="flex-1 min-w-0 space-y-2">
+                  <h1 className="text-lg md:text-xl font-bold leading-snug line-clamp-2 text-foreground">
+                    {episode.title}
+                  </h1>
 
-                {/* Episode Title */}
-                <h1 className="text-lg md:text-xl font-bold leading-tight line-clamp-2">
-                  {episode.title}
-                </h1>
-
-                {/* Meta info */}
-                <div className="flex items-center flex-wrap gap-2 text-sm">
-                  {episode.published_at && (
-                    <Badge variant="secondary" className="gap-1 font-normal">
-                      <Calendar className="h-3 w-3" />
-                      {formatDate(episode.published_at)}
-                    </Badge>
-                  )}
-                  {episode.duration_seconds && (
-                    <Badge variant="secondary" className="gap-1 font-normal">
-                      <Clock className="h-3 w-3" />
-                      {formatDuration(episode.duration_seconds)}
-                    </Badge>
-                  )}
-                  {episode.audio_url && episode.podcast && (
-                    <PlayButton
-                      track={{
-                        id: episode.id,
-                        title: episode.title,
-                        artist: episode.podcast.title || episode.podcast.author || 'Unknown',
-                        artworkUrl: episode.podcast.image_url || '',
-                        audioUrl: episode.audio_url,
-                        duration: episode.duration_seconds || undefined,
-                      }}
-                      size="sm"
-                      variant="outline"
-                    />
-                  )}
-                  <div className="ml-auto sm:ml-2">
-                    <QuickShareButton
-                      episodeId={episode.id}
-                      episodeTitle={episode.title}
-                      podcastName={episode.podcast?.title || "Podcast"}
-                      summaryReady={false} // Default to share-link mode
-                    />
+                  <div className="flex items-center flex-wrap gap-x-3.5 gap-y-1 text-xs text-muted-foreground">
+                    {episode.published_at && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {formatDate(episode.published_at)}
+                      </span>
+                    )}
+                    {episode.duration_seconds && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatDuration(episode.duration_seconds)}
+                      </span>
+                    )}
+                    {episode.audio_url && episode.podcast && (
+                      <PlayButton
+                        track={{
+                          id: episode.id,
+                          title: episode.title,
+                          artist: episode.podcast.title || episode.podcast.author || "Unknown",
+                          artworkUrl: episode.podcast.image_url || "",
+                          audioUrl: episode.audio_url,
+                          duration: episode.duration_seconds || undefined,
+                        }}
+                        size="sm"
+                        variant="ghost"
+                      />
+                    )}
                   </div>
                 </div>
               </div>
