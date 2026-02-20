@@ -33,7 +33,7 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
     return (
       <div className="fixed bottom-6 left-4 right-4 z-50 pointer-events-none flex justify-center">
         <div className="pointer-events-auto w-full max-w-xl">
-          <div className="bg-card/90 backdrop-blur-md dark:bg-muted/90 rounded-full shadow-2xl flex items-center border border-border overflow-hidden transition-transform hover:scale-[1.01]">
+          <div className="bg-card/90 backdrop-blur-md dark:bg-muted/90 rounded-full shadow-2xl shadow-black/20 dark:shadow-indigo-500/10 flex items-center border border-border dark:border-white/10 overflow-hidden transition-transform hover:scale-[1.01]">
 
             {/* Play section */}
             {showPlay && (
@@ -80,11 +80,11 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
   if (!active) return null;
 
   return (
-    <div className="px-3 py-2 bg-black/60 backdrop-blur-sm">
-      <div
-        className="flex items-center gap-2.5 px-3 py-2 rounded-full border border-white/15 bg-white/[0.07] cursor-text hover:bg-white/10 hover:border-white/20 transition-colors"
-        onClick={() => openChat()}
-      >
+    <div
+      className="px-4 py-2.5 border-b border-white/[0.06] cursor-text hover:bg-white/[0.03] transition-colors"
+      onClick={() => openChat()}
+    >
+      <div className="flex items-center gap-2.5">
         <div className="bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full p-1 shrink-0">
           <Sparkles className="h-3 w-3 text-white" />
         </div>

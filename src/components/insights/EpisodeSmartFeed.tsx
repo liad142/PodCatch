@@ -10,8 +10,10 @@ import { TranscriptAccordion } from "./TranscriptAccordion";
 import { ActionFooter } from "./ActionFooter";
 import { AskAIBar } from "./AskAIBar";
 import { useActivateAskAI } from "@/contexts/AskAIContext";
+import { useAudioPlayerSafe } from "@/contexts/AudioPlayerContext";
 import { QuickNav } from "./QuickNav";
 import { SubscriptionCard } from "./SubscriptionCard";
+import { normalizeChronologicalSections, hasRealTimestamps } from "@/lib/summary-normalize";
 import type { Episode, Podcast, EpisodeInsightsResponse, DeepSummaryContent } from "@/types/database";
 
 interface EpisodeSmartFeedProps {
@@ -21,9 +23,29 @@ interface EpisodeSmartFeedProps {
 export type SectionId = "hero" | "highlights" | "transcript";
 
 export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
-  // Build a basic track for the AskAIBar Play button (no chapters needed for start-from-0 play)
+  const [data, setData] = useState<EpisodeInsightsResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Build track with chapters from deep summary (when available)
   const track = useMemo(() => {
     if (!episode.audio_url) return undefined;
+    const deepContent = data?.summaries?.deep?.content as DeepSummaryContent | undefined;
+    const sections = deepContent?.chronological_breakdown;
+    let chapters: { title: string; timestamp: string; timestamp_seconds: number }[] | undefined;
+    if (sections) {
+      const normalized = normalizeChronologicalSections(sections);
+      if (hasRealTimestamps(normalized)) {
+        chapters = normalized
+          .filter((s) => (s.timestamp_seconds ?? 0) >= 0 && s.timestamp)
+          .map((s) => ({
+            title: s.title || s.timestamp_description || 'Untitled',
+            timestamp: s.timestamp!,
+            timestamp_seconds: s.timestamp_seconds!,
+          }));
+      }
+    }
     return {
       id: episode.id,
       title: episode.title,
@@ -31,16 +53,21 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
       artworkUrl: episode.podcast?.image_url || '',
       audioUrl: episode.audio_url,
       duration: episode.duration_seconds ?? undefined,
+      chapters,
     };
-  }, [episode]);
-
-  const [data, setData] = useState<EpisodeInsightsResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  }, [episode, data?.summaries?.deep]);
 
   // Signal to the global AskAI context that we're on an insights page
   useActivateAskAI(episode.id);
+
+  // Inject chapters into an already-playing track when data loads
+  const player = useAudioPlayerSafe();
+  useEffect(() => {
+    if (!player || !track?.chapters?.length) return;
+    if (player.currentTrack?.id === episode.id && !player.currentTrack.chapters?.length) {
+      player.updateTrackMeta({ chapters: track.chapters });
+    }
+  }, [player, track?.chapters, episode.id]);
 
   // Section refs for QuickNav
   const sectionRefs = useRef<Record<SectionId, HTMLElement | null>>({

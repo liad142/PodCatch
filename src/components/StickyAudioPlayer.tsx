@@ -34,7 +34,6 @@ import {
   ChevronDown,
   Loader2,
   X,
-  Gauge,
   Clock,
 } from 'lucide-react';
 import { useAudioPlayerSafe } from '@/contexts/AudioPlayerContext';
@@ -174,6 +173,7 @@ function ChapterScrubber({
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
       setIsDragging(true);
       const time = getTimeFromX(e.clientX);
@@ -208,7 +208,7 @@ function ChapterScrubber({
   return (
     <div
       ref={barRef}
-      className="absolute top-0 left-0 right-0 h-1 group cursor-pointer hover:h-1.5 transition-all"
+      className="relative w-full h-full"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -216,7 +216,7 @@ function ChapterScrubber({
       style={{ touchAction: 'none' }}
     >
       {/* Segments */}
-      <div className="flex h-full items-stretch" style={{ gap: gapCount > 0 ? '2px' : 0 }}>
+      <div className="flex h-full items-stretch" style={{ gap: gapCount > 0 ? '3px' : 0 }}>
         {segments.map((seg, i) => {
           let fillPct = 0;
           if (currentTime >= seg.end) fillPct = 100;
@@ -263,13 +263,28 @@ function ChapterScrubber({
 export function StickyAudioPlayer() {
   const player = useAudioPlayerSafe();
 
-  // Calculate volume icon (must be before conditional return)
+  // All hooks must be before conditional return
   const VolumeIcon = useMemo(() => {
     if (!player) return Volume2;
     if (player.volume === 0) return VolumeX;
     if (player.volume < 0.5) return Volume1;
     return Volume2;
   }, [player]);
+
+  const activeChapterIndex = useMemo(() => {
+    const chapters = player?.currentTrack?.chapters;
+    if (!chapters || chapters.length === 0) return -1;
+    const time = player?.currentTime ?? 0;
+    let idx = -1;
+    for (let i = 0; i < chapters.length; i++) {
+      if (chapters[i].timestamp_seconds <= time) idx = i;
+    }
+    return idx;
+  }, [player?.currentTrack?.chapters, player?.currentTime]);
+
+  const activeChapterTitle = player?.currentTrack?.chapters && activeChapterIndex >= 0
+    ? player.currentTrack.chapters[activeChapterIndex].title
+    : null;
 
   // Don't render if no player context or no track
   if (!player || !player.currentTrack) {
@@ -320,243 +335,152 @@ export function StickyAudioPlayer() {
         exit={{ y: 100, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className={cn(
-          'fixed bottom-0 left-0 right-0 z-50',
-          'lg:left-64' // Account for desktop sidebar
+          'fixed bottom-5 left-4 right-4 z-50 flex justify-center',
+          'lg:left-[17rem]' // Account for desktop sidebar
         )}
       >
-        {/* Integrated Ask AI Bar (shown on insights pages) — sits above the player */}
-        <AskAIBar mode="integrated" />
+        {/* Unified Floating Card */}
+        <div className="relative w-full max-w-3xl rounded-2xl overflow-hidden bg-[#0f111a]/95 backdrop-blur-xl border border-white/[0.08] shadow-2xl shadow-black/50">
+          {/* 1. Integrated Ask AI Bar */}
+          <AskAIBar mode="integrated" />
 
-        {/* Glassmorphic Container */}
-        <div className="relative bg-black/90 dark:bg-black/95 backdrop-blur-xl border-t border-white/10">
-          {/* Progress Bar - Top Edge */}
+          {/* 2. Progress Bar / Chapter Scrubber — padded hit area so taps don't bleed into AskAI */}
           {currentTrack.chapters && currentTrack.chapters.length > 0 ? (
-            <ChapterScrubber
-              chapters={currentTrack.chapters}
-              currentTime={currentTime}
-              duration={duration}
-              onSeek={seek}
-            />
+            <div className="relative pt-5 pb-1 px-1 group cursor-pointer">
+              <div className="relative h-2 group-hover:h-2.5 transition-all">
+                <ChapterScrubber
+                  chapters={currentTrack.chapters}
+                  currentTime={currentTime}
+                  duration={duration}
+                  onSeek={seek}
+                />
+              </div>
+            </div>
           ) : (
-            <div className="absolute top-0 left-0 right-0 h-1 group cursor-pointer">
+            <div className="relative pt-5 pb-1 px-1 group cursor-pointer">
               <Slider
                 value={[progressPercentage]}
                 onValueChange={handleProgressChange}
                 max={100}
                 step={0.1}
-                className="h-1 rounded-none"
-                trackClassName="h-1 rounded-none bg-white/5 group-hover:h-1.5 transition-all"
+                className="h-2"
+                trackClassName="h-2 rounded-sm bg-white/5 group-hover:h-2.5 transition-all"
                 rangeClassName="bg-gradient-to-r from-primary via-primary to-violet-400"
-                thumbClassName="opacity-0 group-hover:opacity-100 h-3 w-3 -mt-1 border-primary bg-white"
+                thumbClassName="opacity-0 group-hover:opacity-100 h-3.5 w-3.5 -mt-0.5 border-primary bg-white"
               />
               {/* Glow effect on progress */}
               <div
-                className="absolute top-0 h-1 bg-primary/50 blur-sm pointer-events-none transition-all"
+                className="absolute top-3 h-2 bg-primary/50 blur-sm pointer-events-none transition-all"
                 style={{ width: `${progressPercentage}%` }}
               />
             </div>
           )}
 
-          {/* Main Content */}
-          <div className="px-4 py-3">
-            <div className="flex items-center gap-4">
-              
-              {/* Left Section - Track Info */}
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                {/* Album Art */}
-                <motion.div 
-                  className="relative shrink-0"
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ type: 'spring', stiffness: 400 }}
-                >
-                  <div className="relative w-14 h-14 rounded-lg overflow-hidden shadow-lg shadow-black/50 ring-1 ring-white/10">
-                    {sanitizedArtwork ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={sanitizedArtwork}
-                        alt={currentTrack.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-primary/30 to-violet-600/30 flex items-center justify-center">
-                        <Volume2 className="w-6 h-6 text-white/50" />
-                      </div>
-                    )}
-                  </div>
-                  {/* Playing indicator */}
-                  {isPlaying && (
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/50">
-                      <div className="flex gap-0.5">
-                        {[0, 1, 2].map((i) => (
-                          <motion.div
-                            key={i}
-                            className="w-0.5 bg-white rounded-full"
-                            animate={{
-                              height: ['4px', '8px', '4px'],
-                            }}
-                            transition={{
-                              duration: 0.5,
-                              repeat: Infinity,
-                              delay: i * 0.1,
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </motion.div>
-
-                {/* Track Details */}
-                <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-semibold text-white truncate leading-tight">
-                    {currentTrack.title}
-                  </h4>
-                  <p className="text-xs text-white/60 truncate mt-0.5">
-                    {currentTrack.artist}
-                  </p>
-                  {/* Time on mobile */}
-                  <div className="flex items-center gap-1 mt-1 lg:hidden">
-                    <span className="text-[10px] text-white/40 font-mono">
-                      {formatTime(currentTime)}
-                    </span>
-                    <span className="text-[10px] text-white/20">/</span>
-                    <span className="text-[10px] text-white/40 font-mono">
-                      {formatTime(duration)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Center Section - Controls */}
-              <div className="flex flex-col items-center gap-1">
-                {/* Main Controls */}
-                <div className="flex items-center gap-1">
-                  {/* Skip Back */}
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => seekRelative(-15)}
-                    className="p-2 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors relative group"
-                    aria-label="Skip back 15 seconds"
-                  >
-                    <SkipBack className="w-5 h-5" />
-                    <span className="absolute -top-1 -right-1 text-[8px] font-bold text-white/50 group-hover:text-white/80">
-                      15
-                    </span>
-                  </motion.button>
-
-                  {/* Play/Pause */}
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={toggle}
-                    disabled={isLoading}
-                    className={cn(
-                      'w-12 h-12 rounded-full flex items-center justify-center transition-all',
-                      'bg-white text-black hover:scale-105 shadow-lg shadow-white/20',
-                      isLoading && 'opacity-70'
-                    )}
-                    aria-label={isPlaying ? 'Pause' : 'Play'}
-                  >
-                    {isLoading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : isPlaying ? (
-                      <Pause className="w-5 h-5" fill="currentColor" />
-                    ) : (
-                      <Play className="w-5 h-5 ml-0.5" fill="currentColor" />
-                    )}
-                  </motion.button>
-
-                  {/* Skip Forward */}
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => seekRelative(15)}
-                    className="p-2 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors relative group"
-                    aria-label="Skip forward 15 seconds"
-                  >
-                    <SkipForward className="w-5 h-5" />
-                    <span className="absolute -top-1 -right-1 text-[8px] font-bold text-white/50 group-hover:text-white/80">
-                      15
-                    </span>
-                  </motion.button>
-                </div>
-
-                {/* Time Display - Desktop */}
-                <div className="hidden lg:flex items-center gap-2 text-[11px] text-white/50 font-mono">
-                  <span className="w-12 text-right">{formatTime(currentTime)}</span>
-                  <span className="text-white/20">/</span>
-                  <span className="w-12">{formatTime(duration)}</span>
-                </div>
-              </div>
-
-              {/* Right Section - Volume & Extras */}
-              <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
-                {/* Playback Speed */}
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={cyclePlaybackRate}
-                  className={cn(
-                    'hidden sm:flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all',
-                    playbackRate !== 1 
-                      ? 'bg-primary/20 text-primary border border-primary/30' 
-                      : 'text-white/60 hover:text-white hover:bg-white/10'
-                  )}
-                  aria-label={`Playback speed: ${playbackRate}x`}
-                >
-                  <Gauge className="w-3.5 h-3.5" />
-                  <span>{playbackRate}x</span>
-                </motion.button>
-
-                {/* Volume Control - Desktop */}
-                <div className="hidden md:flex items-center gap-2 w-32">
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setVolume(volume === 0 ? 0.8 : 0)}
-                    className="p-1.5 rounded-full text-white/60 hover:text-white transition-colors"
-                    aria-label={volume === 0 ? 'Unmute' : 'Mute'}
-                  >
-                    <VolumeIcon className="w-4 h-4" />
-                  </motion.button>
-                  <Slider
-                    value={[volume * 100]}
-                    onValueChange={handleVolumeChange}
-                    max={100}
-                    className="flex-1"
-                    trackClassName="h-1 bg-white/10"
-                    rangeClassName="bg-white/70"
-                    thumbClassName="h-3 w-3 border-white/70 bg-white opacity-0 group-hover:opacity-100 hover:opacity-100"
+          {/* 3. Slim Player Controls — Spotify-style single row */}
+          <div className="flex items-center gap-3 px-3 py-2">
+            {/* Album Art */}
+            <div className="relative shrink-0">
+              <div className="relative w-10 h-10 rounded-md overflow-hidden ring-1 ring-white/10">
+                {sanitizedArtwork ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={sanitizedArtwork}
+                    alt={currentTrack.title}
+                    className="w-full h-full object-cover"
                   />
-                </div>
-
-                {/* Expand Button */}
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={toggleExpanded}
-                  className="p-2 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-                  aria-label={isExpanded ? 'Minimize player' : 'Expand player'}
-                >
-                  {isExpanded ? (
-                    <ChevronDown className="w-5 h-5" />
-                  ) : (
-                    <ChevronUp className="w-5 h-5" />
-                  )}
-                </motion.button>
-
-                {/* Close Button */}
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={clearTrack}
-                  className="p-2 rounded-full text-white/40 hover:text-white hover:bg-white/10 transition-colors"
-                  aria-label="Close player"
-                >
-                  <X className="w-4 h-4" />
-                </motion.button>
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-primary/30 to-violet-600/30 flex items-center justify-center">
+                    <Volume2 className="w-4 h-4 text-white/50" />
+                  </div>
+                )}
               </div>
+            </div>
+
+            {/* Track Info — two lines */}
+            <div className="min-w-0 flex-1">
+              <h4 className="text-sm font-bold text-white truncate leading-tight">
+                {activeChapterTitle || currentTrack.title}
+              </h4>
+              <p className="text-[11px] text-white/45 truncate mt-0.5">
+                {currentTrack.artist} &middot; {formatTime(currentTime)} / {formatTime(duration)}
+              </p>
+            </div>
+
+            {/* Compact Controls */}
+            <div className="flex items-center gap-0.5 shrink-0">
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => {
+                  const chapters = currentTrack.chapters;
+                  if (chapters && chapters.length > 0 && activeChapterIndex > 0) {
+                    seek(chapters[activeChapterIndex - 1].timestamp_seconds);
+                  } else {
+                    seekRelative(-15);
+                  }
+                }}
+                className="p-1.5 rounded-full text-white/60 hover:text-white transition-colors"
+                aria-label={currentTrack.chapters ? 'Previous chapter' : 'Skip back 15 seconds'}
+              >
+                <SkipBack className="w-4 h-4" />
+              </motion.button>
+
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={toggle}
+                disabled={isLoading}
+                className={cn(
+                  'w-10 h-10 rounded-full flex items-center justify-center transition-all',
+                  'bg-white text-black shadow-lg shadow-white/20',
+                  isLoading && 'opacity-70'
+                )}
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+              >
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : isPlaying ? (
+                  <Pause className="w-4 h-4" fill="currentColor" />
+                ) : (
+                  <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                )}
+              </motion.button>
+
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => {
+                  const chapters = currentTrack.chapters;
+                  if (chapters && chapters.length > 0 && activeChapterIndex < chapters.length - 1) {
+                    seek(chapters[activeChapterIndex + 1].timestamp_seconds);
+                  } else {
+                    seekRelative(15);
+                  }
+                }}
+                className="p-1.5 rounded-full text-white/60 hover:text-white transition-colors"
+                aria-label={currentTrack.chapters ? 'Next chapter' : 'Skip forward 15 seconds'}
+              >
+                <SkipForward className="w-4 h-4" />
+              </motion.button>
+
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={toggleExpanded}
+                className="p-1.5 rounded-full text-white/50 hover:text-white transition-colors"
+                aria-label={isExpanded ? 'Minimize player' : 'Expand player'}
+              >
+                {isExpanded ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronUp className="w-4 h-4" />
+                )}
+              </motion.button>
+
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={clearTrack}
+                className="p-1.5 rounded-full text-white/30 hover:text-white transition-colors"
+                aria-label="Close player"
+              >
+                <X className="w-3.5 h-3.5" />
+              </motion.button>
             </div>
           </div>
 

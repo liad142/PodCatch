@@ -37,6 +37,7 @@ interface AudioPlayerControlsType {
   setVolume: (volume: number) => void;
   setPlaybackRate: (rate: number) => void;
   loadTrack: (track: Track) => void;
+  updateTrackMeta: (meta: Partial<Track>) => void;
   clearTrack: () => void;
   toggleExpanded: () => void;
 }
@@ -249,6 +250,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, []);
 
+  const updateTrackMeta = useCallback((meta: Partial<Track>) => {
+    setCurrentTrack(prev => prev ? { ...prev, ...meta } : prev);
+  }, []);
+
   const clearTrack = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -287,6 +292,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setVolume,
     setPlaybackRate,
     loadTrack,
+    updateTrackMeta,
     clearTrack,
     toggleExpanded,
   }), [
@@ -303,6 +309,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     setVolume,
     setPlaybackRate,
     loadTrack,
+    updateTrackMeta,
     clearTrack,
     toggleExpanded,
   ]);
