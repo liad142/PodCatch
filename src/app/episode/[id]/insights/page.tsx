@@ -189,8 +189,23 @@ export default function EpisodeInsightsPage() {
                     {episode.title}
                   </h1>
 
-                  {/* Metadata pills */}
-                  <div className="flex items-center flex-wrap gap-2">
+                  {/* Play CTA + metadata pills — single aligned row */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {episode.audio_url && episode.podcast && (
+                      <PlayButton
+                        track={{
+                          id: episode.id,
+                          title: episode.title,
+                          artist: episode.podcast.title || episode.podcast.author || "Unknown",
+                          artworkUrl: episode.podcast.image_url || "",
+                          audioUrl: episode.audio_url,
+                          duration: episode.duration_seconds || undefined,
+                        }}
+                        size="lg"
+                        variant="primary"
+                        className="w-14 h-14 bg-gradient-to-br from-violet-500 to-fuchsia-500 hover:from-violet-400 hover:to-fuchsia-400 border-0 shadow-lg shadow-violet-500/40 hover:shadow-violet-500/60 text-white shrink-0"
+                      />
+                    )}
                     {episode.published_at && (
                       <span className="inline-flex items-center gap-1.5 text-xs bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 rounded-full px-3 py-1">
                         <Calendar className="h-3 w-3" />
@@ -204,25 +219,6 @@ export default function EpisodeInsightsPage() {
                       </span>
                     )}
                   </div>
-
-                  {/* Large gradient Play CTA */}
-                  {episode.audio_url && episode.podcast && (
-                    <div className="pt-1">
-                      <PlayButton
-                        track={{
-                          id: episode.id,
-                          title: episode.title,
-                          artist: episode.podcast.title || episode.podcast.author || "Unknown",
-                          artworkUrl: episode.podcast.image_url || "",
-                          audioUrl: episode.audio_url,
-                          duration: episode.duration_seconds || undefined,
-                        }}
-                        size="lg"
-                        variant="primary"
-                        className="w-14 h-14 bg-gradient-to-br from-violet-500 to-fuchsia-500 hover:from-violet-400 hover:to-fuchsia-400 border-0 shadow-lg shadow-violet-500/40 hover:shadow-violet-500/60 text-white"
-                      />
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
