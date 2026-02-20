@@ -109,57 +109,94 @@ export default function EpisodeInsightsPage() {
     );
   }
 
+  const artworkUrl =
+    episode?.podcast?.image_url &&
+    typeof episode.podcast.image_url === "string" &&
+    episode.podcast.image_url.startsWith("http")
+      ? episode.podcast.image_url
+      : null;
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0f111a] flex flex-col">
       <Header />
 
-      {/* Episode Header */}
-      <div className="border-b border-border/60 bg-background/80 dark:bg-card/60 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-5 max-w-4xl">
+      {/* ── Hero Header ── */}
+      <div className="relative overflow-hidden">
+
+        {/* Blurred artwork background */}
+        {artworkUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={artworkUrl}
+            alt=""
+            aria-hidden
+            className="absolute inset-0 w-full h-full object-cover opacity-50 dark:opacity-35 pointer-events-none select-none"
+            style={{ filter: "blur(48px)", transform: "scale(1.25)" }}
+          />
+        )}
+
+        {/* Dark overlay for readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-black/30" />
+
+        {/* Bottom fade into page background */}
+        <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-b from-transparent to-slate-50 dark:to-[#0f111a]" />
+
+        {/* ── Content ── */}
+        <div className="relative z-10 container mx-auto px-4 pt-5 pb-10 max-w-4xl">
           {isLoading ? (
-            <div className="space-y-3">
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-6 w-3/4" />
-              <Skeleton className="h-4 w-36" />
+            <div className="space-y-4">
+              <Skeleton className="h-4 w-28 bg-white/20" />
+              <div className="flex gap-4 items-start">
+                <Skeleton className="w-20 h-20 rounded-xl shrink-0 bg-white/20" />
+                <div className="space-y-2.5 flex-1 pt-1">
+                  <Skeleton className="h-7 w-5/6 bg-white/20" />
+                  <Skeleton className="h-5 w-2/3 bg-white/20" />
+                  <div className="flex gap-2 pt-1">
+                    <Skeleton className="h-6 w-24 rounded-full bg-white/20" />
+                    <Skeleton className="h-6 w-16 rounded-full bg-white/20" />
+                  </div>
+                </div>
+              </div>
             </div>
           ) : episode ? (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {/* Back nav */}
               <button
                 onClick={() => router.push(getBackLink())}
-                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors group w-fit"
+                className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white transition-colors group w-fit"
               >
                 <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
-                <span className="truncate max-w-[200px]">{episode.podcast?.title || "Back"}</span>
+                <span className="truncate max-w-[220px] font-medium">
+                  {episode.podcast?.title || "Back"}
+                </span>
               </button>
 
-              {/* Main row: art + info */}
-              <div className="flex gap-3.5 items-start">
-                {episode.podcast?.image_url &&
-                  typeof episode.podcast.image_url === "string" &&
-                  episode.podcast.image_url.startsWith("http") && (
+              {/* Art + Info */}
+              <div className="flex gap-4 items-start">
+                {artworkUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={episode.podcast.image_url}
-                    alt={episode.podcast.title || "Podcast"}
-                    className="w-14 h-14 rounded-xl object-cover shadow-sm shrink-0"
+                    src={artworkUrl}
+                    alt={episode.podcast?.title || "Podcast artwork"}
+                    className="w-20 h-20 md:w-24 md:h-24 rounded-xl object-cover shadow-2xl border border-white/10 shrink-0"
                   />
                 )}
 
-                <div className="flex-1 min-w-0 space-y-2">
-                  <h1 className="text-lg md:text-xl font-bold leading-snug line-clamp-2 text-foreground">
+                <div className="flex-1 min-w-0 space-y-3">
+                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight leading-snug line-clamp-3 text-white drop-shadow-sm">
                     {episode.title}
                   </h1>
 
-                  <div className="flex items-center flex-wrap gap-x-3.5 gap-y-1 text-xs text-muted-foreground">
+                  {/* Metadata pills */}
+                  <div className="flex items-center flex-wrap gap-2">
                     {episode.published_at && (
-                      <span className="flex items-center gap-1">
+                      <span className="inline-flex items-center gap-1.5 text-xs bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 rounded-full px-3 py-1">
                         <Calendar className="h-3 w-3" />
                         {formatDate(episode.published_at)}
                       </span>
                     )}
                     {episode.duration_seconds && (
-                      <span className="flex items-center gap-1">
+                      <span className="inline-flex items-center gap-1.5 text-xs bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 rounded-full px-3 py-1">
                         <Clock className="h-3 w-3" />
                         {formatDuration(episode.duration_seconds)}
                       </span>
@@ -175,7 +212,7 @@ export default function EpisodeInsightsPage() {
                           duration: episode.duration_seconds || undefined,
                         }}
                         size="sm"
-                        variant="ghost"
+                        variant="outline"
                       />
                     )}
                   </div>
