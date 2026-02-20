@@ -5,35 +5,50 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 interface AskAIContextType {
   active: boolean;
   episodeId: string | null;
+  chatOpen: boolean;
   activate: (episodeId: string) => void;
   deactivate: () => void;
+  openChat: () => void;
+  closeChat: () => void;
 }
 
 const AskAIContext = createContext<AskAIContextType>({
   active: false,
   episodeId: null,
+  chatOpen: false,
   activate: () => {},
   deactivate: () => {},
+  openChat: () => {},
+  closeChat: () => {},
 });
 
 /** Wrap at the AppShell level so both page content and StickyAudioPlayer share state. */
 export function AskAIProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<{ active: boolean; episodeId: string | null }>({
+  const [state, setState] = useState<{ active: boolean; episodeId: string | null; chatOpen: boolean }>({
     active: false,
     episodeId: null,
+    chatOpen: false,
   });
 
   const activate = useCallback((episodeId: string) => {
-    setState({ active: true, episodeId });
+    setState((prev) => ({ ...prev, active: true, episodeId }));
   }, []);
 
   const deactivate = useCallback(() => {
-    setState({ active: false, episodeId: null });
+    setState({ active: false, episodeId: null, chatOpen: false });
+  }, []);
+
+  const openChat = useCallback(() => {
+    setState((prev) => ({ ...prev, chatOpen: true }));
+  }, []);
+
+  const closeChat = useCallback(() => {
+    setState((prev) => ({ ...prev, chatOpen: false }));
   }, []);
 
   const value = useMemo(
-    () => ({ ...state, activate, deactivate }),
-    [state, activate, deactivate]
+    () => ({ ...state, activate, deactivate, openChat, closeChat }),
+    [state, activate, deactivate, openChat, closeChat]
   );
 
   return (

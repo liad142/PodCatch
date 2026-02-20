@@ -7,6 +7,7 @@ import { CompactAuthPrompt } from '@/components/auth/CompactAuthPrompt';
 import { QueueToast } from '@/components/QueueToast';
 import { StickyAudioPlayer } from '@/components/StickyAudioPlayer';
 import { AskAIProvider } from '@/contexts/AskAIContext';
+import { AskAIChatPopup } from '@/components/insights/AskAIChatPopup';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -30,6 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <CompactAuthPrompt />
       <QueueToast />
       <StickyAudioPlayer />
+      <AskAIChatPopup />
     </AskAIProvider>
   );
 }

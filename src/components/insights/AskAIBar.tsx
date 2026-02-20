@@ -13,7 +13,7 @@ import type { Track } from "@/contexts/AudioPlayerContext";
  * - integrated: compact dark row inside the StickyAudioPlayer
  */
 export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; track?: Track }) {
-  const { active } = useAskAI();
+  const { active, openChat } = useAskAI();
   const player = useAudioPlayerSafe();
   const playerActive = !!(player && player.currentTrack);
 
@@ -53,7 +53,7 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
             {/* Ask AI section */}
             <div
               className="flex-1 flex items-center gap-2.5 px-4 py-2 cursor-text"
-              onClick={() => alert("AI Chat feature coming soon!")}
+              onClick={() => openChat()}
             >
               <div className="bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full p-1.5 shrink-0">
                 <Sparkles className="h-3.5 w-3.5 text-white" />
@@ -64,7 +64,7 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
               <Button
                 size="icon"
                 className="rounded-full w-9 h-9 bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 shadow"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); openChat(); }}
               >
                 <MessageSquare className="h-3.5 w-3.5" />
               </Button>
@@ -83,7 +83,7 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
     <div className="px-3 py-2 bg-black/60 backdrop-blur-sm">
       <div
         className="flex items-center gap-2.5 px-3 py-2 rounded-full border border-white/15 bg-white/[0.07] cursor-text hover:bg-white/10 hover:border-white/20 transition-colors"
-        onClick={() => alert("AI Chat feature coming soon!")}
+        onClick={() => openChat()}
       >
         <div className="bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full p-1 shrink-0">
           <Sparkles className="h-3 w-3 text-white" />
