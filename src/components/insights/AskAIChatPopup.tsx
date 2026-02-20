@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, X, Send, Loader2, AlertCircle } from "lucide-react";
+import { Sparkles, X, Send, Loader2, AlertCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAskAI } from "@/contexts/AskAIContext";
 import { useAudioPlayerSafe } from "@/contexts/AudioPlayerContext";
@@ -122,7 +122,6 @@ export function AskAIChatPopup() {
 
   const handleClose = () => {
     closeChat();
-    clearChat();
   };
 
   // Bottom offset: account for player height
@@ -149,14 +148,27 @@ export function AskAIChatPopup() {
                   </div>
                   <span className="font-semibold text-sm">Ask AI</span>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 rounded-full"
-                  onClick={handleClose}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  {messages.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-full text-muted-foreground hover:text-destructive"
+                      onClick={clearChat}
+                      title="Clear chat"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-full"
+                    onClick={handleClose}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               {/* Messages */}

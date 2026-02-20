@@ -10,6 +10,29 @@ export interface Message {
 }
 
 const MAX_MESSAGES = 20;
+const STORAGE_PREFIX = "askai-chat-";
+
+function loadMessages(episodeId: string): Message[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_PREFIX + episodeId);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Message[];
+    // Strip any leftover streaming flags from a previous session
+    return parsed.map((m) => ({ ...m, isStreaming: false }));
+  } catch {
+    return [];
+  }
+}
+
+function saveMessages(episodeId: string, messages: Message[]) {
+  try {
+    // Only persist completed messages (not mid-stream)
+    const toSave = messages.filter((m) => !m.isStreaming && m.text);
+    localStorage.setItem(STORAGE_PREFIX + episodeId, JSON.stringify(toSave));
+  } catch {
+    // localStorage full or unavailable — silently ignore
+  }
+}
 
 export function useAskAIChat(episodeId: string | null) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -17,20 +40,34 @@ export function useAskAIChat(episodeId: string | null) {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Clear chat when episode changes
+  // Load saved chat when episode changes
   useEffect(() => {
     abortRef.current?.abort();
-    setMessages([]);
     setIsStreaming(false);
     setError(null);
+    if (episodeId) {
+      setMessages(loadMessages(episodeId));
+    } else {
+      setMessages([]);
+    }
   }, [episodeId]);
+
+  // Persist messages whenever they change (debounce-free since writes are small)
+  useEffect(() => {
+    if (episodeId && messages.length > 0) {
+      saveMessages(episodeId, messages);
+    }
+  }, [episodeId, messages]);
 
   const clearChat = useCallback(() => {
     abortRef.current?.abort();
     setMessages([]);
     setIsStreaming(false);
     setError(null);
-  }, []);
+    if (episodeId) {
+      localStorage.removeItem(STORAGE_PREFIX + episodeId);
+    }
+  }, [episodeId]);
 
   const sendMessage = useCallback(
     async (question: string) => {
