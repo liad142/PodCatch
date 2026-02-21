@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { Clock, Heart } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { DiscoverySummarizeButton } from './DiscoverySummarizeButton';
-import { PlayButton } from '@/components/PlayButton';
+import { PlayButton, InlinePlayButton } from '@/components/PlayButton';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useState, useMemo } from 'react';
 
@@ -139,14 +139,12 @@ export const InsightCard = React.memo(function InsightCard({
         {description}
       </p>
 
-      {/* Actions: Play & Summarize — grouped side-by-side */}
+      {/* Actions: Play & Summarize — grouped side-by-side, both pill-shaped */}
       <div className="flex items-center gap-2">
         {track && (
-          <PlayButton
+          <InlinePlayButton
             track={track}
-            size="md"
-            variant="ghost"
-            className="shrink-0 border border-white/10 hover:border-violet-500/40 hover:bg-white/5"
+            className="shrink-0 px-5 text-sm shadow-lg shadow-primary/20 hover:shadow-primary/40"
           />
         )}
         <DiscoverySummarizeButton

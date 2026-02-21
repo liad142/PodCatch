@@ -4,12 +4,13 @@
 -- analytics_daily_rollups: Pre-aggregated daily metrics (for future optimization)
 
 -- Play events table
+-- podcast_id is TEXT (not UUID) because we track external Apple/RSS podcast IDs
 CREATE TABLE IF NOT EXISTS play_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   anonymous_id TEXT,
   episode_id TEXT NOT NULL,
-  podcast_id UUID NOT NULL REFERENCES podcasts(id) ON DELETE CASCADE,
+  podcast_id TEXT NOT NULL,
   duration_listened INTEGER DEFAULT 0,
   episode_duration INTEGER,
   max_position INTEGER DEFAULT 0,
@@ -33,11 +34,12 @@ CREATE INDEX idx_play_events_started_at ON play_events(started_at);
 CREATE INDEX idx_play_events_episode_reached_60s ON play_events(episode_id, reached_60s);
 
 -- Impression events table
+-- podcast_id is TEXT (not UUID) because we track external Apple/RSS podcast IDs
 CREATE TABLE IF NOT EXISTS impression_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   anonymous_id TEXT,
-  podcast_id UUID,
+  podcast_id TEXT,
   episode_id TEXT,
   surface TEXT NOT NULL,
   position INTEGER,
@@ -54,7 +56,7 @@ CREATE INDEX idx_impression_events_created_at ON impression_events(created_at);
 CREATE TABLE IF NOT EXISTS analytics_daily_rollups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   date DATE NOT NULL,
-  podcast_id UUID NOT NULL REFERENCES podcasts(id) ON DELETE CASCADE,
+  podcast_id TEXT NOT NULL,
   episode_id TEXT,
   total_plays INTEGER DEFAULT 0,
   unique_listeners INTEGER DEFAULT 0,

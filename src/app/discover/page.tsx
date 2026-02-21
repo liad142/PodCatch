@@ -99,12 +99,24 @@ export default function DiscoverPage() {
   const [personalizedSections, setPersonalizedSections] = useState<PersonalizedSection[]>([]);
   const [isLoadingPersonalized, setIsLoadingPersonalized] = useState(false);
 
-  // Daily Mix: Fetch summarized episodes from DB (independent of Apple RSS)
+  // Fire all independent fetches in parallel: daily-mix, top podcasts, and personalized
   useEffect(() => {
     let cancelled = false;
-    setIsLoadingDailyMix(true);
 
-    fetch('/api/discover/daily-mix')
+    // Reset states
+    setTopPodcasts([]);
+    setFeedEpisodes([]);
+    setIsLoadingDailyMix(true);
+    setIsLoadingPodcasts(true);
+    setIsLoadingFeed(true);
+    setFeedPage(0);
+    setHasMoreFeed(true);
+    isLoadingMoreFeed.current = false;
+    allPodcastsRef.current = [];
+    if (user) setIsLoadingPersonalized(true);
+
+    // 1) Daily Mix (independent, pass country for language filtering)
+    const dailyMixPromise = fetch(`/api/discover/daily-mix?country=${country.toLowerCase()}`)
       .then(res => res.json())
       .then(data => {
         if (cancelled) return;
@@ -122,25 +134,9 @@ export default function DiscoverPage() {
         if (!cancelled) setIsLoadingDailyMix(false);
       });
 
-    return () => { cancelled = true; };
-  }, []);
-
-  // Brand Shelf + Curiosity Feed: Fetch from Apple RSS
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchData = async () => {
-      setTopPodcasts([]);
-      setFeedEpisodes([]);
-      setIsLoadingPodcasts(true);
-      setIsLoadingFeed(true);
-      setFeedPage(0);
-      setHasMoreFeed(true);
-      isLoadingMoreFeed.current = false;
-      allPodcastsRef.current = [];
-
+    // 2) Top podcasts + batch episodes (sequential chain, but starts in parallel with others)
+    const topPodcastsPromise = (async () => {
       try {
-        // Fetch top podcasts from BOTH countries in parallel
         const [primaryRes, usRes] = await Promise.allSettled([
           fetch(`/api/apple/top?country=${country.toLowerCase()}&limit=30`),
           country.toLowerCase() !== 'us'
@@ -174,7 +170,7 @@ export default function DiscoverPage() {
           return;
         }
 
-        // Fetch feed episodes for Curiosity Feed
+        // Batch episodes depends on top podcasts, so stays sequential
         const feedPodcasts = allPodcasts.slice(0, 10);
         const feedRes = await fetch('/api/apple/podcasts/batch-episodes', {
           method: 'POST',
@@ -193,43 +189,40 @@ export default function DiscoverPage() {
         setIsLoadingFeed(false);
       } catch (error) {
         console.error('Error fetching discover data:', error);
-        setIsLoadingPodcasts(false);
-        setIsLoadingFeed(false);
+        if (!cancelled) {
+          setIsLoadingPodcasts(false);
+          setIsLoadingFeed(false);
+        }
       }
-    };
+    })();
 
-    fetchData();
+    // 3) Personalized recommendations (independent, only for authenticated users)
+    const personalizedPromise = user
+      ? (async () => {
+          try {
+            const response = await fetch(`/api/discover/personalized?country=${country.toLowerCase()}`);
+            const data = await response.json();
+            if (!cancelled) {
+              if (data.personalized && data.sections) {
+                setPersonalizedSections(data.sections);
+              } else {
+                setPersonalizedSections([]);
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching personalized feed:', error);
+            if (!cancelled) setPersonalizedSections([]);
+          } finally {
+            if (!cancelled) setIsLoadingPersonalized(false);
+          }
+        })()
+      : (() => { setPersonalizedSections([]); })();
+
+    // All three fire concurrently via Promise.all
+    Promise.all([dailyMixPromise, topPodcastsPromise, personalizedPromise]);
 
     return () => { cancelled = true; };
-  }, [country]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Fetch personalized recommendations for authenticated users
-  useEffect(() => {
-    if (!user) {
-      setPersonalizedSections([]);
-      return;
-    }
-
-    const fetchPersonalized = async () => {
-      setIsLoadingPersonalized(true);
-      try {
-        const response = await fetch(`/api/discover/personalized?country=${country.toLowerCase()}`);
-        const data = await response.json();
-        if (data.personalized && data.sections) {
-          setPersonalizedSections(data.sections);
-        } else {
-          setPersonalizedSections([]);
-        }
-      } catch (error) {
-        console.error('Error fetching personalized feed:', error);
-        setPersonalizedSections([]);
-      } finally {
-        setIsLoadingPersonalized(false);
-      }
-    };
-
-    fetchPersonalized();
-  }, [user, country]);
+  }, [country, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadMoreFeed = useCallback(async (podcasts: ApplePodcast[], page: number) => {
     if (isLoadingMoreFeed.current) return;

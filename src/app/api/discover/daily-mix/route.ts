@@ -1,7 +1,43 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAuthUser } from '@/lib/auth-helpers';
 import type { QuickSummaryContent, DeepSummaryContent } from '@/types/database';
+
+// Map country codes to primary language codes for filtering podcasts
+const COUNTRY_TO_LANGUAGES: Record<string, string[]> = {
+  il: ['he', 'iw'], // Hebrew
+  us: ['en'],
+  gb: ['en'],
+  au: ['en'],
+  ca: ['en', 'fr'],
+  de: ['de'],
+  at: ['de'],
+  ch: ['de', 'fr', 'it'],
+  fr: ['fr'],
+  es: ['es'],
+  mx: ['es'],
+  ar: ['es'],
+  br: ['pt'],
+  pt: ['pt'],
+  it: ['it'],
+  nl: ['nl'],
+  be: ['nl', 'fr'],
+  se: ['sv'],
+  no: ['no', 'nb', 'nn'],
+  dk: ['da'],
+  fi: ['fi'],
+  pl: ['pl'],
+  ru: ['ru'],
+  jp: ['ja'],
+  kr: ['ko'],
+  cn: ['zh'],
+  tw: ['zh'],
+  in: ['hi', 'en'],
+  tr: ['tr'],
+  sa: ['ar'],
+  ae: ['ar'],
+  eg: ['ar'],
+};
 
 // Map each Apple genre to expanded keyword sets for matching
 const GENRE_KEYWORDS: Record<string, string[]> = {
@@ -96,8 +132,9 @@ function scoreEpisode(
   return score;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const admin = createAdminClient();
+  const country = request.nextUrl.searchParams.get('country')?.toLowerCase() || '';
 
   // 1. Get episode_ids with ANY ready summary (quick or deep)
   const { data: summaries, error: summariesError } = await admin
@@ -125,10 +162,10 @@ export async function GET() {
 
   const episodeIds = Array.from(summaryMap.keys());
 
-  // 3. Get episodes with podcast info
+  // 3. Get episodes with podcast info (including language for country filtering)
   const { data: episodes, error: episodesError } = await admin
     .from('episodes')
-    .select('id, title, description, published_at, podcast_id, podcasts(id, title, image_url)')
+    .select('id, title, description, published_at, podcast_id, podcasts(id, title, image_url, language)')
     .in('id', episodeIds)
     .order('published_at', { ascending: false });
 
@@ -158,8 +195,21 @@ export async function GET() {
     // Not authenticated — no filtering
   }
 
+  // 4b. Filter by country/language if provided
+  const allowedLanguages = country ? COUNTRY_TO_LANGUAGES[country] : null;
+  const languageFiltered = allowedLanguages
+    ? episodes.filter((ep: any) => {
+        const podcast = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;
+        const lang = (podcast?.language || '').toLowerCase().split('-')[0]; // "en-US" → "en"
+        return !lang || allowedLanguages.includes(lang);
+      })
+    : episodes;
+
+  // If filtering removed everything, fall back to unfiltered
+  const episodesPool = languageFiltered.length > 0 ? languageFiltered : episodes;
+
   // 5. Score all episodes
-  const scored = episodes.map((ep: any) => {
+  const scored = episodesPool.map((ep: any) => {
     const podcast = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;
     const summaryInfo = summaryMap.get(ep.id);
     const summaryText = getSummaryText(summaryInfo?.content, summaryInfo?.level || 'quick');
@@ -202,5 +252,7 @@ export async function GET() {
   // 8. Strip internal fields and return
   const result = filtered.map(({ _score, _publishedAt, ...ep }) => ep);
 
-  return NextResponse.json({ episodes: result });
+  return NextResponse.json({ episodes: result }, {
+    headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
+  });
 }

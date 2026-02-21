@@ -15,8 +15,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await getAuthUser();
-    const anonymous_id = request.headers.get('x-anonymous-id') || null;
+    let userId: string | null = null;
+    try {
+      const user = await getAuthUser();
+      userId = user?.id || null;
+    } catch {
+      // Not authenticated — that's fine for play events
+    }
+    // sendBeacon embeds anonymous_id in the body since it can't set headers
+    const anonymous_id = request.headers.get('x-anonymous-id') || (body as any).anonymous_id || null;
     const admin = createAdminClient();
 
     if (action === 'start') {
@@ -24,7 +31,7 @@ export async function POST(request: NextRequest) {
         .from('play_events')
         .insert({
           id: session_id,
-          user_id: user?.id || null,
+          user_id: userId,
           anonymous_id,
           episode_id,
           podcast_id,
@@ -34,7 +41,10 @@ export async function POST(request: NextRequest) {
           started_at: new Date().toISOString(),
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[ANALYTICS] Play start insert error:', error.message, error.details);
+        return NextResponse.json({ ok: false, error: error.message });
+      }
       return NextResponse.json({ ok: true });
     }
 
@@ -59,13 +69,17 @@ export async function POST(request: NextRequest) {
         .update(updateData)
         .eq('id', session_id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('[ANALYTICS] Play update error:', error.message, error.details);
+        return NextResponse.json({ ok: false, error: error.message });
+      }
       return NextResponse.json({ ok: true });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
     console.error('[ANALYTICS] Play event error:', error);
-    return NextResponse.json({ error: 'Failed to record play event' }, { status: 500 });
+    // Return 200 to avoid client-side error noise — analytics are best-effort
+    return NextResponse.json({ ok: false, error: 'Failed to record play event' });
   }
 }

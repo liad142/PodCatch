@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, Clock, Calendar, Loader2, FileText, Heart, Sparkles } from 'lucide-react';
 import { SummarizeButton } from '@/components/SummarizeButton';
-import { PlayButton } from '@/components/PlayButton';
+import { PlayButton, InlinePlayButton } from '@/components/PlayButton';
 import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -558,9 +558,9 @@ export default function PodcastPage({ params }: PageProps) {
 
                             {/* Action Bar — grouped side-by-side */}
                             <div className="flex items-center gap-2">
-                              {/* Play — small circle */}
+                              {/* Play — pill shape matching Summarize */}
                               {episode.audioUrl && podcast && (
-                                <PlayButton
+                                <InlinePlayButton
                                   track={{
                                     id: episode.id,
                                     title: episode.title,
@@ -569,9 +569,7 @@ export default function PodcastPage({ params }: PageProps) {
                                     audioUrl: episode.audioUrl,
                                     duration: episode.duration,
                                   }}
-                                  size="md"
-                                  variant="ghost"
-                                  className="shrink-0 border border-white/10 hover:border-violet-500/40 hover:bg-white/5"
+                                  className="shrink-0 px-5 text-sm shadow-lg shadow-primary/20 hover:shadow-primary/40"
                                 />
                               )}
 

@@ -16,25 +16,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Too many impressions (max 50)' }, { status: 400 });
     }
 
-    const user = await getAuthUser();
+    let userId: string | null = null;
+    try {
+      const user = await getAuthUser();
+      userId = user?.id || null;
+    } catch {
+      // Not authenticated — that's fine for impressions
+    }
     const anonymous_id = request.headers.get('x-anonymous-id') || null;
     const admin = createAdminClient();
 
     const rows = body.impressions.map((imp) => ({
-      user_id: user?.id || null,
+      user_id: userId,
       anonymous_id,
       podcast_id: imp.podcast_id || null,
       episode_id: imp.episode_id || null,
       surface: imp.surface,
-      position: imp.position,
+      position: imp.position ?? 0,
     }));
 
     const { error } = await admin.from('impression_events').insert(rows);
 
-    if (error) throw error;
+    if (error) {
+      console.error('[ANALYTICS] Impression insert error:', error.message, error.details);
+      // Don't fail the request for analytics — return success to avoid client retries
+      return NextResponse.json({ ok: false, error: error.message });
+    }
     return NextResponse.json({ ok: true, count: rows.length });
   } catch (error) {
     console.error('[ANALYTICS] Impression event error:', error);
-    return NextResponse.json({ error: 'Failed to record impressions' }, { status: 500 });
+    // Return 200 to avoid client-side error noise — analytics are best-effort
+    return NextResponse.json({ ok: false, error: 'Failed to record impressions' });
   }
 }
