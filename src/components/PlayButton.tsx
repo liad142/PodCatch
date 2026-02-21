@@ -14,6 +14,8 @@ interface PlayButtonProps {
     artworkUrl: string;
     audioUrl: string;
     duration?: number;
+    podcastId?: string;
+    source?: string;
   };
   size?: 'sm' | 'md' | 'lg';
   variant?: 'primary' | 'outline' | 'ghost' | 'overlay';

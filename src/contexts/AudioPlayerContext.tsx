@@ -10,6 +10,10 @@ interface Track {
   audioUrl: string;
   duration?: number;
   chapters?: { title: string; timestamp: string; timestamp_seconds: number }[];
+  /** Analytics: UUID of the podcast this episode belongs to */
+  podcastId?: string;
+  /** Analytics: Where the play was initiated from */
+  source?: string;
 }
 
 export type { Track };

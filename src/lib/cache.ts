@@ -160,6 +160,23 @@ export const CacheKeys = {
 
   unifiedSearch: (term: string, country: string, limit: number) =>
     `unified:search:${country.toLowerCase()}:${term}:${limit}`,
+
+  episodeDetail: (episodeId: string) =>
+    `episode:${episodeId}`,
+
+  summaryStatus: (episodeId: string, language: string) =>
+    `summary:status:${episodeId}:${language}`,
+
+  insightsStatus: (episodeId: string, language: string) =>
+    `insights:status:${episodeId}:${language}`,
+
+  // Analytics cache keys
+  podcastAnalytics: (podcastId: string, period: string) =>
+    `analytics:podcast:${podcastId}:${period}`,
+  episodeAnalytics: (episodeId: string) =>
+    `analytics:episode:${episodeId}`,
+  adminPlayAnalytics: () =>
+    `analytics:admin:plays`,
 };
 
 /**
@@ -180,6 +197,14 @@ export const CacheTTL = {
   PI_EPISODES: 3600,         // 1 hour
   PI_PODCAST: 3600,          // 1 hour
   UNIFIED_SEARCH: 900,       // 15 minutes
+
+  // Episode detail & status caching
+  EPISODE_DETAIL_READY: 86400,   // 24 hours (summary ready)
+  EPISODE_DETAIL_SHORT: 300,     // 5 minutes (still processing)
+  STATUS_TERMINAL: 86400,        // 24 hours (ready/failed - won't change)
+
+  // Analytics
+  ANALYTICS: 900,                  // 15 minutes
 };
 
 /**

@@ -1,11 +1,12 @@
 'use client';
 
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DailyMixCard } from './DailyMixCard';
 import { cn } from '@/lib/utils';
+import { useImpressionTracker } from '@/hooks/useImpressionTracker';
 
 interface Episode {
   id: string;
@@ -26,6 +27,11 @@ export function DailyMixCarousel({ episodes, isLoading = false }: DailyMixCarous
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const impressionItems = useMemo(
+    () => episodes.map((ep) => ({ id: ep.id, podcastId: ep.podcastId, episodeId: ep.id })),
+    [episodes]
+  );
+  const { registerElement } = useImpressionTracker('discover_daily_mix', impressionItems);
 
   const checkScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -92,7 +98,12 @@ export function DailyMixCarousel({ episodes, isLoading = false }: DailyMixCarous
               <Skeleton key={i} className="w-[320px] sm:w-[400px] h-[200px] rounded-2xl flex-shrink-0" />
             ))
           : episodes.map((ep) => (
-              <div key={ep.id} className="snap-start">
+              <div
+                key={ep.id}
+                className="snap-start"
+                data-impression-id={ep.id}
+                ref={(el) => registerElement(ep.id, el)}
+              >
                 <DailyMixCard
                   episodeId={ep.id}
                   title={ep.title}

@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InsightCard } from './InsightCard';
 import { glass } from '@/lib/glass';
+import { useImpressionTracker } from '@/hooks/useImpressionTracker';
 
 interface FeedEpisode {
   id: string;
@@ -35,6 +36,12 @@ export function CuriosityFeed({
 }: CuriosityFeedProps) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const isLoadingMore = useRef(false);
+
+  const impressionItems = useMemo(
+    () => episodes.map((ep) => ({ id: ep.id, podcastId: ep.podcastId, episodeId: ep.id })),
+    [episodes]
+  );
+  const { registerElement } = useImpressionTracker('discover_feed', impressionItems);
 
   const handleIntersect = useCallback(
     (entries: IntersectionObserverEntry[]) => {
@@ -95,20 +102,25 @@ export function CuriosityFeed({
             </div>
           ))
           : episodes.map((episode) => (
-            <InsightCard
+            <div
               key={`${episode.podcastId}-${episode.id}`}
-              episodeId={episode.id}
-              title={episode.title}
-              description={episode.description}
-              publishedAt={episode.publishedAt}
-              audioUrl={episode.audioUrl}
-              duration={episode.duration}
-              podcastId={episode.podcastId}
-              podcastName={episode.podcastName}
-              podcastArtist={episode.podcastArtist}
-              podcastArtwork={episode.podcastArtwork}
-              podcastFeedUrl={episode.podcastFeedUrl}
-            />
+              data-impression-id={episode.id}
+              ref={(el) => registerElement(episode.id, el)}
+            >
+              <InsightCard
+                episodeId={episode.id}
+                title={episode.title}
+                description={episode.description}
+                publishedAt={episode.publishedAt}
+                audioUrl={episode.audioUrl}
+                duration={episode.duration}
+                podcastId={episode.podcastId}
+                podcastName={episode.podcastName}
+                podcastArtist={episode.podcastArtist}
+                podcastArtwork={episode.podcastArtwork}
+                podcastFeedUrl={episode.podcastFeedUrl}
+              />
+            </div>
           ))}
       </div>
 

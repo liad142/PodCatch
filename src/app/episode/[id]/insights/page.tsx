@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase";
 import type { Episode, Podcast } from "@/types/database";
-import { ArrowLeft, Clock, Calendar } from "lucide-react";
+import { ArrowLeft, Clock, Calendar, BarChart3 } from "lucide-react";
 import { PlayButton } from "@/components/PlayButton";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 interface EpisodeData extends Episode {
   podcast?: Podcast;
@@ -23,6 +24,7 @@ export default function EpisodeInsightsPage() {
   const [episode, setEpisode] = useState<EpisodeData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isAdmin = useIsAdmin();
 
   const fetchEpisode = useCallback(async () => {
     try {
@@ -161,16 +163,27 @@ export default function EpisodeInsightsPage() {
             </div>
           ) : episode ? (
             <div className="space-y-5">
-              {/* Back nav */}
-              <button
-                onClick={() => router.push(getBackLink())}
-                className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white transition-colors group w-fit"
-              >
-                <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
-                <span className="truncate max-w-[220px] font-medium">
-                  {episode.podcast?.title || "Back"}
-                </span>
-              </button>
+              {/* Back nav + Admin analytics */}
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => router.push(getBackLink())}
+                  className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white transition-colors group w-fit"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                  <span className="truncate max-w-[220px] font-medium">
+                    {episode.podcast?.title || "Back"}
+                  </span>
+                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => router.push(`/admin/episodes/${episodeId}/analytics`)}
+                    className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white transition-colors"
+                  >
+                    <BarChart3 className="h-3.5 w-3.5" />
+                    <span className="font-medium">Analytics</span>
+                  </button>
+                )}
+              </div>
 
               {/* Art + Info */}
               <div className="flex gap-6 items-start">
