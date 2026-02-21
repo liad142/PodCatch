@@ -4,7 +4,7 @@ import { useState, useEffect, MutableRefObject } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileText, Quote, ScrollText } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { SectionId } from "./EpisodeSmartFeed";
+export type SectionId = "hero" | "highlights" | "transcript";
 
 interface QuickNavProps {
   sectionRefs: MutableRefObject<Record<SectionId, HTMLElement | null>>;

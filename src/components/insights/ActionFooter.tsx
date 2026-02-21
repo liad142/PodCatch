@@ -159,7 +159,7 @@ export function ActionFooter({ episode, actionPrompts, summaryReady = false }: A
   const hiddenCount = sortedActions.length - INITIAL_SHOW;
 
   return (
-    <div className="px-4 md:px-0 max-w-3xl mx-auto pb-24">
+    <div>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

@@ -211,7 +211,7 @@ export function TranscriptAccordion({
   // Empty/generating state
   if (!hasTranscript) {
     return (
-      <div className="px-4">
+      <div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -246,7 +246,7 @@ export function TranscriptAccordion({
   }
 
   return (
-    <div className="px-4">
+    <div>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

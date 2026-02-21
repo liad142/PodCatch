@@ -141,11 +141,23 @@ function ChapterScrubber({
   } | null>(null);
 
   const segments = useMemo(() => {
-    return chapters.map((ch, i) => {
+    const raw = chapters.map((ch, i) => {
       const start = ch.timestamp_seconds;
       const end = i < chapters.length - 1 ? chapters[i + 1].timestamp_seconds : duration;
       return { ...ch, start, end, widthPct: duration > 0 ? ((end - start) / duration) * 100 : 0 };
     });
+    // Add intro spacer when first chapter doesn't start at 0 — keeps visual aligned with seek math
+    if (raw.length > 0 && raw[0].start > 0 && duration > 0) {
+      raw.unshift({
+        title: 'Intro',
+        timestamp: '00:00',
+        timestamp_seconds: 0,
+        start: 0,
+        end: raw[0].start,
+        widthPct: (raw[0].start / duration) * 100,
+      });
+    }
+    return raw;
   }, [chapters, duration]);
 
   const getTimeFromX = useCallback(
