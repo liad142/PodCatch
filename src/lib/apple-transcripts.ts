@@ -1,4 +1,5 @@
 import { createLogger } from "@/lib/logger";
+import type { DiarizedTranscript, Utterance } from "@/types/deepgram";
 
 const logWithTime = createLogger('APPLE-TRANSCRIPTS');
 
@@ -11,7 +12,9 @@ const TTML_P_RE = /<p[^>]*>([\s\S]*?)<\/p>/gi;
 const TTML_SPAN_RE = /<span[^>]*podcasts:unit="word"[^>]*>([\s\S]*?)<\/span>/gi;
 const TTML_SPAN_FALLBACK_RE = /<span[^>]*>([\s\S]*?)<\/span>/gi;
 const TTML_BEGIN_RE = /begin="([^"]+)"/;
+const TTML_END_RE = /end="([^"]+)"/;
 const TTML_AGENT_RE = /ttm:agent="([^"]+)"/;
+const TTML_SPEAKER_NUM_RE = /SPEAKER_(\d+)/;
 
 interface AppleSearchResult {
   trackId: number;
@@ -216,17 +219,13 @@ export async function fetchAppleTranscript(
     }
 
     const ttml = await ttmlResponse.text();
-    const parsed = parseTtmlToText(ttml);
 
-    if (parsed && parsed.length > 100) {
-      logWithTime('Apple transcript fetched and parsed', {
-        ttmlLength: ttml.length,
-        parsedLength: parsed.length,
-      });
-      return parsed;
+    if (ttml && ttml.length > 100) {
+      logWithTime('Apple TTML fetched', { ttmlLength: ttml.length });
+      return ttml;
     }
 
-    logWithTime('Parsed Apple transcript too short', { length: parsed?.length });
+    logWithTime('Apple TTML too short', { length: ttml?.length });
     return null;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
@@ -344,13 +343,160 @@ function formatTtmlTimestamp(timestamp: string): string {
 }
 
 /**
+ * Convert a TTML timestamp (seconds like "1.980" or "HH:MM:SS.mmm") to numeric seconds.
+ */
+function parseTtmlTimestampToSeconds(timestamp: string): number {
+  const parts = timestamp.split(':');
+  if (parts.length === 3) {
+    const hours = parseInt(parts[0]);
+    const mins = parseInt(parts[1]);
+    const secs = parseFloat(parts[2]);
+    return hours * 3600 + mins * 60 + secs;
+  }
+  if (parts.length === 2) {
+    const mins = parseInt(parts[0]);
+    const secs = parseFloat(parts[1]);
+    return mins * 60 + secs;
+  }
+  // Plain seconds (e.g. "1.980")
+  return parseFloat(timestamp) || 0;
+}
+
+/**
+ * Parse Apple TTML into a structured DiarizedTranscript with proper speaker diarization.
+ *
+ * Extracts each <p> element's timestamps and speaker label (SPEAKER_1 → speaker ID 1),
+ * building a full Utterance[] array suitable for identifySpeakers() and
+ * formatTranscriptWithSpeakerNames().
+ */
+export function parseTtmlToDiarized(ttml: string): DiarizedTranscript | null {
+  const utterances: Utterance[] = [];
+  const speakerIds = new Set<number>();
+
+  let pMatch;
+  TTML_P_RE.lastIndex = 0;
+  while ((pMatch = TTML_P_RE.exec(ttml)) !== null) {
+    const pTag = pMatch[0];
+    const pContent = pMatch[1];
+
+    // Extract begin/end timestamps
+    const beginMatch = pTag.match(TTML_BEGIN_RE);
+    const endMatch = pTag.match(TTML_END_RE);
+    const start = beginMatch ? parseTtmlTimestampToSeconds(beginMatch[1]) : 0;
+    const end = endMatch ? parseTtmlTimestampToSeconds(endMatch[1]) : start;
+
+    // Extract speaker: SPEAKER_1 → 1, SPEAKER_3 → 3
+    const agentMatch = pTag.match(TTML_AGENT_RE);
+    let speaker = 0;
+    if (agentMatch) {
+      const numMatch = agentMatch[1].match(TTML_SPEAKER_NUM_RE);
+      if (numMatch) {
+        speaker = parseInt(numMatch[1]);
+      }
+    }
+    speakerIds.add(speaker);
+
+    // Extract text from word-level spans
+    let text = '';
+    let spanMatch;
+    TTML_SPAN_RE.lastIndex = 0;
+    const words: string[] = [];
+    while ((spanMatch = TTML_SPAN_RE.exec(pContent)) !== null) {
+      const word = spanMatch[1].replace(TTML_TAG_RE, '').trim();
+      if (word) words.push(word);
+    }
+
+    if (words.length > 0) {
+      text = words.join(' ');
+    } else {
+      // Fallback: try any span
+      TTML_SPAN_FALLBACK_RE.lastIndex = 0;
+      const spans: string[] = [];
+      while ((spanMatch = TTML_SPAN_FALLBACK_RE.exec(pContent)) !== null) {
+        const spanText = spanMatch[1].replace(TTML_TAG_RE, '').trim();
+        if (spanText) spans.push(spanText);
+      }
+      text = spans.length > 0 ? spans.join(' ') : pContent.replace(TTML_TAG_RE, '').trim();
+    }
+
+    if (text) {
+      utterances.push({ start, end, speaker, text, confidence: 1.0 });
+    }
+  }
+
+  if (utterances.length === 0) {
+    return null;
+  }
+
+  // Some TTMLs pack entire speaker turns into a single <p> element, producing
+  // very few but huge utterances (e.g., 3 utterances for a 46-min episode).
+  // This starves Gemini of timestamp markers, resulting in chapters without times.
+  // Fix: split long utterances into sentence-level chunks with interpolated timestamps.
+  const MAX_UTTERANCE_CHARS = 500;
+  const splitUtterances: Utterance[] = [];
+
+  for (const u of utterances) {
+    if (u.text.length <= MAX_UTTERANCE_CHARS) {
+      splitUtterances.push(u);
+      continue;
+    }
+
+    // Split on sentence boundaries (. ! ? followed by space + capital letter)
+    const sentences = u.text.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [u.text];
+    const totalChars = u.text.length;
+    const timeSpan = u.end - u.start;
+    let charOffset = 0;
+
+    for (const sentence of sentences) {
+      const trimmed = sentence.trim();
+      if (!trimmed) continue;
+
+      // Interpolate timestamp proportionally based on character position
+      const ratio = totalChars > 0 ? charOffset / totalChars : 0;
+      const sentenceStart = u.start + timeSpan * ratio;
+      const nextCharOffset = charOffset + sentence.length;
+      const nextRatio = totalChars > 0 ? nextCharOffset / totalChars : 1;
+      const sentenceEnd = u.start + timeSpan * nextRatio;
+
+      splitUtterances.push({
+        start: sentenceStart,
+        end: sentenceEnd,
+        speaker: u.speaker,
+        text: trimmed,
+        confidence: u.confidence,
+      });
+
+      charOffset = nextCharOffset;
+    }
+  }
+
+  const finalUtterances = splitUtterances.length > 0 ? splitUtterances : utterances;
+  const fullText = finalUtterances.map(u => u.text).join(' ');
+  const duration = finalUtterances[finalUtterances.length - 1].end || finalUtterances[finalUtterances.length - 1].start;
+
+  logWithTime('parseTtmlToDiarized result', {
+    rawUtterances: utterances.length,
+    afterSplit: finalUtterances.length,
+    speakerCount: speakerIds.size,
+    duration,
+  });
+
+  return {
+    utterances: finalUtterances,
+    fullText,
+    duration,
+    speakerCount: speakerIds.size,
+  };
+}
+
+/**
  * Full pipeline: search for the episode on Apple, then fetch its transcript.
- * Returns the transcript text or null if unavailable.
+ * Returns a DiarizedTranscript with speaker diarization, or falls back to plain text.
  */
 export async function getAppleTranscript(
   podcastTitle: string,
   episodeTitle: string
-): Promise<{ text: string; provider: 'apple-podcasts' } | null> {
+): Promise<{ text: string; diarized: DiarizedTranscript | null; provider: 'apple-podcasts' } | null> {
   if (!APPLE_BEARER_TOKEN) {
     return null;
   }
@@ -360,10 +506,28 @@ export async function getAppleTranscript(
     return null;
   }
 
-  const text = await fetchAppleTranscript(appleId);
-  if (!text) {
+  const ttml = await fetchAppleTranscript(appleId);
+  if (!ttml) {
     return null;
   }
 
-  return { text, provider: 'apple-podcasts' };
+  // Try structured diarized parsing first
+  const diarized = parseTtmlToDiarized(ttml);
+  if (diarized && diarized.utterances.length > 0) {
+    logWithTime('Parsed Apple TTML to diarized transcript', {
+      utterances: diarized.utterances.length,
+      speakerCount: diarized.speakerCount,
+      duration: diarized.duration,
+    });
+    return { text: diarized.fullText, diarized, provider: 'apple-podcasts' };
+  }
+
+  // Fallback to plain text parsing
+  const text = parseTtmlToText(ttml);
+  if (text && text.length > 100) {
+    logWithTime('Fell back to plain text TTML parsing', { textLength: text.length });
+    return { text, diarized: null, provider: 'apple-podcasts' };
+  }
+
+  return null;
 }

@@ -34,7 +34,7 @@ function getFlashModel(): GenerativeModel {
 function getProModel(): GenerativeModel {
   if (!proModel) {
     proModel = genAI.getGenerativeModel({
-      model: "gemini-3-pro-preview",
+      model: "gemini-3.1-pro-preview",
       generationConfig: {
         responseMimeType: "application/json"
       }
@@ -265,13 +265,13 @@ Return ONLY a JSON object with this exact structure:
 
 {
   "hook_headline": "A punchy, provocative 5-10 word headline that captures the essence. NOT 'Summary of episode'.",
-  
+
   "executive_brief": "2-3 sharp sentences (max 60 words). Don't describe *what* they talked about, describe the *insight* revealed. Start directly with the core conflict or idea.",
-  
+
   "golden_nugget": "The single most surprising or valuable fact/quote from the episode. The 'I didn't know that' moment.",
-  
+
   "perfect_for": "Specific audience targeting. E.g., 'Founders raising capital' instead of 'Business people'.",
-  
+
   "tags": ["tag1", "tag2", "tag3"]
 }
 
@@ -280,6 +280,7 @@ RULES:
 2. **No Passive Voice**: Avoid "In this episode it is discussed...". Say "The host argues that...".
 3. **Curiosity Gap**: The headline and brief should create curiosity.
 4. **Specifics over Generalities**: Use specific numbers or names if available in the text.
+5. **Speaker Names**: The transcript may use generic labels like "Speaker 1", "Speaker 2". IGNORE these labels. Instead, identify who each speaker is from conversational context — introductions, name mentions, how they address each other, and their role (host vs guest). Use real names in your output whenever identifiable.
 `;
 
 // DEEP summary prompt - returns DeepSummaryContent JSON
@@ -345,11 +346,14 @@ HARD RULES (violations = invalid output):
 
 9. **No fluff**: Never start with "In this interesting/fascinating episode...". Dive straight into the content.
 
+10. **Speaker Names**: The transcript may use generic labels like "Speaker 1", "Speaker 2". IGNORE these labels — they carry no meaning. Instead, identify who each speaker is from conversational context: introductions ("I'm Joe Rogan"), name mentions ("So Rachel, what do you think?"), how guests are addressed, and their role (host vs guest). ALWAYS use real names in your output (chronological_breakdown content, quotes, etc.). Never write "Speaker 1 said..." — write "Joe Rogan said..." or "the host argued...".
+
 SELF-CHECK before responding:
 - Does comprehensive_overview contain 3-5 << >> markers? If not → fix it.
 - Does every chronological_breakdown item have a non-empty "hook"? If not → fix it.
 - Is every actionable_takeaway an object with text/category/priority/resources where resources has ≥1 item? If not → fix it.
 - Is ALL text in the transcript's language? If not → fix it.
+- Does any text say "Speaker 1" or "Speaker 2"? If so → replace with real names from context, or "the host"/"the guest" if unidentifiable.
 `;
 
 
@@ -549,6 +553,7 @@ export async function ensureTranscript(
   status: TranscriptStatus;
   text?: string;
   transcript?: DiarizedTranscript;
+  pendingSpeakerIdentification?: boolean;
   error?: string;
 }> {
   const startTime = Date.now();
@@ -611,6 +616,7 @@ export async function ensureTranscript(
     let transcriptText: string | null = null;
     let provider = 'deepgram';
     let diarizedTranscript: DiarizedTranscript | null = null;
+    let pendingSpeakerIdentification = false;
 
     // ============================================
     // PRIORITY A+: Try Apple Podcasts transcript (FREE, instant!)
@@ -621,27 +627,43 @@ export async function ensureTranscript(
       try {
         const appleResult = await getAppleTranscript(metadata.podcastTitle, metadata.episodeTitle);
         if (appleResult) {
-          transcriptText = appleResult.text;
           provider = appleResult.provider;
+
+          if (appleResult.diarized && appleResult.diarized.speakerCount > 1) {
+            // Multi-speaker: defer identifySpeakers to run in parallel with summary generation
+            diarizedTranscript = appleResult.diarized;
+            diarizedTranscript.detectedLanguage = language;
+            // Use generic "Speaker X" labels for now — real names will be identified
+            // concurrently with summary generation in requestSummary
+            transcriptText = formatTranscriptWithSpeakerNames(diarizedTranscript);
+            pendingSpeakerIdentification = true;
+            logWithTime('Apple diarized transcript ready (speaker names deferred for parallel execution)', {
+              speakerCount: diarizedTranscript.speakerCount,
+              utterances: diarizedTranscript.utterances.length,
+            });
+          } else if (appleResult.diarized) {
+            // Single speaker: use diarized structure but skip speaker identification
+            diarizedTranscript = appleResult.diarized;
+            diarizedTranscript.detectedLanguage = language;
+            transcriptText = appleResult.text;
+          } else {
+            // Fallback: plain text only (no diarization available)
+            transcriptText = appleResult.text;
+            diarizedTranscript = {
+              utterances: [{ start: 0, end: 0, speaker: 0, text: transcriptText, confidence: 1.0 }],
+              fullText: transcriptText,
+              duration: 0,
+              speakerCount: 1,
+              detectedLanguage: language,
+            };
+          }
+
           logWithTime('SUCCESS: Got FREE transcript from Apple Podcasts!', {
             textLength: transcriptText.length,
-            saved: 'Deepgram/Voxtral API costs + ~5 min transcription time'
+            speakerCount: diarizedTranscript.speakerCount,
+            hasSpeakerNames: !!diarizedTranscript.speakers?.length,
+            saved: 'Deepgram/Voxtral API costs + ~5 min transcription time',
           });
-
-          // Create a simple diarized transcript structure
-          diarizedTranscript = {
-            utterances: [{
-              start: 0,
-              end: 0,
-              speaker: 0,
-              text: transcriptText,
-              confidence: 1.0
-            }],
-            fullText: transcriptText,
-            duration: 0,
-            speakerCount: 1,
-            detectedLanguage: language
-          };
         } else {
           logWithTime('PRIORITY A+ FAILED: Apple transcript not available, trying RSS...');
         }
@@ -790,7 +812,7 @@ export async function ensureTranscript(
       provider,
       wasFree: provider === 'rss-transcript' || provider === 'apple-podcasts'
     });
-    return { status: 'ready', text: transcriptText, transcript: diarizedTranscript || undefined };
+    return { status: 'ready', text: transcriptText, transcript: diarizedTranscript || undefined, pendingSpeakerIdentification };
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'Transcription failed';
     logWithTime('Transcription FAILED', { error: errorMsg, totalDurationMs: Date.now() - startTime });
@@ -827,7 +849,7 @@ export async function generateSummaryForLevel(
     // Get the appropriate model based on level
     // Deep uses Pro (more capable), Quick uses Flash (faster, cheaper)
     const selectedModel = getModelForLevel(level);
-    const modelName = level === 'deep' ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
+    const modelName = level === 'deep' ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview';
     const prompt = level === 'quick' ? QUICK_PROMPT : DEEP_PROMPT;
 
     // Use up to 150k characters of transcript (leaves room for prompt and response)
@@ -1066,6 +1088,46 @@ export async function requestSummary(
   }
 
   // Generate the summary (language is known from RSS feed)
+  // If speaker identification is pending (Apple multi-speaker), run it in parallel
+  // with summary generation to save ~20s
+  if (transcriptResult.pendingSpeakerIdentification && transcriptResult.transcript) {
+    logWithTime('Running identifySpeakers in PARALLEL with generateSummaryForLevel...', { language });
+    const [result, speakers] = await Promise.all([
+      generateSummaryForLevel(episodeId, level, transcriptResult.text, language, transcriptResult.transcript),
+      identifySpeakers(transcriptResult.transcript),
+    ]);
+
+    // Update transcript in DB with real speaker names (non-blocking for the response)
+    if (speakers.length > 0) {
+      transcriptResult.transcript.speakers = speakers;
+      const namedTranscript = formatTranscriptWithSpeakerNames(transcriptResult.transcript);
+      logWithTime('Updating transcript with identified speaker names...', {
+        speakers: speakers.map(s => ({ id: s.id, name: s.name, role: s.role })),
+      });
+      supabase
+        .from('transcripts')
+        .update({
+          full_text: namedTranscript,
+          diarized_json: transcriptResult.transcript,
+        })
+        .eq('episode_id', episodeId)
+        .eq('language', transcriptResult.transcript.detectedLanguage || 'en')
+        .then(({ error }) => {
+          if (error) logWithTime('Failed to update transcript with speaker names', { error });
+          else logWithTime('Transcript updated with speaker names');
+        });
+    }
+
+    logWithTime('=== requestSummary ENDED ===', {
+      status: result.status,
+      language,
+      parallelSpeakerIdentification: true,
+      totalDurationMs: Date.now() - startTime,
+      totalDurationSec: ((Date.now() - startTime) / 1000).toFixed(1),
+    });
+    return result;
+  }
+
   logWithTime('Calling generateSummaryForLevel...', { language });
   const result = await generateSummaryForLevel(
     episodeId,
@@ -1074,11 +1136,11 @@ export async function requestSummary(
     language,
     transcriptResult.transcript
   );
-  logWithTime('=== requestSummary ENDED ===', { 
-    status: result.status, 
+  logWithTime('=== requestSummary ENDED ===', {
+    status: result.status,
     language,
-    totalDurationMs: Date.now() - startTime, 
-    totalDurationSec: ((Date.now() - startTime) / 1000).toFixed(1) 
+    totalDurationMs: Date.now() - startTime,
+    totalDurationSec: ((Date.now() - startTime) / 1000).toFixed(1)
   });
   return result;
 }
