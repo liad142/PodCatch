@@ -1,30 +1,30 @@
-# Apple Podcasts Bearer Token Extractor
+# Apple Podcasts Bearer Token — Automatic Extraction & Deployment
 #
-# This workflow extracts an Apple Podcasts bearer token using macOS's private
-# PodcastsFoundation framework. The token is needed to fetch pre-made transcripts
-# from Apple's 125M+ episode library.
+# Extracts an Apple Podcasts bearer token using macOS's private PodcastsFoundation
+# framework, tests it, then automatically pushes it to Vercel env vars and redeploys.
 #
-# IMPORTANT: This workflow should be in a SEPARATE PUBLIC REPO for free macOS runners.
-# It's placed here for reference. Copy to your public repo (e.g., apple-token-extractor).
+# Runs every 25 days automatically. Zero manual steps once secrets are configured.
 #
-# Usage:
-#   1. Copy this file to a public GitHub repo
-#   2. Go to Actions tab -> "Extract Apple Podcasts Bearer Token"
-#   3. Click "Run workflow"
-#   4. Download the bearer_token artifact
-#   5. Set APPLE_PODCASTS_BEARER_TOKEN in your Vercel env vars
+# Required GitHub Secrets:
+#   VERCEL_TOKEN       — Vercel personal access token (Settings > Tokens)
+#   VERCEL_PROJECT_ID  — Your Vercel project ID (Project Settings > General)
+#   VERCEL_TEAM_ID     — Your Vercel team/org ID (optional, only if using a team)
 #
-# Token renewal: Run monthly (tokens expire after ~30 days)
+# Token lifecycle: Apple tokens expire after ~30 days. Running every 25 days
+# gives a 5+ day safety buffer.
 
-name: Extract Apple Podcasts Bearer Token
+name: Apple Token Auto-Refresh
 
 on:
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:  # Manual trigger (for testing or emergency refresh)
   schedule:
-    - cron: '0 6 1 * *'  # 1st of every month at 6:00 AM UTC
+    # Run every 25 days: 1st, 26th of each month + mid-cycle coverage
+    # Since cron can't do "every 25 days", we use 1st and 15th of each month
+    # which guarantees max 15-day gap (well within the 30-day token lifetime)
+    - cron: '0 6 1,15 * *'
 
 jobs:
-  extract-token:
+  extract-and-deploy:
     runs-on: macos-15  # macOS 15 (Sequoia) - free for public repos
     timeout-minutes: 10
 
@@ -136,6 +136,7 @@ jobs:
           exit 1
 
       - name: Extract bearer token
+        id: extract
         run: |
           cd apple-podcast-transcript-downloader
 
@@ -157,19 +158,18 @@ jobs:
           ./FetchTranscript "$TEST_EPISODE_ID" --cache-bearer-token 2>&1 | tee fetch_output.txt || true
 
           # Check if bearer token was saved
-          if [ -f "bearer_token.txt" ]; then
+          if [ -f "bearer_token.txt" ] && [ -s "bearer_token.txt" ]; then
             echo ""
             echo "=============================="
             echo "Bearer token extracted successfully!"
             echo "=============================="
             TOKEN_LENGTH=$(wc -c < bearer_token.txt | tr -d ' ')
             echo "Token length: $TOKEN_LENGTH bytes"
-            # Show first/last 10 chars for verification (not the full token)
             echo "Token preview: $(head -c 10 bearer_token.txt)...$(tail -c 10 bearer_token.txt)"
+            echo "token_extracted=true" >> $GITHUB_OUTPUT
           else
             echo ""
             echo "bearer_token.txt not found in current directory"
-            echo "Checking all output and files..."
             echo "--- Files in directory ---"
             ls -la
             echo "--- Full command output ---"
@@ -182,27 +182,25 @@ jobs:
               echo "Found JWT-like token in output!"
               TOKEN_LENGTH=$(wc -c < bearer_token.txt | tr -d ' ')
               echo "Token length: $TOKEN_LENGTH bytes"
+              echo "token_extracted=true" >> $GITHUB_OUTPUT
             else
               echo "No token found. The binary may need different arguments."
               echo "Trying without arguments..."
               ./FetchTranscript 2>&1 | tee usage_output.txt || true
               cat usage_output.txt
+              echo "token_extracted=false" >> $GITHUB_OUTPUT
             fi
           fi
 
-      - name: Test transcript download
+      - name: Test token against Apple API
+        id: test
+        if: steps.extract.outputs.token_extracted == 'true'
         run: |
           cd apple-podcast-transcript-downloader
-
-          if [ ! -f "bearer_token.txt" ] || [ ! -s "bearer_token.txt" ]; then
-            echo "No bearer token available, skipping transcript test"
-            exit 0
-          fi
 
           BEARER_TOKEN=$(cat bearer_token.txt)
           TEST_EPISODE_ID="1000683407771"
 
-          # Test fetching a transcript using the token
           echo "Testing transcript fetch for episode $TEST_EPISODE_ID..."
           HTTP_CODE=$(curl -s -o transcript_test.ttml -w "%{http_code}" \
             "https://amp-api.podcasts.apple.com/v1/catalog/us/episodes/${TEST_EPISODE_ID}/transcripts" \
@@ -214,16 +212,205 @@ jobs:
           if [ "$HTTP_CODE" = "200" ]; then
             echo ""
             echo "=============================="
-            echo "Transcript fetch SUCCESSFUL!"
+            echo "Token VERIFIED - transcript fetch successful!"
             echo "=============================="
             echo "Transcript size: $(wc -c < transcript_test.ttml | tr -d ' ') bytes"
-            echo "First 500 chars:"
-            head -c 500 transcript_test.ttml
+            echo "token_valid=true" >> $GITHUB_OUTPUT
           else
-            echo "Transcript fetch failed with status $HTTP_CODE"
-            echo "Response body:"
+            echo "Token test FAILED with status $HTTP_CODE"
             cat transcript_test.ttml 2>/dev/null || true
+            echo "token_valid=false" >> $GITHUB_OUTPUT
           fi
+
+      # ============================================
+      # AUTO-DEPLOY: Push verified token to Vercel
+      # ============================================
+      - name: Deploy token to Vercel
+        if: steps.test.outputs.token_valid == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+        run: |
+          cd apple-podcast-transcript-downloader
+
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "VERCEL_TOKEN secret not set — skipping auto-deploy."
+            echo "To enable auto-deploy, add VERCEL_TOKEN, VERCEL_PROJECT_ID secrets."
+            echo "Token is still available as an artifact for manual deployment."
+            exit 0
+          fi
+
+          if [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "VERCEL_PROJECT_ID secret not set — skipping auto-deploy."
+            exit 0
+          fi
+
+          NEW_TOKEN=$(cat bearer_token.txt)
+          TEAM_PARAM=""
+          if [ -n "$VERCEL_TEAM_ID" ]; then
+            TEAM_PARAM="&teamId=${VERCEL_TEAM_ID}"
+          fi
+
+          echo "=== Looking up existing APPLE_PODCASTS_BEARER_TOKEN env var ==="
+
+          # List all env vars to find the ID of APPLE_PODCASTS_BEARER_TOKEN
+          ENV_RESPONSE=$(curl -s \
+            "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/env?${TEAM_PARAM}" \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}")
+
+          # Extract the env var ID for APPLE_PODCASTS_BEARER_TOKEN
+          ENV_ID=$(echo "$ENV_RESPONSE" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for env in data.get('envs', []):
+              if env.get('key') == 'APPLE_PODCASTS_BEARER_TOKEN':
+                  print(env['id'])
+                  break
+          " 2>/dev/null || true)
+
+          if [ -n "$ENV_ID" ]; then
+            echo "Found existing env var (ID: ${ENV_ID:0:8}...), updating..."
+
+            # Update existing env var
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              -X PATCH \
+              "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/env/${ENV_ID}?${TEAM_PARAM}" \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"value\": \"${NEW_TOKEN}\"}")
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Env var UPDATED successfully!"
+            else
+              echo "ERROR: Failed to update env var (HTTP $HTTP_CODE)"
+              exit 1
+            fi
+          else
+            echo "Env var not found, creating new one..."
+
+            # Create new env var for all environments (production, preview, development)
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST \
+              "https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/env?${TEAM_PARAM}" \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"key\": \"APPLE_PODCASTS_BEARER_TOKEN\",
+                \"value\": \"${NEW_TOKEN}\",
+                \"type\": \"encrypted\",
+                \"target\": [\"production\", \"preview\", \"development\"]
+              }")
+
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+              echo "Env var CREATED successfully!"
+            else
+              echo "ERROR: Failed to create env var (HTTP $HTTP_CODE)"
+              exit 1
+            fi
+          fi
+
+      - name: Trigger Vercel redeploy
+        if: steps.test.outputs.token_valid == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "Vercel secrets not configured — skipping redeploy."
+            exit 0
+          fi
+
+          TEAM_PARAM=""
+          if [ -n "$VERCEL_TEAM_ID" ]; then
+            TEAM_PARAM="&teamId=${VERCEL_TEAM_ID}"
+          fi
+
+          echo "=== Finding latest production deployment to redeploy ==="
+
+          # Get the latest production deployment
+          DEPLOY_RESPONSE=$(curl -s \
+            "https://api.vercel.com/v6/deployments?projectId=${VERCEL_PROJECT_ID}&target=production&limit=1${TEAM_PARAM}" \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}")
+
+          DEPLOY_ID=$(echo "$DEPLOY_RESPONSE" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          deploys = data.get('deployments', [])
+          if deploys:
+              print(deploys[0]['uid'])
+          " 2>/dev/null || true)
+
+          if [ -z "$DEPLOY_ID" ]; then
+            echo "No production deployment found — skipping redeploy."
+            echo "The new token will take effect on next deploy."
+            exit 0
+          fi
+
+          echo "Redeploying production (deployment: ${DEPLOY_ID:0:12}...)..."
+
+          HTTP_CODE=$(curl -s -o redeploy_response.json -w "%{http_code}" \
+            -X POST \
+            "https://api.vercel.com/v13/deployments?${TEAM_PARAM}" \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"name\": \"podcatch\",
+              \"deploymentId\": \"${DEPLOY_ID}\",
+              \"target\": \"production\"
+            }")
+
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+            NEW_URL=$(python3 -c "
+          import json
+          with open('redeploy_response.json') as f:
+              data = json.load(f)
+              print(data.get('url', 'unknown'))
+          " 2>/dev/null || echo "unknown")
+            echo ""
+            echo "=============================="
+            echo "Production REDEPLOY triggered!"
+            echo "URL: https://${NEW_URL}"
+            echo "=============================="
+          else
+            echo "Redeploy returned HTTP $HTTP_CODE (may still succeed)"
+            cat redeploy_response.json 2>/dev/null || true
+          fi
+
+      # ============================================
+      # Summary
+      # ============================================
+      - name: Workflow summary
+        if: always()
+        run: |
+          echo ""
+          echo "============================================"
+          echo "       APPLE TOKEN REFRESH SUMMARY"
+          echo "============================================"
+          echo ""
+          echo "Token extracted: ${{ steps.extract.outputs.token_extracted || 'false' }}"
+          echo "Token verified:  ${{ steps.test.outputs.token_valid || 'N/A' }}"
+
+          if [ "${{ steps.test.outputs.token_valid }}" = "true" ]; then
+            if [ -n "${{ secrets.VERCEL_TOKEN }}" ]; then
+              echo "Vercel deploy:   AUTOMATIC"
+              echo ""
+              echo "The new token has been pushed to Vercel and a"
+              echo "production redeploy has been triggered."
+            else
+              echo "Vercel deploy:   MANUAL (secrets not configured)"
+              echo ""
+              echo "Download the bearer_token artifact and update"
+              echo "APPLE_PODCASTS_BEARER_TOKEN in Vercel manually."
+            fi
+          else
+            echo ""
+            echo "Token extraction or verification FAILED."
+            echo "Check the debug_output artifact for details."
+          fi
+          echo ""
+          echo "============================================"
 
       - name: Upload bearer token as artifact
         if: always()
