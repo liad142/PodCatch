@@ -21,7 +21,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Podcast not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ podcastId: podcast.id });
+    return NextResponse.json({ podcastId: podcast.id }, {
+      headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
+    });
   } catch (error) {
     console.error('Error looking up podcast:', error);
     return NextResponse.json({ error: 'Failed to lookup podcast' }, { status: 500 });

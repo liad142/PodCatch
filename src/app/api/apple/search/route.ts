@@ -22,6 +22,8 @@ export async function GET(request: NextRequest) {
       query: term,
       country,
       count: podcasts.length,
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=1800' },
     });
   } catch (error) {
     console.error('Apple search error:', error);

@@ -86,7 +86,9 @@ export async function GET(request: NextRequest) {
         };
       });
 
-    return NextResponse.json({ episodes: result });
+    return NextResponse.json({ episodes: result }, {
+      headers: { 'Cache-Control': 'private, s-maxage=300, stale-while-revalidate=600' },
+    });
   } catch (error) {
     console.error('Error in summaries API:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Radio, Layers, Youtube } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { StatCard } from '@/components/admin/StatCard';
 import { ChartCard } from '@/components/admin/ChartCard';
 import { DataTable } from '@/components/admin/DataTable';
 import { RefreshButton } from '@/components/admin/RefreshButton';
-import { AreaChartWidget } from '@/components/admin/charts/AreaChartWidget';
-import { BarChartWidget } from '@/components/admin/charts/BarChartWidget';
+
+const AreaChartWidget = dynamic(() => import('@/components/admin/charts/AreaChartWidget').then(m => ({ default: m.AreaChartWidget })), { ssr: false, loading: () => <div className="h-64 animate-pulse bg-white/5 rounded-xl" /> });
+const BarChartWidget = dynamic(() => import('@/components/admin/charts/BarChartWidget').then(m => ({ default: m.BarChartWidget })), { ssr: false, loading: () => <div className="h-64 animate-pulse bg-white/5 rounded-xl" /> });
 import type { ContentAnalytics } from '@/types/admin';
 
 export default function ContentPage() {

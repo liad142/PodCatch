@@ -38,6 +38,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         genres: podcast.genres,
         trackCount: podcast.episodeCount,
       },
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
     });
   } catch (error) {
     console.error('PI podcast fetch error:', error);

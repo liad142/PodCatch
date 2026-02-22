@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { FileText, Brain, Layers, AlertTriangle } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { StatCard } from '@/components/admin/StatCard';
 import { ChartCard } from '@/components/admin/ChartCard';
 import { DataTable } from '@/components/admin/DataTable';
 import { RefreshButton } from '@/components/admin/RefreshButton';
-import { AreaChartWidget } from '@/components/admin/charts/AreaChartWidget';
-import { StatusBreakdown } from '@/components/admin/charts/StatusBreakdown';
+
+const AreaChartWidget = dynamic(() => import('@/components/admin/charts/AreaChartWidget').then(m => ({ default: m.AreaChartWidget })), { ssr: false, loading: () => <div className="h-64 animate-pulse bg-white/5 rounded-xl" /> });
+const StatusBreakdown = dynamic(() => import('@/components/admin/charts/StatusBreakdown').then(m => ({ default: m.StatusBreakdown })), { ssr: false, loading: () => <div className="h-64 animate-pulse bg-white/5 rounded-xl" /> });
 import type { AiAnalytics } from '@/types/admin';
 
 export default function AiPage() {

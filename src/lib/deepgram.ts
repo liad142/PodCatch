@@ -220,7 +220,7 @@ async function downloadAudioBuffer(url: string): Promise<Buffer> {
  */
 function buildDeepgramConfig(language?: string): Record<string, unknown> {
   const config: Record<string, unknown> = {
-    model: 'whisper-large',
+    model: 'nova-3',
     diarize: true,
     utterances: true,
     smart_format: true,

@@ -2,13 +2,21 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Users, Radio, FileText, AlertTriangle, Layers, TrendingUp } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { StatCard } from '@/components/admin/StatCard';
 import { ChartCard } from '@/components/admin/ChartCard';
 import { DataTable } from '@/components/admin/DataTable';
 import { RefreshButton } from '@/components/admin/RefreshButton';
-import { AreaChartWidget } from '@/components/admin/charts/AreaChartWidget';
-import { PieChartWidget } from '@/components/admin/charts/PieChartWidget';
 import { TodoList } from '@/components/admin/TodoList';
+
+const AreaChartWidget = dynamic(() => import('@/components/admin/charts/AreaChartWidget').then(m => ({ default: m.AreaChartWidget })), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse bg-white/5 rounded-xl" />,
+});
+const PieChartWidget = dynamic(() => import('@/components/admin/charts/PieChartWidget').then(m => ({ default: m.PieChartWidget })), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse bg-white/5 rounded-xl" />,
+});
 import type { OverviewStats } from '@/types/admin';
 
 export default function OverviewPage() {

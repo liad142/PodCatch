@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { getCached, setCached, CacheKeys, CacheTTL } from "@/lib/cache";
 
 interface RouteParams {
   params: Promise<{
@@ -16,6 +17,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         { error: "Episode ID is required" },
         { status: 400 }
       );
+    }
+
+    // Check Redis cache first
+    const cacheKey = CacheKeys.episodeDetail(id);
+    const cached = await getCached<{ episode: any; transcript: any; summary: any }>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
+      });
     }
 
     // Fetch episode with transcript and summaries in a single query
@@ -83,10 +93,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Remove nested transcripts from episode to keep response shape clean
     const { transcripts: _transcripts, ...episodeData } = episode as any;
 
-    return NextResponse.json({
+    const responseData = {
       episode: episodeData,
       transcript: transcript || null,
       summary: summary || null,
+    };
+
+    // Cache the result: 24h if summary is ready, 5min if still processing
+    const hasSummaryReady = summary?.status === 'ready';
+    const ttl = hasSummaryReady ? CacheTTL.EPISODE_DETAIL_READY : CacheTTL.EPISODE_DETAIL_SHORT;
+    await setCached(cacheKey, responseData, ttl);
+
+    const cacheTtl = hasSummaryReady ? 3600 : 300;
+    return NextResponse.json(responseData, {
+      headers: { 'Cache-Control': `public, s-maxage=${cacheTtl}, stale-while-revalidate=${cacheTtl * 2}` },
     });
   } catch (error) {
     console.error("Error in episode GET:", error);

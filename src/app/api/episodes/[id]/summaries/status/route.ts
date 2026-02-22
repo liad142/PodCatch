@@ -13,7 +13,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const language = searchParams.get('language') || 'en';
     
     const result = await getSummariesStatus(id, language);
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: { 'Cache-Control': 'no-cache' },
+    });
   } catch (error) {
     console.error('Error fetching status:', error);
     return NextResponse.json({ error: 'Failed to fetch status' }, { status: 500 });

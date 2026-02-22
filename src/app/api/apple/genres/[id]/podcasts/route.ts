@@ -19,6 +19,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       genreId,
       country,
       count: podcasts.length,
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
     });
   } catch (error) {
     console.error('Apple genre podcasts error:', error);

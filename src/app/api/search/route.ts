@@ -30,7 +30,9 @@ export async function GET(request: NextRequest) {
 
     const result = await searchPodcasts(term.trim(), country, limit);
 
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=1800' },
+    });
   } catch (error) {
     console.error('Unified search error:', error);
     return NextResponse.json(

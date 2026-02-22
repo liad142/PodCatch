@@ -49,7 +49,9 @@ export async function GET(request: NextRequest) {
     const cacheKey = `personalized:${user.id}:${country}`;
     const cached = await getCached<{ personalized: boolean; sections: unknown[] }>(cacheKey);
     if (cached) {
-      return NextResponse.json(cached);
+      return NextResponse.json(cached, {
+        headers: { 'Cache-Control': 'private, s-maxage=3600, stale-while-revalidate=7200' },
+      });
     }
 
     // Get user's genre preferences
@@ -127,7 +129,9 @@ export async function GET(request: NextRequest) {
     // Cache for 1 hour (setCached handles JSON serialization)
     await setCached(cacheKey, responseData, 3600);
 
-    return NextResponse.json(responseData);
+    return NextResponse.json(responseData, {
+      headers: { 'Cache-Control': 'private, s-maxage=3600, stale-while-revalidate=7200' },
+    });
   } catch (error) {
     console.error('Error fetching personalized feed:', error);
     return NextResponse.json({ personalized: false, sections: [] });

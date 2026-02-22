@@ -20,7 +20,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    return NextResponse.json({ podcast });
+    return NextResponse.json({ podcast }, {
+      headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
+    });
   } catch (error) {
     console.error('Apple podcast lookup error:', error);
     return NextResponse.json(

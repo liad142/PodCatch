@@ -60,6 +60,8 @@ export async function GET(request: NextRequest) {
       total: count ?? 0,
       limit,
       offset,
+    }, {
+      headers: { 'Cache-Control': 'private, no-cache' },
     });
   } catch (error) {
     console.error('Error fetching subscriptions:', error);

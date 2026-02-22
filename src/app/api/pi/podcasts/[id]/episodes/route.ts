@@ -35,6 +35,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       })),
       totalCount: allEpisodes.length,
       hasMore: offset + limit < allEpisodes.length,
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600' },
     });
   } catch (error) {
     console.error('PI episodes fetch error:', error);

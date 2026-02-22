@@ -16,6 +16,8 @@ export async function GET(request: NextRequest) {
       country,
       genreId,
       count: podcasts.length,
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
     });
   } catch (error) {
     console.error('Apple top podcasts error:', error);

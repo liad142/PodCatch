@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
       success: true,
       channels,
       total: channels.length,
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
     });
   } catch (error) {
     console.error('Get channels error:', error);

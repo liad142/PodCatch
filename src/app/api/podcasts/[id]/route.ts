@@ -116,6 +116,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       podcast,
       episodes: episodes || [],
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600' },
     });
   } catch (error) {
     console.error("Error in podcast GET:", error);

@@ -8,7 +8,9 @@ export async function GET() {
   try {
     // Return cached data if still fresh
     if (cachedGenres && Date.now() - cachedGenres.timestamp < GENRE_CACHE_TTL) {
-      return NextResponse.json(cachedGenres.data);
+      return NextResponse.json(cachedGenres.data, {
+        headers: { 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=172800' },
+      });
     }
 
     const genres = getGenres();
@@ -24,7 +26,9 @@ export async function GET() {
       timestamp: Date.now(),
     };
 
-    return NextResponse.json(responseData);
+    return NextResponse.json(responseData, {
+      headers: { 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=172800' },
+    });
   } catch (error) {
     console.error('Apple genres error:', error);
     return NextResponse.json(

@@ -35,6 +35,8 @@ export async function GET(request: NextRequest) {
       items,
       total: items.length,
       hasMore: items.length === limit,
+    }, {
+      headers: { 'Cache-Control': 'private, s-maxage=300, stale-while-revalidate=600' },
     });
   } catch (error) {
     console.error('Get feed error:', error);

@@ -13,13 +13,15 @@ export async function GET() {
   try {
     const { data: profile, error } = await createAdminClient()
       .from('user_profiles')
-      .select('*')
+      .select('id, display_name, email, preferred_genres, preferred_country, onboarding_completed, created_at')
       .eq('id', user.id)
       .single();
 
     if (error) throw error;
 
-    return NextResponse.json({ profile });
+    return NextResponse.json({ profile }, {
+      headers: { 'Cache-Control': 'private, no-cache' },
+    });
   } catch (error) {
     console.error('Error fetching profile:', error);
     return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 });
