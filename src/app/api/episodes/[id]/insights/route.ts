@@ -14,7 +14,9 @@ export async function GET(
     // Language is auto-detected from existing transcripts in getInsightsStatus
     const status = await getInsightsStatus(id);
 
-    return NextResponse.json(status);
+    return NextResponse.json(status, {
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+    });
   } catch (error) {
     console.error("Error fetching insights:", error);
     return NextResponse.json(
@@ -38,7 +40,8 @@ export async function POST(
       .select(`
         audio_url,
         transcript_url,
-        podcasts!inner (id, language, rss_feed_url)
+        title,
+        podcasts!inner (id, title, language, rss_feed_url)
       `)
       .eq("id", episodeId)
       .single();
@@ -51,15 +54,21 @@ export async function POST(
     }
 
     // Self-healing language detection via shared utility
-    const podcastData = episode.podcasts as unknown as { id: string; language: string | null; rss_feed_url: string } | null;
+    const podcastData = episode.podcasts as unknown as { id: string; title: string; language: string | null; rss_feed_url: string } | null;
     const language = await resolvePodcastLanguage(podcastData, supabase);
 
-    // Request insights generation - pass transcript URL for FREE transcription (Priority A)
+    // Build metadata for Apple Podcasts transcript lookup
+    const metadata = podcastData?.title && episode.title
+      ? { podcastTitle: podcastData.title, episodeTitle: episode.title }
+      : undefined;
+
+    // Request insights generation - pass transcript URL for FREE transcription (Priority A) and metadata for Apple (Priority A+)
     const result = await requestInsights(
       episodeId,
       episode.audio_url,
       language || undefined,
-      episode.transcript_url || undefined  // Priority A: FREE transcript from RSS
+      episode.transcript_url || undefined,
+      metadata
     );
 
     return NextResponse.json({

@@ -206,13 +206,14 @@ export async function requestInsights(
   episodeId: string,
   audioUrl: string,
   language = 'en',
-  transcriptUrl?: string  // NEW: Optional RSS transcript URL for FREE transcription
+  transcriptUrl?: string,
+  metadata?: { podcastTitle: string; episodeTitle: string }
 ): Promise<{ status: InsightStatus; content?: InsightsContent }> {
 
   // Check existing insights (look in any language first)
   const { data: existingList } = await supabase
     .from('summaries')
-    .select('*')
+    .select('id, episode_id, level, status, language, content_json, error_message, created_at, updated_at')
     .eq('episode_id', episodeId)
     .eq('level', 'insights')
     .order('created_at', { ascending: false });
@@ -241,7 +242,7 @@ export async function requestInsights(
     }, { onConflict: 'episode_id,level,language' });
 
   // Ensure transcript exists (passing transcriptUrl for FREE transcription if available)
-  const transcriptResult = await ensureTranscript(episodeId, audioUrl, language, transcriptUrl);
+  const transcriptResult = await ensureTranscript(episodeId, audioUrl, language, transcriptUrl, metadata);
 
   if (transcriptResult.status !== 'ready' || !transcriptResult.text) {
     const insightStatus: InsightStatus = transcriptResult.status === 'failed' ? 'failed' : 'transcribing';
@@ -263,6 +264,12 @@ export async function requestInsights(
 }
 
 export async function getInsightsStatus(episodeId: string, language = 'en') {
+  // Check Redis cache for terminal states
+  const { getCached, setCached, CacheKeys, CacheTTL } = await import('@/lib/cache');
+  const cacheKey = CacheKeys.insightsStatus(episodeId, language);
+  const cached = await getCached<any>(cacheKey);
+  if (cached) return cached;
+
   // First, try to find a transcript for this episode in ANY language
   // This handles auto-detected languages (e.g., Hebrew detected from English request)
   const { data: transcripts } = await supabase
@@ -292,14 +299,14 @@ export async function getInsightsStatus(episodeId: string, language = 'en') {
   const [{ data: insights }, { data: summaries }] = await Promise.all([
     supabase
       .from('summaries')
-      .select('*')
+      .select('id, episode_id, level, status, language, content_json, updated_at')
       .eq('episode_id', episodeId)
       .eq('level', 'insights')
       .eq('language', actualLanguage)
       .single(),
     supabase
       .from('summaries')
-      .select('*')
+      .select('id, episode_id, level, status, language, content_json, updated_at')
       .eq('episode_id', episodeId)
       .eq('language', actualLanguage)
       .in('level', ['quick', 'deep']),
@@ -308,7 +315,7 @@ export async function getInsightsStatus(episodeId: string, language = 'en') {
   const quick = summaries?.find(s => s.level === 'quick');
   const deep = summaries?.find(s => s.level === 'deep');
 
-  return {
+  const result = {
     episodeId,
     transcript_status: transcript?.status || 'not_started',
     transcript_text: transcriptText,
@@ -331,4 +338,14 @@ export async function getInsightsStatus(episodeId: string, language = 'en') {
       } : undefined
     }
   };
+
+  // Cache terminal states
+  const insightsTerminal = !insights || insights.status === 'ready' || insights.status === 'failed';
+  const quickTerminal = !quick || quick.status === 'ready' || quick.status === 'failed';
+  const deepTerminal = !deep || deep.status === 'ready' || deep.status === 'failed';
+  if (insightsTerminal && quickTerminal && deepTerminal) {
+    await setCached(cacheKey, result, CacheTTL.STATUS_TERMINAL);
+  }
+
+  return result;
 }

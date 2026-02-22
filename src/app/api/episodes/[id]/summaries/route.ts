@@ -22,7 +22,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     logWithTime('GET request received', { episodeId: id });
     const result = await getSummariesStatus(id);
     logWithTime('GET request completed', { episodeId: id });
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+    });
   } catch (error) {
     console.error('Error fetching summaries:', error);
     return NextResponse.json({ error: 'Failed to fetch summaries' }, { status: 500 });
@@ -55,7 +57,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .select(`
         audio_url,
         transcript_url,
-        podcasts!inner (id, language, rss_feed_url)
+        title,
+        podcasts!inner (id, title, language, rss_feed_url)
       `)
       .eq('id', id)
       .single();
@@ -66,22 +69,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Self-healing language detection via shared utility
-    const podcastData = episode.podcasts as unknown as { id: string; language: string | null; rss_feed_url: string } | null;
+    const podcastData = episode.podcasts as unknown as { id: string; title: string; language: string | null; rss_feed_url: string } | null;
     const language = await resolvePodcastLanguage(podcastData, supabase);
 
-    logWithTime('Episode found, calling requestSummary...', { 
+    // Build metadata for Apple Podcasts transcript lookup
+    const metadata = podcastData?.title && episode.title
+      ? { podcastTitle: podcastData.title, episodeTitle: episode.title }
+      : undefined;
+
+    logWithTime('Episode found, calling requestSummary...', {
       audioUrl: episode.audio_url?.substring(0, 50) + '...',
       transcriptUrl: episode.transcript_url ? 'YES (FREE!)' : 'NO',
+      hasAppleMetadata: !!metadata,
       language
     });
-    
-    // Pass transcript URL for FREE transcription (Priority A)
+
+    // Pass transcript URL for FREE transcription (Priority A) and metadata for Apple (Priority A+)
     const result = await requestSummary(
       id,
       level,
       episode.audio_url,
       language || undefined,
-      episode.transcript_url || undefined  // Priority A: FREE transcript from RSS
+      episode.transcript_url || undefined,
+      metadata
     );
 
     // Record user ownership of this summary

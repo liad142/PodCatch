@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const supabase = createAdminClient();
 import { transcribeFromUrl, formatTranscriptWithTimestamps, formatTranscriptWithSpeakerNames } from "./deepgram";
 import { isVoxtralSupported, transcribeWithVoxtral } from "./voxtral";
+import { getAppleTranscript } from "./apple-transcripts";
 import type { DiarizedTranscript } from "@/types/deepgram";
 import type {
   SummaryLevel,
@@ -66,6 +67,7 @@ const MULTI_SPACE_RE = /\s+/g;
 import { createLogger } from "@/lib/logger";
 import { SUMMARY_STATUS_PRIORITY } from "@/lib/status-utils";
 import { triggerPendingNotifications } from "@/lib/notifications/trigger";
+import { getCached, setCached, deleteCached, CacheKeys, CacheTTL } from "@/lib/cache";
 
 const logWithTime = createLogger('SUMMARY-SERVICE');
 
@@ -541,7 +543,8 @@ export async function ensureTranscript(
   episodeId: string,
   audioUrl: string,
   language = 'en',
-  transcriptUrl?: string  // NEW: Optional RSS transcript URL (FREE option!)
+  transcriptUrl?: string,  // Optional RSS transcript URL (FREE option!)
+  metadata?: { podcastTitle: string; episodeTitle: string }  // For Apple Podcasts lookup
 ): Promise<{
   status: TranscriptStatus;
   text?: string;
@@ -561,7 +564,7 @@ export async function ensureTranscript(
   const dbCheckStart = Date.now();
   const { data: existing } = await supabase
     .from('transcripts')
-    .select('*')
+    .select('id, episode_id, status, language, full_text, diarized_json, error_message, created_at, updated_at')
     .eq('episode_id', episodeId)
     .eq('language', language)
     .single();
@@ -610,9 +613,48 @@ export async function ensureTranscript(
     let diarizedTranscript: DiarizedTranscript | null = null;
 
     // ============================================
+    // PRIORITY A+: Try Apple Podcasts transcript (FREE, instant!)
+    // Apple has 125M+ episodes already transcribed
+    // ============================================
+    if (metadata?.podcastTitle && metadata?.episodeTitle) {
+      logWithTime('PRIORITY A+: Attempting Apple Podcasts transcript (FREE, instant)...');
+      try {
+        const appleResult = await getAppleTranscript(metadata.podcastTitle, metadata.episodeTitle);
+        if (appleResult) {
+          transcriptText = appleResult.text;
+          provider = appleResult.provider;
+          logWithTime('SUCCESS: Got FREE transcript from Apple Podcasts!', {
+            textLength: transcriptText.length,
+            saved: 'Deepgram/Voxtral API costs + ~5 min transcription time'
+          });
+
+          // Create a simple diarized transcript structure
+          diarizedTranscript = {
+            utterances: [{
+              start: 0,
+              end: 0,
+              speaker: 0,
+              text: transcriptText,
+              confidence: 1.0
+            }],
+            fullText: transcriptText,
+            duration: 0,
+            speakerCount: 1,
+            detectedLanguage: language
+          };
+        } else {
+          logWithTime('PRIORITY A+ FAILED: Apple transcript not available, trying RSS...');
+        }
+      } catch (appleError) {
+        const errorMsg = appleError instanceof Error ? appleError.message : String(appleError);
+        logWithTime('PRIORITY A+ ERROR: Apple transcript fetch failed', { error: errorMsg });
+      }
+    }
+
+    // ============================================
     // PRIORITY A: Try to fetch transcript from RSS URL (FREE!)
     // ============================================
-    if (transcriptUrl) {
+    if (!transcriptText && transcriptUrl) {
       logWithTime('PRIORITY A: Attempting FREE transcript fetch from RSS URL...');
       transcriptText = await fetchTranscriptFromUrl(transcriptUrl);
       
@@ -746,7 +788,7 @@ export async function ensureTranscript(
       totalDurationMs: Date.now() - startTime,
       language,
       provider,
-      wasFree: provider === 'rss-transcript'
+      wasFree: provider === 'rss-transcript' || provider === 'apple-podcasts'
     });
     return { status: 'ready', text: transcriptText, transcript: diarizedTranscript || undefined };
   } catch (err) {
@@ -918,10 +960,11 @@ export async function requestSummary(
   level: SummaryLevel,
   audioUrl: string,
   language = 'en',
-  transcriptUrl?: string  // NEW: Optional RSS transcript URL for FREE transcription
+  transcriptUrl?: string,
+  metadata?: { podcastTitle: string; episodeTitle: string }
 ): Promise<{ status: SummaryStatus; content?: QuickSummaryContent | DeepSummaryContent }> {
   const startTime = Date.now();
-  logWithTime('=== requestSummary STARTED ===', { episodeId, level, language, hasTranscriptUrl: !!transcriptUrl });
+  logWithTime('=== requestSummary STARTED ===', { episodeId, level, language, hasTranscriptUrl: !!transcriptUrl, hasMetadata: !!metadata });
 
   // Check existing summary
   logWithTime('Checking for existing summary...');
@@ -930,7 +973,7 @@ export async function requestSummary(
   // Fetch ALL summaries for this episode/level/language (not .single() to handle duplicates)
   const { data: existingSummaries } = await supabase
     .from('summaries')
-    .select('*')
+    .select('id, episode_id, level, status, language, content_json, error_message, created_at, updated_at')
     .eq('episode_id', episodeId)
     .eq('level', level)
     .eq('language', language);
@@ -1000,8 +1043,8 @@ export async function requestSummary(
     }, { onConflict: 'episode_id,level,language' });
 
   // Ensure transcript exists (this is blocking for now, could be async)
-  logWithTime('Calling ensureTranscript...', { hasTranscriptUrl: !!transcriptUrl });
-  const transcriptResult = await ensureTranscript(episodeId, audioUrl, language, transcriptUrl);
+  logWithTime('Calling ensureTranscript...', { hasTranscriptUrl: !!transcriptUrl, hasMetadata: !!metadata });
+  const transcriptResult = await ensureTranscript(episodeId, audioUrl, language, transcriptUrl, metadata);
   logWithTime('ensureTranscript returned', { status: transcriptResult.status, hasText: !!transcriptResult.text, hasTranscript: !!transcriptResult.transcript, error: transcriptResult.error });
 
   if (transcriptResult.status !== 'ready' || !transcriptResult.text) {
@@ -1041,6 +1084,12 @@ export async function requestSummary(
 }
 
 export async function getSummariesStatus(episodeId: string, language = 'en') {
+  // Check Redis cache for terminal states
+  const { getCached, setCached, CacheKeys, CacheTTL } = await import('@/lib/cache');
+  const cacheKey = CacheKeys.summaryStatus(episodeId, language);
+  const cached = await getCached<any>(cacheKey);
+  if (cached) return cached;
+
   // Find transcript in ANY language for this episode (handles auto-detected languages)
   const { data: transcripts } = await supabase
     .from('transcripts')
@@ -1054,7 +1103,7 @@ export async function getSummariesStatus(episodeId: string, language = 'en') {
   // Fetch summaries with the actual language
   const { data: summaries } = await supabase
     .from('summaries')
-    .select('*')
+    .select('id, episode_id, level, status, language, content_json, updated_at')
     .eq('episode_id', episodeId)
     .eq('language', actualLanguage)
     .in('level', ['quick', 'deep']);
@@ -1062,7 +1111,7 @@ export async function getSummariesStatus(episodeId: string, language = 'en') {
   const quick = summaries?.find(s => s.level === 'quick');
   const deep = summaries?.find(s => s.level === 'deep');
 
-  return {
+  const result = {
     episodeId,
     detected_language: actualLanguage,
     transcript: transcript ? { status: transcript.status, language: transcript.language } : null,
@@ -1079,4 +1128,13 @@ export async function getSummariesStatus(episodeId: string, language = 'en') {
       } : null
     }
   };
+
+  // Cache terminal states (both summaries ready or no longer processing)
+  const quickTerminal = !quick || quick.status === 'ready' || quick.status === 'failed';
+  const deepTerminal = !deep || deep.status === 'ready' || deep.status === 'failed';
+  if (quickTerminal && deepTerminal) {
+    await setCached(cacheKey, result, CacheTTL.STATUS_TERMINAL);
+  }
+
+  return result;
 }

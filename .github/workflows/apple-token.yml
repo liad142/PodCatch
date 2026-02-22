@@ -1,0 +1,247 @@
+# Apple Podcasts Bearer Token Extractor
+#
+# This workflow extracts an Apple Podcasts bearer token using macOS's private
+# PodcastsFoundation framework. The token is needed to fetch pre-made transcripts
+# from Apple's 125M+ episode library.
+#
+# IMPORTANT: This workflow should be in a SEPARATE PUBLIC REPO for free macOS runners.
+# It's placed here for reference. Copy to your public repo (e.g., apple-token-extractor).
+#
+# Usage:
+#   1. Copy this file to a public GitHub repo
+#   2. Go to Actions tab -> "Extract Apple Podcasts Bearer Token"
+#   3. Click "Run workflow"
+#   4. Download the bearer_token artifact
+#   5. Set APPLE_PODCASTS_BEARER_TOKEN in your Vercel env vars
+#
+# Token renewal: Run monthly (tokens expire after ~30 days)
+
+name: Extract Apple Podcasts Bearer Token
+
+on:
+  workflow_dispatch:  # Manual trigger
+  schedule:
+    - cron: '0 6 1 * *'  # 1st of every month at 6:00 AM UTC
+
+jobs:
+  extract-token:
+    runs-on: macos-15  # macOS 15 (Sequoia) - free for public repos
+    timeout-minutes: 10
+
+    steps:
+      - name: Check macOS version and available frameworks
+        run: |
+          echo "=== macOS Version ==="
+          sw_vers
+          echo ""
+          echo "=== Checking for PodcastsFoundation ==="
+          if [ -d "/System/Library/PrivateFrameworks/PodcastsFoundation.framework" ]; then
+            echo "PodcastsFoundation.framework FOUND"
+          else
+            echo "PodcastsFoundation.framework NOT FOUND"
+            echo "Checking alternative locations..."
+            find /System/Library -name "Podcasts*" -type d 2>/dev/null || echo "No Podcasts frameworks found"
+          fi
+
+      - name: Clone transcript downloader tool
+        run: |
+          git clone --depth 1 https://github.com/dado3212/apple-podcast-transcript-downloader.git
+          cd apple-podcast-transcript-downloader
+          ls -la
+
+      - name: Try pre-compiled binary first
+        id: precompiled
+        continue-on-error: true
+        run: |
+          cd apple-podcast-transcript-downloader
+
+          # The repo ships a pre-compiled FetchTranscript binary
+          if [ -f "FetchTranscript" ] && file FetchTranscript | grep -q "Mach-O"; then
+            echo "Pre-compiled binary found, removing quarantine and testing..."
+            xattr -d com.apple.quarantine FetchTranscript 2>/dev/null || true
+            chmod +x FetchTranscript
+
+            # Quick test - if it runs without crashing, the binary works
+            ./FetchTranscript 2>&1 | head -5 || true
+            echo "precompiled=true" >> $GITHUB_OUTPUT
+          else
+            echo "No pre-compiled binary found"
+            echo "precompiled=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Compile FetchTranscript (patched TBD)
+        if: steps.precompiled.outcome == 'failure'
+        run: |
+          cd apple-podcast-transcript-downloader
+
+          echo "=== Patching PodcastsFoundation TBD to remove allowed-clients restriction ==="
+
+          # Find the TBD stub file for PodcastsFoundation
+          TBD_PATH=$(find /System/Library/PrivateFrameworks/PodcastsFoundation.framework -name "*.tbd" 2>/dev/null | head -1)
+
+          if [ -z "$TBD_PATH" ]; then
+            # On newer macOS, TBDs are in the shared cache - extract it
+            echo "TBD not found as standalone file, trying shared dylib cache..."
+
+            # Create a minimal TBD file from the dylib
+            DYLIB_PATH="/System/Library/PrivateFrameworks/PodcastsFoundation.framework/PodcastsFoundation"
+            if [ -f "$DYLIB_PATH" ] || [ -L "$DYLIB_PATH" ]; then
+              echo "Found framework dylib, creating custom TBD..."
+
+              mkdir -p patched_frameworks/PodcastsFoundation.framework
+
+              # Generate a permissive TBD stub
+              cat > patched_frameworks/PodcastsFoundation.framework/PodcastsFoundation.tbd << 'TEOF'
+          --- !tapi-tbd
+          tbd-version: 4
+          targets: [ arm64-macos, x86_64-macos ]
+          install-name: /System/Library/PrivateFrameworks/PodcastsFoundation.framework/Versions/A/PodcastsFoundation
+          reexported-libraries:
+            - targets: [ arm64-macos, x86_64-macos ]
+          TEOF
+              PATCHED_FW_DIR="$(pwd)/patched_frameworks"
+            fi
+          else
+            # Copy and patch the existing TBD
+            mkdir -p patched_frameworks/PodcastsFoundation.framework
+            cp "$TBD_PATH" patched_frameworks/PodcastsFoundation.framework/
+            # Remove allowed-clients lines
+            sed -i '' '/allowed-clients/,/^[^ ]/d' patched_frameworks/PodcastsFoundation.framework/*.tbd
+            PATCHED_FW_DIR="$(pwd)/patched_frameworks"
+          fi
+
+          echo "=== Attempting compilation with patched framework ==="
+
+          # Try compilation with patched framework path first, fallback to weak linking
+          if [ -d "${PATCHED_FW_DIR:-}" ]; then
+            clang -framework Foundation \
+                  -F "$PATCHED_FW_DIR" \
+                  -F /System/Library/PrivateFrameworks \
+                  -framework PodcastsFoundation \
+                  -Wl,-rpath,/System/Library/PrivateFrameworks \
+                  -o FetchTranscript \
+                  FetchTranscript.m && echo "Compilation with patched TBD succeeded!" && exit 0
+          fi
+
+          # Fallback: try weak linking
+          echo "=== Trying weak framework linking ==="
+          clang -framework Foundation \
+                -F /System/Library/PrivateFrameworks \
+                -weak_framework PodcastsFoundation \
+                -o FetchTranscript \
+                FetchTranscript.m && echo "Weak linking succeeded!" && exit 0
+
+          # Fallback: use dlopen approach - compile without linking, load at runtime
+          echo "=== All compile approaches failed ==="
+          exit 1
+
+      - name: Extract bearer token
+        run: |
+          cd apple-podcast-transcript-downloader
+
+          if [ ! -f "FetchTranscript" ] || ! file FetchTranscript | grep -q "Mach-O"; then
+            echo "ERROR: No working FetchTranscript binary available"
+            exit 1
+          fi
+
+          chmod +x FetchTranscript
+          xattr -d com.apple.quarantine FetchTranscript 2>/dev/null || true
+
+          # Use a well-known episode ID for testing (The Daily - NYT)
+          TEST_EPISODE_ID="1000683407771"
+
+          echo "Running FetchTranscript with episode ID: $TEST_EPISODE_ID"
+
+          # Run with --cache-bearer-token flag to extract and save the token
+          # Capture all output for debugging
+          ./FetchTranscript "$TEST_EPISODE_ID" --cache-bearer-token 2>&1 | tee fetch_output.txt || true
+
+          # Check if bearer token was saved
+          if [ -f "bearer_token.txt" ]; then
+            echo ""
+            echo "=============================="
+            echo "Bearer token extracted successfully!"
+            echo "=============================="
+            TOKEN_LENGTH=$(wc -c < bearer_token.txt | tr -d ' ')
+            echo "Token length: $TOKEN_LENGTH bytes"
+            # Show first/last 10 chars for verification (not the full token)
+            echo "Token preview: $(head -c 10 bearer_token.txt)...$(tail -c 10 bearer_token.txt)"
+          else
+            echo ""
+            echo "bearer_token.txt not found in current directory"
+            echo "Checking all output and files..."
+            echo "--- Files in directory ---"
+            ls -la
+            echo "--- Full command output ---"
+            cat fetch_output.txt
+
+            # Try alternative: capture token from stdout
+            echo "--- Searching for token patterns in output ---"
+            grep -oE 'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' fetch_output.txt > bearer_token.txt 2>/dev/null || true
+            if [ -s bearer_token.txt ]; then
+              echo "Found JWT-like token in output!"
+              TOKEN_LENGTH=$(wc -c < bearer_token.txt | tr -d ' ')
+              echo "Token length: $TOKEN_LENGTH bytes"
+            else
+              echo "No token found. The binary may need different arguments."
+              echo "Trying without arguments..."
+              ./FetchTranscript 2>&1 | tee usage_output.txt || true
+              cat usage_output.txt
+            fi
+          fi
+
+      - name: Test transcript download
+        run: |
+          cd apple-podcast-transcript-downloader
+
+          if [ ! -f "bearer_token.txt" ] || [ ! -s "bearer_token.txt" ]; then
+            echo "No bearer token available, skipping transcript test"
+            exit 0
+          fi
+
+          BEARER_TOKEN=$(cat bearer_token.txt)
+          TEST_EPISODE_ID="1000683407771"
+
+          # Test fetching a transcript using the token
+          echo "Testing transcript fetch for episode $TEST_EPISODE_ID..."
+          HTTP_CODE=$(curl -s -o transcript_test.ttml -w "%{http_code}" \
+            "https://amp-api.podcasts.apple.com/v1/catalog/us/episodes/${TEST_EPISODE_ID}/transcripts" \
+            -H "Authorization: Bearer ${BEARER_TOKEN}" \
+            -H "Origin: https://podcasts.apple.com")
+
+          echo "HTTP Status: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo ""
+            echo "=============================="
+            echo "Transcript fetch SUCCESSFUL!"
+            echo "=============================="
+            echo "Transcript size: $(wc -c < transcript_test.ttml | tr -d ' ') bytes"
+            echo "First 500 chars:"
+            head -c 500 transcript_test.ttml
+          else
+            echo "Transcript fetch failed with status $HTTP_CODE"
+            echo "Response body:"
+            cat transcript_test.ttml 2>/dev/null || true
+          fi
+
+      - name: Upload bearer token as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bearer_token
+          path: apple-podcast-transcript-downloader/bearer_token.txt
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Upload debug output as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug_output
+          path: |
+            apple-podcast-transcript-downloader/fetch_output.txt
+            apple-podcast-transcript-downloader/usage_output.txt
+            apple-podcast-transcript-downloader/transcript_test.ttml
+          retention-days: 7
+          if-no-files-found: ignore
