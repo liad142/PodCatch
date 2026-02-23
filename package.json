@@ -9,7 +9,9 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "remotion:preview": "remotion preview remotion/index.ts",
+    "remotion:render": "remotion render remotion/index.ts MarketingVideo out/marketing-video.mp4"
   },
   "keywords": [],
   "author": "",
@@ -38,6 +40,9 @@
     "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
+    "@remotion/cli": "^4.0.427",
+    "@remotion/google-fonts": "^4.0.427",
+    "@remotion/transitions": "^4.0.427",
     "@tailwindcss/postcss": "^4.1.18",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -51,6 +56,7 @@
     "jsdom": "^27.0.1",
     "msw": "^2.12.7",
     "postcss": "^8.5.6",
+    "remotion": "^4.0.427",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   }
