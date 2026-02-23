@@ -46,8 +46,6 @@
     "@types/react": "^19.2.9",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.2",
-    "autoprefixer": "^10.4.23",
-    "happy-dom": "^20.3.7",
     "jsdom": "^27.0.1",
     "msw": "^2.12.7",
     "postcss": "^8.5.6",

@@ -44,8 +44,8 @@ A modern podcast and YouTube content aggregator with AI-powered summaries.
   - Actionable next steps
   - Rich topic taxonomy
 - **Smart Processing**:
-  - Automatic transcription via Groq (Whisper Large v3)
-  - AI summarization via Claude 3.5 Haiku
+  - Automatic transcription via Deepgram (primary) / Voxtral (Mistral, fallback)
+  - AI summarization via Google Gemini (Flash / Pro)
   - Status tracking (queued → transcribing → summarizing → ready)
   - Global caching (summaries shared across all users)
 - **Dual Import Sources**:
@@ -85,8 +85,9 @@ A modern podcast and YouTube content aggregator with AI-powered summaries.
 - **External Services**:
   - iTunes Search API (podcast discovery)
   - RSSHub (YouTube RSS + Apple Podcasts feeds)
-  - Groq API (AI transcription)
-  - Anthropic Claude API (AI summaries)
+  - Deepgram API (AI transcription, primary)
+  - Mistral/Voxtral API (AI transcription, fallback)
+  - Google Gemini API (AI summaries & insights)
 - **Testing**: Vitest, React Testing Library
 - **TypeScript**: Strict mode enabled
 
@@ -103,36 +104,36 @@ PodCatch/
 │   │   │   ├── podcasts/     # Podcast endpoints
 │   │   │   └── episodes/     # Episode endpoints
 │   │   ├── browse/           # Discovery pages
-│   │   ├── feed/             # Unified feed page (NEW)
+│   │   ├── feed/             # Unified feed page
 │   │   ├── episode/          # Episode detail pages
 │   │   └── podcast/          # Podcast detail pages
 │   ├── components/
 │   │   ├── ui/               # Shadcn UI components
-│   │   ├── FeedScreen.tsx    # Main feed interface (NEW)
-│   │   ├── FeedItemCard.tsx  # Universal content card (NEW)
-│   │   ├── YouTubeChannelManager.tsx  # Channel follow/unfollow UI (NEW)
+│   │   ├── insights/         # Episode insights (smart feed, transcript, chat)
+│   │   ├── discovery/        # Discovery page components
 │   │   └── ...               # Other components
 │   ├── lib/
+│   │   ├── deepgram.ts       # Deepgram transcription client
+│   │   ├── voxtral.ts        # Voxtral/Mistral transcription (fallback)
+│   │   ├── summary-service.ts # Summary orchestration
+│   │   ├── insights-service.ts # Insights generation (Gemini)
 │   │   ├── rsshub.ts         # RSSHub client & rate limiting
 │   │   ├── rsshub-db.ts      # YouTube DB operations
 │   │   ├── apple-podcasts.ts # Apple Podcasts client
 │   │   └── supabase.ts       # Supabase client
 │   ├── types/
-│   │   ├── rsshub.ts         # YouTube/RSSHub types
 │   │   ├── apple-podcasts.ts # Apple Podcasts types
-│   │   └── database.ts       # Database types
+│   │   ├── deepgram.ts       # Transcription types
+│   │   ├── database.ts       # Database types
+│   │   └── podcast.ts        # Podcast types
 │   └── db/
 │       └── migrations/
-│           ├── 001_spotify_schema.sql
-│           ├── 002_spotify_cache_update.sql
-│           └── 003_rsshub_youtube.sql  # YouTube tables (NEW)
+│           ├── 003_rsshub_youtube.sql        # YouTube tables
+│           ├── 004_multi_level_summaries.sql  # AI summaries
+│           └── 005_insights_level.sql         # Insights support
 ├── docs/
-│   ├── assumptions.md        # Product & technical decisions (NEW)
-│   ├── rsshub-setup.md       # RSSHub deployment guide (NEW)
-│   ├── testing-setup.md
-│   └── manual-test-checklist.md
-├── docker-compose.yml        # RSSHub self-hosting (NEW)
-└── .env.local.example
+│   └── rsshub-setup.md       # RSSHub deployment guide
+└── docker-compose.yml        # RSSHub self-hosting
 ```
 
 ## Setup Instructions
@@ -148,7 +149,7 @@ npm install
 ```
 
 ### 3. Environment Variables
-Copy `.env.local.example` to `.env.local` and fill in:
+Create a `.env.local` file with the following:
 
 ```env
 # Supabase
@@ -162,20 +163,19 @@ RSSHUB_BASE_URL=http://localhost:1200
 # Optional: YouTube API key for better RSSHub rate limits
 YOUTUBE_API_KEY=your_youtube_api_key_here
 
-# AI APIs (for future summarization features)
-GROQ_API_KEY=your_groq_api_key
-ANTHROPIC_API_KEY=your_anthropic_api_key
+# AI APIs (transcription & summarization)
+DEEPGRAM_API_KEY=your_deepgram_api_key
+MISTRAL_API_KEY=your_mistral_api_key
+GOOGLE_GEMINI_API_KEY=your_gemini_api_key
 ```
 
 ### 4. Database Setup
 Run migrations in Supabase SQL editor in order:
 
 ```bash
-1. src/db/migrations/001_spotify_schema.sql      # Base schema (legacy)
-2. src/db/migrations/002_spotify_cache_update.sql # Cache updates (legacy)
-3. src/db/migrations/003_rsshub_youtube.sql      # YouTube integration
-4. src/db/migrations/004_multi_level_summaries.sql # AI summaries
-5. src/db/migrations/005_insights_level.sql      # Insights hub
+1. src/db/migrations/003_rsshub_youtube.sql       # YouTube integration
+2. src/db/migrations/004_multi_level_summaries.sql # AI summaries
+3. src/db/migrations/005_insights_level.sql       # Insights hub
 ```
 
 ### 5. Start RSSHub (Self-Hosted - Recommended)
@@ -248,7 +248,6 @@ npm start
 - `GET /api/apple/genres` - Get podcast genres
 - `GET /api/apple/genres/[id]/podcasts` - Get podcasts in genre
 - `GET /api/apple/top` - Get top podcasts by country
-- `GET /api/apple/search` - Search podcasts
 - `GET /api/apple/podcasts/[id]` - Get podcast details
 - `GET /api/apple/podcasts/[id]/episodes` - Get podcast episodes (via RSS)
 
@@ -305,11 +304,10 @@ npm run lint
 
 ## Architecture Decisions
 
-See `docs/assumptions.md` for detailed product and technical decisions including:
 - Feed modes and filtering strategy
 - Caching strategy (30min TTL)
 - Rate limiting (10 req/min per user)
-- Self-hosted RSSHub rationale
+- Self-hosted RSSHub rationale (see `docs/rsshub-setup.md`)
 - Unified data model for multi-source content
 
 ## Troubleshooting
@@ -345,8 +343,8 @@ ISC
 
 ### 2026-01-27 - Features #4 & #5: AI Summaries + Insights Hub + Global Caching
 **Added:**
-- Multi-level AI summaries (Quick & Deep) with Claude 3.5 Haiku
-- Automatic transcription via Groq (Whisper Large v3)
+- Multi-level AI summaries (Quick & Deep) with Google Gemini
+- Automatic transcription via Deepgram / Voxtral (Mistral)
 - Insights Hub with 6 analysis views (Summary, Transcript, Keywords, Highlights, Mind Map, Show Notes)
 - Global database caching - one summary per episode shared across all users
 - Smart episode import with audio URL deduplication
@@ -356,18 +354,15 @@ ISC
 
 **Components:**
 - `SummaryPanel.tsx` - Quick/Deep summary display with request UI
-- `InsightHub.tsx` - Tabbed interface for all insights
-- `StickyTabNav.tsx` - Persistent tab navigation
-- `insights/KeywordsView.tsx` - Keyword frequency analysis
-- `insights/HighlightsView.tsx` - Key moments and quotes
-- `insights/MindMapView.tsx` - Visual concept map (Mermaid)
-- `insights/ShowNotesView.tsx` - Generated episode notes
-- `insights/TranscriptView.tsx` - Full transcript display
+- `insights/EpisodeSmartFeed.tsx` - Linear insights feed
+- `insights/TranscriptAccordion.tsx` - Collapsible transcript view
+- `insights/AskAIChatPopup.tsx` - AI chat with episode context
 
 **Backend:**
 - `src/lib/summary-service.ts` - Summary orchestration & transcript management
-- `src/lib/insights-service.ts` - Insights generation (keywords, highlights, etc.)
-- `src/lib/groq.ts` - Groq API client for transcription
+- `src/lib/insights-service.ts` - Insights generation via Gemini (keywords, highlights, etc.)
+- `src/lib/deepgram.ts` - Deepgram API client for transcription
+- `src/lib/voxtral.ts` - Voxtral/Mistral transcription (fallback)
 - `src/app/api/episodes/import/route.ts` - Episode import with deduplication
 - `src/app/api/summaries/check/route.ts` - Batch availability checker
 - `src/app/api/episodes/[id]/summaries/route.ts` - Summary generation
@@ -381,10 +376,6 @@ ISC
 **Pages:**
 - `/episode/[id]` - Episode detail with summary panel
 - `/episode/[id]/insights` - Full-page insights hub
-
-**Documentation:**
-- `docs/summaries-levels.md` - Multi-level summary architecture
-- Updated `docs/assumptions.md` with Feature #4 decisions
 
 ### 2025-01-25 - Feature #3: Discover Page Refactor + YouTube Section
 **Changed:**
@@ -411,11 +402,6 @@ ISC
 - Genre page now has pagination with "Load More" button
 - Saved page now shows saved YouTube videos
 
-**Documentation:**
-- `docs/discover-refactor.md` - New page structure and removed sections
-- `docs/youtube-rsshub.md` - YouTube integration via RSSHub
-- `docs/assumptions.md` - Updated with Feature #3 decisions
-
 ### 2025-01-25 - Feature #2: RSSHub YouTube Integration
 **Added:**
 - YouTube channel follow/unfollow system
@@ -430,10 +416,8 @@ ISC
 - TypeScript types for RSSHub integration
 - Comprehensive documentation
 
-**Components:**
-- `FeedScreen.tsx` - Main feed with filters
-- `FeedItemCard.tsx` - Universal content card
-- `YouTubeChannelManager.tsx` - Channel management UI
+**Components (since refactored):**
+- Discovery and feed components in `src/components/discovery/`
 
 **Backend:**
 - `src/lib/rsshub.ts` - RSSHub client library
@@ -482,7 +466,6 @@ ISC
 
 **Documentation:**
 - `docs/sticky-audio-player.md` - Full audio player implementation guide
-- `docs/ai-prompts-reference.md` - All AI prompts used in summarization system
 
 ### 2026-01-31 - Codebase Cleanup
 **Removed:**
