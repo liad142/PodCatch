@@ -9,13 +9,9 @@ import {
 import { COLORS, FONTS, fullScreenStyle } from "../styles";
 import { GlowOrb } from "../components/GlowOrb";
 import { ParticleField } from "../components/ParticleField";
-
-const FEED_ITEMS = [
-  { channel: "@mkbhd", title: "Galaxy S26 Ultra Review", time: "2h ago", type: "youtube" },
-  { channel: "Lex Fridman", title: "AI Consciousness Deep Dive", time: "5h ago", type: "youtube" },
-  { channel: "@veritasium", title: "The Paradox of Choice", time: "8h ago", type: "youtube" },
-  { channel: "Huberman Lab", title: "Sleep Optimization Protocol", time: "1d ago", type: "podcast" },
-];
+import { BrowserFrame } from "../components/BrowserFrame";
+import { FeedMockup } from "../components/mockups/FeedMockup";
+import { AppSidebar } from "../components/AppSidebar";
 
 export const YouTubeScene: React.FC = () => {
   const frame = useCurrentFrame();
@@ -27,11 +23,37 @@ export const YouTubeScene: React.FC = () => {
     config: { damping: 25, stiffness: 100, mass: 0.8 },
   });
 
+  // Screenshot float
+  const screenshotFloat = Math.sin(frame * 0.035) * 4;
+
   return (
     <AbsoluteFill style={{ ...fullScreenStyle, background: COLORS.bgDark }}>
       <GlowOrb color={COLORS.accentRed} size={500} x={-150} y={-50} />
       <GlowOrb color={COLORS.accentOrange} size={350} x={1500} y={700} delay={15} />
       <ParticleField count={20} color="rgba(239, 68, 68, 0.2)" />
+
+      {/* Left side - App screenshot */}
+      <div
+        style={{
+          position: "absolute",
+          left: 50,
+          top: "50%",
+          transform: `translateY(${-50 + screenshotFloat}%)`,
+        }}
+      >
+        <BrowserFrame
+          width={600}
+          height={520}
+          url="podcatch.app/discover"
+          delay={8}
+          glowColor="rgba(239, 68, 68, 0.12)"
+        >
+          <div style={{ display: "flex", height: "100%" }}>
+            <AppSidebar activeItem="Discover" />
+            <FeedMockup />
+          </div>
+        </BrowserFrame>
+      </div>
 
       {/* Right side - Text */}
       <div
@@ -40,7 +62,7 @@ export const YouTubeScene: React.FC = () => {
           right: 100,
           top: 0,
           height: "100%",
-          width: 650,
+          width: 600,
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
@@ -91,6 +113,7 @@ export const YouTubeScene: React.FC = () => {
             fontFamily: FONTS.body,
             lineHeight: 1.6,
             marginTop: 20,
+            maxWidth: 500,
             opacity: interpolate(frame - 15, [0, 20], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
@@ -133,159 +156,6 @@ export const YouTubeScene: React.FC = () => {
                 }}
               >
                 {mode}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Left side - Feed mockup */}
-      <div
-        style={{
-          position: "absolute",
-          left: 80,
-          top: "50%",
-          transform: "translateY(-50%)",
-        }}
-      >
-        <div
-          style={{
-            width: 520,
-            background: COLORS.bgCard,
-            borderRadius: 20,
-            border: `1px solid ${COLORS.bgAccent}`,
-            overflow: "hidden",
-            boxShadow: `0 0 60px rgba(239, 68, 68, 0.1), 0 30px 80px rgba(0,0,0,0.5)`,
-          }}
-        >
-          {/* Feed header */}
-          <div
-            style={{
-              padding: "18px 24px",
-              borderBottom: `1px solid ${COLORS.bgAccent}`,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: COLORS.accentGreen,
-              }}
-            />
-            <span
-              style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: COLORS.textPrimary,
-                fontFamily: FONTS.body,
-              }}
-            >
-              Your Feed
-            </span>
-            <div style={{ flex: 1 }} />
-            <span
-              style={{
-                fontSize: 12,
-                color: COLORS.textMuted,
-                fontFamily: FONTS.body,
-              }}
-            >
-              4 new items
-            </span>
-          </div>
-
-          {/* Feed items */}
-          {FEED_ITEMS.map((item, i) => {
-            const itemProgress = spring({
-              frame: frame - 20 - i * 8,
-              fps,
-              config: { damping: 20, stiffness: 100, mass: 0.6 },
-            });
-
-            return (
-              <div
-                key={i}
-                style={{
-                  padding: "16px 24px",
-                  borderBottom:
-                    i < FEED_ITEMS.length - 1
-                      ? `1px solid ${COLORS.bgAccent}`
-                      : "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  opacity: interpolate(itemProgress, [0, 1], [0, 1]),
-                  transform: `translateY(${interpolate(itemProgress, [0, 1], [15, 0])}px)`,
-                }}
-              >
-                {/* Thumbnail placeholder */}
-                <div
-                  style={{
-                    width: 64,
-                    height: 42,
-                    borderRadius: 8,
-                    background:
-                      item.type === "youtube"
-                        ? `linear-gradient(135deg, ${COLORS.accentRed}44, ${COLORS.accentRed}22)`
-                        : `linear-gradient(135deg, ${COLORS.primary}44, ${COLORS.primary}22)`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 0,
-                      height: 0,
-                      borderLeft: "10px solid white",
-                      borderTop: "6px solid transparent",
-                      borderBottom: "6px solid transparent",
-                      opacity: 0.7,
-                    }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: COLORS.textPrimary,
-                      fontFamily: FONTS.body,
-                    }}
-                  >
-                    {item.title}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: COLORS.textMuted,
-                      fontFamily: FONTS.body,
-                      marginTop: 2,
-                    }}
-                  >
-                    {item.channel} &bull; {item.time}
-                  </div>
-                </div>
-                {/* Bookmark icon */}
-                <div
-                  style={{
-                    width: 20,
-                    height: 20,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    opacity: 0.4,
-                    fontSize: 16,
-                    color: COLORS.textSecondary,
-                  }}
-                >
-                  ★
-                </div>
               </div>
             );
           })}

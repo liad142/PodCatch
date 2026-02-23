@@ -9,6 +9,9 @@ import {
 import { COLORS, FONTS, fullScreenStyle } from "../styles";
 import { GlowOrb } from "../components/GlowOrb";
 import { ParticleField } from "../components/ParticleField";
+import { BrowserFrame } from "../components/BrowserFrame";
+import { PlayerMockup } from "../components/mockups/PlayerMockup";
+import { AppSidebar } from "../components/AppSidebar";
 
 const TECH_STACK = [
   "Next.js 16",
@@ -60,6 +63,9 @@ export const CTAScene: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
+  // Screenshot float
+  const screenshotFloat = Math.sin(frame * 0.03) * 5;
+
   return (
     <AbsoluteFill style={{ ...fullScreenStyle, background: COLORS.gradientHero }}>
       <GlowOrb color={COLORS.primary} size={600} x={600} y={100} />
@@ -80,14 +86,37 @@ export const CTAScene: React.FC = () => {
         }}
       />
 
-      {/* Center content */}
+      {/* Left side - Player screenshot */}
       <div
         style={{
           position: "absolute",
+          left: 60,
+          top: "50%",
+          transform: `translateY(${-50 + screenshotFloat}%) perspective(1200px) rotateY(5deg)`,
+        }}
+      >
+        <BrowserFrame
+          width={540}
+          height={480}
+          url="podcatch.app/episode/421/insights"
+          delay={10}
+          glowColor="rgba(124, 58, 237, 0.2)"
+        >
+          <div style={{ display: "flex", height: "100%" }}>
+            <AppSidebar activeItem="Discover" />
+            <PlayerMockup />
+          </div>
+        </BrowserFrame>
+      </div>
+
+      {/* Right side - CTA content */}
+      <div
+        style={{
+          position: "absolute",
+          right: 80,
           top: 0,
-          left: 0,
-          width: "100%",
           height: "100%",
+          width: 650,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -95,15 +124,15 @@ export const CTAScene: React.FC = () => {
         }}
       >
         {/* Logo */}
-        <div style={{ position: "relative", marginBottom: 36 }}>
+        <div style={{ position: "relative", marginBottom: 32 }}>
           {/* Pulse ring */}
           <div
             style={{
               position: "absolute",
               top: "50%",
               left: "50%",
-              width: 80,
-              height: 80,
+              width: 70,
+              height: 70,
               borderRadius: "50%",
               border: `2px solid ${COLORS.primary}`,
               transform: `translate(-50%, -50%) scale(${pulseScale})`,
@@ -112,8 +141,8 @@ export const CTAScene: React.FC = () => {
           />
           <div
             style={{
-              width: 80,
-              height: 80,
+              width: 70,
+              height: 70,
               borderRadius: "50%",
               background: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.accentPink})`,
               display: "flex",
@@ -126,7 +155,7 @@ export const CTAScene: React.FC = () => {
           >
             <span
               style={{
-                fontSize: 40,
+                fontSize: 36,
                 fontWeight: 900,
                 color: "white",
                 fontFamily: FONTS.heading,
@@ -140,7 +169,7 @@ export const CTAScene: React.FC = () => {
         {/* Title */}
         <div
           style={{
-            fontSize: 72,
+            fontSize: 60,
             fontWeight: 800,
             fontFamily: FONTS.heading,
             color: COLORS.textPrimary,
@@ -166,17 +195,17 @@ export const CTAScene: React.FC = () => {
         {/* CTA Button */}
         <div
           style={{
-            marginTop: 48,
+            marginTop: 40,
             opacity: interpolate(ctaProgress, [0, 1], [0, 1]),
             transform: `scale(${interpolate(ctaProgress, [0, 1], [0.8, 1])})`,
           }}
         >
           <div
             style={{
-              padding: "18px 48px",
-              borderRadius: 16,
+              padding: "16px 40px",
+              borderRadius: 14,
               background: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.accentPink})`,
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: 700,
               color: "white",
               fontFamily: FONTS.heading,
@@ -192,8 +221,8 @@ export const CTAScene: React.FC = () => {
         <div
           style={{
             display: "flex",
-            gap: 12,
-            marginTop: 48,
+            gap: 10,
+            marginTop: 40,
             flexWrap: "wrap",
             justifyContent: "center",
           }}
@@ -209,11 +238,11 @@ export const CTAScene: React.FC = () => {
               <div
                 key={i}
                 style={{
-                  padding: "6px 16px",
+                  padding: "6px 14px",
                   borderRadius: 8,
                   background: `${COLORS.textPrimary}11`,
                   border: `1px solid ${COLORS.textPrimary}22`,
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: 500,
                   color: COLORS.textSecondary,
                   fontFamily: FONTS.body,
@@ -230,8 +259,8 @@ export const CTAScene: React.FC = () => {
         {/* URL */}
         <div
           style={{
-            marginTop: 40,
-            fontSize: 18,
+            marginTop: 32,
+            fontSize: 16,
             color: COLORS.textMuted,
             fontFamily: FONTS.body,
             letterSpacing: "3px",

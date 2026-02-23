@@ -9,14 +9,10 @@ import {
 import { COLORS, FONTS, fullScreenStyle } from "../styles";
 import { GlowOrb } from "../components/GlowOrb";
 import { ParticleField } from "../components/ParticleField";
+import { BrowserFrame } from "../components/BrowserFrame";
+import { SummaryMockup } from "../components/mockups/SummaryMockup";
+import { AppSidebar } from "../components/AppSidebar";
 import { ProgressBar } from "../components/ProgressBar";
-
-const SUMMARY_ITEMS = [
-  { icon: "lightning", label: "TLDR", text: "2-sentence summary in seconds" },
-  { icon: "bullet", label: "Key Takeaways", text: "5-7 actionable bullet points" },
-  { icon: "target", label: "Target Audience", text: "Know who should listen" },
-  { icon: "tag", label: "Topic Tags", text: "Auto-categorized content" },
-];
 
 export const AISummariesScene: React.FC = () => {
   const frame = useCurrentFrame();
@@ -36,14 +32,7 @@ export const AISummariesScene: React.FC = () => {
     config: { damping: 20, stiffness: 120, mass: 0.5 },
   });
 
-  // Mock UI card
-  const cardProgress = spring({
-    frame: frame - 15,
-    fps,
-    config: { damping: 20, stiffness: 80, mass: 1 },
-  });
-
-  // Status bar animation (queued -> transcribing -> summarizing -> ready)
+  // Status bar animation
   const statusProgress = interpolate(frame, [25, 90], [0, 100], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -61,6 +50,9 @@ export const AISummariesScene: React.FC = () => {
   const statusColor =
     statusProgress >= 90 ? COLORS.accentGreen : COLORS.primary;
 
+  // Screenshot float
+  const screenshotFloat = Math.sin(frame * 0.035) * 4;
+
   return (
     <AbsoluteFill style={{ ...fullScreenStyle, background: COLORS.bgDark }}>
       <GlowOrb color={COLORS.primary} size={500} x={1300} y={-100} />
@@ -74,7 +66,7 @@ export const AISummariesScene: React.FC = () => {
           left: 100,
           top: 0,
           height: "100%",
-          width: 750,
+          width: 650,
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
@@ -134,15 +126,14 @@ export const AISummariesScene: React.FC = () => {
             fontFamily: FONTS.body,
             lineHeight: 1.6,
             marginTop: 20,
-            maxWidth: 600,
+            maxWidth: 550,
             opacity: interpolate(frame - 20, [0, 20], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
             }),
           }}
         >
-          Multi-level AI summaries powered by Claude 3.5 &amp; Groq Whisper.
-          Quick overviews or deep analysis — you choose.
+          Hook headlines, executive briefs, golden nuggets, and deep analysis — all powered by Claude AI.
         </div>
 
         {/* Processing status */}
@@ -152,148 +143,32 @@ export const AISummariesScene: React.FC = () => {
             label={statusLabel}
             color={statusColor}
             delay={20}
-            width={550}
+            width={500}
           />
         </div>
       </div>
 
-      {/* Right side - Summary card mockup */}
+      {/* Right side - Real app Summary panel in browser frame */}
       <div
         style={{
           position: "absolute",
-          right: 80,
+          right: 40,
           top: "50%",
-          transform: `translateY(-50%) scale(${interpolate(cardProgress, [0, 1], [0.85, 1])})`,
-          opacity: interpolate(cardProgress, [0, 1], [0, 1]),
+          transform: `translateY(${-50 + screenshotFloat}%)`,
         }}
       >
-        <div
-          style={{
-            width: 480,
-            background: COLORS.bgCard,
-            borderRadius: 20,
-            border: `1px solid ${COLORS.bgAccent}`,
-            overflow: "hidden",
-            boxShadow: `0 0 80px ${COLORS.primaryGlow}, 0 30px 80px rgba(0,0,0,0.5)`,
-          }}
+        <BrowserFrame
+          width={580}
+          height={540}
+          url="podcatch.app/episode/421/insights"
+          delay={12}
+          glowColor="rgba(124, 58, 237, 0.2)"
         >
-          {/* Card header */}
-          <div
-            style={{
-              padding: "20px 28px",
-              borderBottom: `1px solid ${COLORS.bgAccent}`,
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-            }}
-          >
-            <div
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
-                background: COLORS.accentGreen,
-                boxShadow: `0 0 10px ${COLORS.accentGreen}`,
-              }}
-            />
-            <span
-              style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: COLORS.textPrimary,
-                fontFamily: FONTS.body,
-              }}
-            >
-              Quick Summary
-            </span>
-            <div style={{ flex: 1 }} />
-            <span
-              style={{
-                fontSize: 12,
-                color: COLORS.textMuted,
-                fontFamily: FONTS.body,
-              }}
-            >
-              Claude 3.5
-            </span>
+          <div style={{ display: "flex", height: "100%" }}>
+            <AppSidebar activeItem="Summaries" />
+            <SummaryMockup />
           </div>
-
-          {/* Summary items */}
-          <div style={{ padding: "20px 28px" }}>
-            {SUMMARY_ITEMS.map((item, i) => {
-              const itemProgress = spring({
-                frame: frame - 30 - i * 8,
-                fps,
-                config: { damping: 20, stiffness: 100, mass: 0.6 },
-              });
-
-              const iconColors = [
-                COLORS.accentOrange,
-                COLORS.accentCyan,
-                COLORS.accentPink,
-                COLORS.primary,
-              ];
-
-              return (
-                <div
-                  key={i}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 16,
-                    marginBottom: 20,
-                    opacity: interpolate(itemProgress, [0, 1], [0, 1]),
-                    transform: `translateX(${interpolate(itemProgress, [0, 1], [20, 0])}px)`,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 10,
-                      background: `${iconColors[i]}22`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        background: iconColors[i],
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 700,
-                        color: COLORS.textPrimary,
-                        fontFamily: FONTS.heading,
-                        marginBottom: 2,
-                      }}
-                    >
-                      {item.label}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        color: COLORS.textSecondary,
-                        fontFamily: FONTS.body,
-                      }}
-                    >
-                      {item.text}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        </BrowserFrame>
       </div>
     </AbsoluteFill>
   );

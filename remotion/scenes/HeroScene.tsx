@@ -9,6 +9,9 @@ import {
 import { COLORS, FONTS, fullScreenStyle } from "../styles";
 import { GlowOrb } from "../components/GlowOrb";
 import { ParticleField } from "../components/ParticleField";
+import { BrowserFrame } from "../components/BrowserFrame";
+import { DiscoverMockup } from "../components/mockups/DiscoverMockup";
+import { AppSidebar } from "../components/AppSidebar";
 
 export const HeroScene: React.FC = () => {
   const frame = useCurrentFrame();
@@ -55,10 +58,14 @@ export const HeroScene: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
-  // Decorative line
-  const lineWidth = interpolate(frame - 50, [0, 30], [0, 200], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  // App screenshot float
+  const screenshotFloat = Math.sin(frame * 0.03) * 5;
+
+  // Screenshot reveal
+  const screenshotProgress = spring({
+    frame: frame - 30,
+    fps,
+    config: { damping: 20, stiffness: 60, mass: 1.2 },
   });
 
   return (
@@ -91,13 +98,13 @@ export const HeroScene: React.FC = () => {
         }}
       />
 
-      {/* Center content */}
+      {/* Left side - Logo + Title */}
       <div
         style={{
           position: "absolute",
           top: 0,
           left: 0,
-          width: "100%",
+          width: 720,
           height: "100%",
           display: "flex",
           flexDirection: "column",
@@ -152,7 +159,7 @@ export const HeroScene: React.FC = () => {
         {/* Title */}
         <div
           style={{
-            fontSize: 96,
+            fontSize: 86,
             fontWeight: 800,
             fontFamily: FONTS.heading,
             background: COLORS.gradientPrimary,
@@ -170,7 +177,7 @@ export const HeroScene: React.FC = () => {
         {/* Subtitle */}
         <div
           style={{
-            fontSize: 32,
+            fontSize: 28,
             fontWeight: 400,
             fontFamily: FONTS.body,
             color: COLORS.textSecondary,
@@ -182,25 +189,10 @@ export const HeroScene: React.FC = () => {
           AI-Powered Podcast Intelligence
         </div>
 
-        {/* Decorative line */}
-        <div
-          style={{
-            width: lineWidth,
-            height: 2,
-            background: COLORS.gradientPrimary,
-            borderRadius: 1,
-            marginTop: 32,
-            opacity: interpolate(frame - 50, [0, 15], [0, 0.6], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-            }),
-          }}
-        />
-
         {/* Tagline */}
         <div
           style={{
-            fontSize: 20,
+            fontSize: 16,
             fontWeight: 500,
             fontFamily: FONTS.body,
             color: COLORS.textMuted,
@@ -212,6 +204,24 @@ export const HeroScene: React.FC = () => {
         >
           Discover &bull; Summarize &bull; Understand
         </div>
+      </div>
+
+      {/* Right side - App screenshot */}
+      <div
+        style={{
+          position: "absolute",
+          right: 40,
+          top: "50%",
+          transform: `translateY(${-50 + screenshotFloat}%) perspective(1200px) rotateY(-8deg)`,
+          opacity: interpolate(screenshotProgress, [0, 1], [0, 1]),
+        }}
+      >
+        <BrowserFrame width={620} height={520} url="podcatch.app/discover" delay={25} glowColor="rgba(124, 58, 237, 0.2)">
+          <div style={{ display: "flex", height: "100%" }}>
+            <AppSidebar activeItem="Discover" />
+            <DiscoverMockup />
+          </div>
+        </BrowserFrame>
       </div>
     </AbsoluteFill>
   );

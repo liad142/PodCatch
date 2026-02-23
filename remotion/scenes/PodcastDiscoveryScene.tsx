@@ -9,15 +9,9 @@ import {
 import { COLORS, FONTS, fullScreenStyle } from "../styles";
 import { GlowOrb } from "../components/GlowOrb";
 import { ParticleField } from "../components/ParticleField";
-
-const GENRES = [
-  { name: "Technology", emoji: "💻", color: COLORS.accentBlue },
-  { name: "Business", emoji: "💼", color: COLORS.accentGreen },
-  { name: "Science", emoji: "🔬", color: COLORS.accentCyan },
-  { name: "Comedy", emoji: "😂", color: COLORS.accentOrange },
-  { name: "True Crime", emoji: "🔍", color: COLORS.accentRed },
-  { name: "Health", emoji: "❤️", color: COLORS.accentPink },
-];
+import { BrowserFrame } from "../components/BrowserFrame";
+import { DiscoverMockup } from "../components/mockups/DiscoverMockup";
+import { AppSidebar } from "../components/AppSidebar";
 
 const COUNTRIES = [
   { flag: "🇺🇸", name: "US" },
@@ -26,11 +20,6 @@ const COUNTRIES = [
   { flag: "🇩🇪", name: "Germany" },
   { flag: "🇯🇵", name: "Japan" },
 ];
-
-function seededRandom(seed: number): number {
-  const x = Math.sin(seed * 9301 + 49297) * 49297;
-  return x - Math.floor(x);
-}
 
 export const PodcastDiscoveryScene: React.FC = () => {
   const frame = useCurrentFrame();
@@ -41,6 +30,9 @@ export const PodcastDiscoveryScene: React.FC = () => {
     fps,
     config: { damping: 25, stiffness: 100, mass: 0.8 },
   });
+
+  // Screenshot float
+  const screenshotFloat = Math.sin(frame * 0.035) * 4;
 
   return (
     <AbsoluteFill style={{ ...fullScreenStyle, background: COLORS.bgDark }}>
@@ -55,7 +47,7 @@ export const PodcastDiscoveryScene: React.FC = () => {
           left: 100,
           top: 0,
           height: "100%",
-          width: 700,
+          width: 620,
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
@@ -113,7 +105,7 @@ export const PodcastDiscoveryScene: React.FC = () => {
             }),
           }}
         >
-          Browse Apple Podcasts with 18 genres, top charts from 15+ countries, and instant search.
+          Daily curated mixes, top charts, semantic search, and a curiosity feed that never stops.
         </div>
 
         {/* Country pills */}
@@ -164,67 +156,27 @@ export const PodcastDiscoveryScene: React.FC = () => {
         </div>
       </div>
 
-      {/* Right side - Genre grid */}
+      {/* Right side - Real app Discover page */}
       <div
         style={{
           position: "absolute",
-          right: 80,
+          right: 40,
           top: "50%",
-          transform: "translateY(-50%)",
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 16,
+          transform: `translateY(${-50 + screenshotFloat}%)`,
         }}
       >
-        {GENRES.map((genre, i) => {
-          const cardProgress = spring({
-            frame: frame - 15 - i * 6,
-            fps,
-            config: { damping: 18, stiffness: 100, mass: 0.6 },
-          });
-
-          // Float animation
-          const floatY = Math.sin((frame + i * 20) * 0.04) * 4;
-
-          return (
-            <div
-              key={i}
-              style={{
-                width: 220,
-                padding: "24px 20px",
-                borderRadius: 16,
-                background: COLORS.bgCard,
-                border: `1px solid ${COLORS.bgAccent}`,
-                opacity: interpolate(cardProgress, [0, 1], [0, 1]),
-                transform: `scale(${interpolate(cardProgress, [0, 1], [0.8, 1])}) translateY(${floatY}px)`,
-                boxShadow: `0 0 30px ${genre.color}15`,
-              }}
-            >
-              <div style={{ fontSize: 32, marginBottom: 10 }}>{genre.emoji}</div>
-              <div
-                style={{
-                  fontSize: 16,
-                  fontWeight: 700,
-                  color: genre.color,
-                  fontFamily: FONTS.heading,
-                }}
-              >
-                {genre.name}
-              </div>
-              {/* Fake podcast count */}
-              <div
-                style={{
-                  fontSize: 12,
-                  color: COLORS.textMuted,
-                  fontFamily: FONTS.body,
-                  marginTop: 4,
-                }}
-              >
-                {Math.round(seededRandom(i * 7 + 3) * 500 + 100)} podcasts
-              </div>
-            </div>
-          );
-        })}
+        <BrowserFrame
+          width={620}
+          height={520}
+          url="podcatch.app/discover"
+          delay={10}
+          glowColor="rgba(59, 130, 246, 0.15)"
+        >
+          <div style={{ display: "flex", height: "100%" }}>
+            <AppSidebar activeItem="Discover" />
+            <DiscoverMockup />
+          </div>
+        </BrowserFrame>
       </div>
     </AbsoluteFill>
   );
