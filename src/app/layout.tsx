@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Crimson_Text, Outfit } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { CountryProvider } from "@/contexts/CountryContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -10,15 +10,15 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AppShell } from "@/components/AppShell";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
-const inter = Inter({ subsets: ["latin"] });
-const crimsonText = Crimson_Text({
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  variable: "--font-crimson"
+  variable: "--font-inter",
 });
-const outfit = Outfit({
+
+const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-outfit"
+  variable: "--font-plus-jakarta",
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -33,7 +33,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} ${crimsonText.variable} ${outfit.variable} glass-bg`}>
+      <body className={`${inter.variable} ${plusJakarta.variable}`}>
         <AuthProvider>
           <ThemeProvider>
             <CountryProvider>
