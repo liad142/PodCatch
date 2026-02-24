@@ -339,11 +339,13 @@ export async function getInsightsStatus(episodeId: string, language = 'en') {
     }
   };
 
-  // Cache terminal states
+  // Cache terminal states — only when actual content exists
+  // Don't cache empty/absent results as terminal (a summary may be generated later)
+  const hasAnySummary = !!(insights || quick || deep);
   const insightsTerminal = !insights || insights.status === 'ready' || insights.status === 'failed';
   const quickTerminal = !quick || quick.status === 'ready' || quick.status === 'failed';
   const deepTerminal = !deep || deep.status === 'ready' || deep.status === 'failed';
-  if (insightsTerminal && quickTerminal && deepTerminal) {
+  if (hasAnySummary && insightsTerminal && quickTerminal && deepTerminal) {
     await setCached(cacheKey, result, CacheTTL.STATUS_TERMINAL);
   }
 

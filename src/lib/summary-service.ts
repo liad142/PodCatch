@@ -950,6 +950,18 @@ export async function generateSummaryForLevel(
       .eq('language', language);
     logWithTime('Summary saved', { durationMs: Date.now() - saveStart });
 
+    // Invalidate stale status caches so the insights page picks up the new summary
+    try {
+      const { deleteCached, CacheKeys } = await import('@/lib/cache');
+      await Promise.all([
+        deleteCached(CacheKeys.insightsStatus(episodeId, language)),
+        deleteCached(CacheKeys.summaryStatus(episodeId, language)),
+      ]);
+      logWithTime('Invalidated status caches', { episodeId, language });
+    } catch (cacheErr) {
+      logWithTime('Cache invalidation failed (non-blocking)', { error: String(cacheErr) });
+    }
+
     // Trigger pending notifications (non-blocking)
     try {
       await triggerPendingNotifications(episodeId);
@@ -1191,10 +1203,12 @@ export async function getSummariesStatus(episodeId: string, language = 'en') {
     }
   };
 
-  // Cache terminal states (both summaries ready or no longer processing)
+  // Cache terminal states — only when actual content exists
+  // Don't cache empty/absent results as terminal (a summary may be generated later)
+  const hasAnySummary = !!(quick || deep);
   const quickTerminal = !quick || quick.status === 'ready' || quick.status === 'failed';
   const deepTerminal = !deep || deep.status === 'ready' || deep.status === 'failed';
-  if (quickTerminal && deepTerminal) {
+  if (hasAnySummary && quickTerminal && deepTerminal) {
     await setCached(cacheKey, result, CacheTTL.STATUS_TERMINAL);
   }
 
