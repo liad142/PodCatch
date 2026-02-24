@@ -33,13 +33,14 @@ export default function OnboardingPage() {
   const [isLoadingYt, setIsLoadingYt] = useState(false);
   const [ytError, setYtError] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [classifications, setClassifications] = useState<Record<string, string[]>>({});
 
   const displayName = user?.user_metadata?.display_name
     || user?.user_metadata?.full_name
     || user?.email?.split('@')[0]
     || 'there';
 
-  // Fetch YouTube subscriptions when entering youtube step
+  // Fetch YouTube subscriptions and classify when entering youtube step
   useEffect(() => {
     if (step !== 'youtube') return;
 
@@ -47,21 +48,66 @@ export default function OnboardingPage() {
     setIsLoadingYt(true);
     setYtError(false);
 
-    fetch('/api/youtube/subscriptions')
-      .then(res => res.json())
-      .then(data => {
+    (async () => {
+      try {
+        // Step 1: Fetch subscriptions
+        const subsRes = await fetch('/api/youtube/subscriptions');
+        const subsData = await subsRes.json();
+        const subs: YouTubeChannel[] = subsData.subscriptions || [];
+
         if (cancelled) return;
-        const subs: YouTubeChannel[] = data.subscriptions || [];
         setYtChannels(subs);
-        // Pre-select all channels
-        setSelectedChannels(new Set(subs.map(ch => ch.channelId)));
-      })
-      .catch(() => {
+
+        if (subs.length === 0) {
+          setIsLoadingYt(false);
+          return;
+        }
+
+        // Step 2: Classify channels against selected genres
+        if (selectedGenres.size > 0) {
+          try {
+            const classifyRes = await fetch('/api/youtube/classify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                channels: subs.map(ch => ({
+                  channelId: ch.channelId,
+                  title: ch.title,
+                  description: ch.description,
+                })),
+                genres: Array.from(selectedGenres),
+              }),
+            });
+            const classifyData = await classifyRes.json();
+
+            if (cancelled) return;
+
+            const classMap: Record<string, string[]> = classifyData.classifications || {};
+            setClassifications(classMap);
+
+            // Pre-select only matched channels
+            const matched = new Set(
+              subs
+                .filter(ch => (classMap[ch.channelId] || []).length > 0)
+                .map(ch => ch.channelId)
+            );
+            setSelectedChannels(matched);
+          } catch {
+            // Classification failed — fallback: select all
+            if (!cancelled) {
+              setSelectedChannels(new Set(subs.map(ch => ch.channelId)));
+            }
+          }
+        } else {
+          // No genres selected — select all
+          setSelectedChannels(new Set(subs.map(ch => ch.channelId)));
+        }
+      } catch {
         if (!cancelled) setYtError(true);
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setIsLoadingYt(false);
-      });
+      }
+    })();
 
     return () => { cancelled = true; };
   }, [step]);
@@ -99,9 +145,9 @@ export default function OnboardingPage() {
   };
 
   const handleImportAndContinue = async () => {
-    if (selectedChannels.size > 0) {
-      setIsImporting(true);
-      try {
+    setIsImporting(true);
+    try {
+      if (selectedChannels.size > 0) {
         const channelsToImport = ytChannels.filter(ch => selectedChannels.has(ch.channelId));
         console.log(`[ONBOARDING] Importing ${channelsToImport.length} YouTube channels…`);
         const res = await fetch('/api/youtube/subscriptions/import', {
@@ -111,21 +157,22 @@ export default function OnboardingPage() {
         });
         const data = await res.json();
         console.log(`[ONBOARDING] YouTube import result:`, data);
-      } catch (err) {
-        console.error('[ONBOARDING] Error importing YouTube channels:', err);
-      } finally {
-        setIsImporting(false);
       }
+      // Save genres and mark onboarding complete
+      await saveAndFinish(Array.from(selectedGenres));
+    } catch (err) {
+      console.error('[ONBOARDING] Error:', err);
+    } finally {
+      setIsImporting(false);
     }
-    setStep('genres');
   };
 
   const handleSkip = async () => {
     await saveAndFinish([]);
   };
 
-  const handleFinishGenres = async () => {
-    await saveAndFinish(Array.from(selectedGenres));
+  const handleFinishGenres = () => {
+    setStep('youtube');
   };
 
   const saveAndFinish = async (genres: string[]) => {
@@ -154,7 +201,14 @@ export default function OnboardingPage() {
     router.push('/discover');
   };
 
-  const allSteps: Step[] = ['welcome', 'youtube', 'genres', 'done'];
+  const allSteps: Step[] = ['welcome', 'genres', 'youtube', 'done'];
+
+  const matchedChannels = ytChannels.filter(
+    ch => (classifications[ch.channelId] || []).length > 0
+  );
+  const otherChannels = ytChannels.filter(
+    ch => (classifications[ch.channelId] || []).length === 0
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
@@ -199,7 +253,7 @@ export default function OnboardingPage() {
                   Let&apos;s personalize your experience.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <Button onClick={() => setStep('youtube')} className="gap-2 min-w-[200px]">
+                  <Button onClick={() => setStep('genres')} className="gap-2 min-w-[200px]">
                     <Sparkles className="h-4 w-4" />
                     Personalize My Feed
                   </Button>
@@ -233,7 +287,7 @@ export default function OnboardingPage() {
                 {isLoadingYt ? (
                   <div className="flex flex-col items-center justify-center py-12 gap-3">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Loading your subscriptions...</p>
+                    <p className="text-sm text-muted-foreground">Loading and filtering your subscriptions...</p>
                   </div>
                 ) : ytError || ytChannels.length === 0 ? (
                   <div className="text-center py-8">
@@ -261,24 +315,53 @@ export default function OnboardingPage() {
                         {selectedChannels.size === ytChannels.length ? 'Deselect All' : 'Select All'}
                       </Button>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[340px] overflow-y-auto mb-6 pr-1">
-                      {ytChannels.map((channel) => (
-                        <YouTubeChannelCard
-                          key={channel.channelId}
-                          channelId={channel.channelId}
-                          name={channel.title}
-                          thumbnailUrl={channel.thumbnailUrl}
-                          description={channel.description}
-                          selected={selectedChannels.has(channel.channelId)}
-                          onToggle={toggleChannel}
-                        />
-                      ))}
+                    <div className="max-h-[340px] overflow-y-auto mb-6 pr-1 space-y-2">
+                      {/* Matched channels */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {matchedChannels.map((channel) => (
+                          <YouTubeChannelCard
+                            key={channel.channelId}
+                            channelId={channel.channelId}
+                            name={channel.title}
+                            thumbnailUrl={channel.thumbnailUrl}
+                            description={channel.description}
+                            selected={selectedChannels.has(channel.channelId)}
+                            onToggle={toggleChannel}
+                          />
+                        ))}
+                      </div>
+
+                      {/* Divider — only show if both sections have content */}
+                      {matchedChannels.length > 0 && otherChannels.length > 0 && (
+                        <div className="flex items-center gap-3 py-2">
+                          <div className="flex-1 h-px bg-border" />
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            Other channels (not matched to your interests)
+                          </span>
+                          <div className="flex-1 h-px bg-border" />
+                        </div>
+                      )}
+
+                      {/* Other channels */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {otherChannels.map((channel) => (
+                          <YouTubeChannelCard
+                            key={channel.channelId}
+                            channelId={channel.channelId}
+                            name={channel.title}
+                            thumbnailUrl={channel.thumbnailUrl}
+                            description={channel.description}
+                            selected={selectedChannels.has(channel.channelId)}
+                            onToggle={toggleChannel}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </>
                 )}
 
                 <div className="flex items-center justify-between">
-                  <Button variant="ghost" onClick={() => setStep('genres')}>
+                  <Button variant="ghost" onClick={() => saveAndFinish(Array.from(selectedGenres))} disabled={isSaving}>
                     Skip
                   </Button>
                   <Button
