@@ -127,3 +127,53 @@ export async function fetchChannelVideos(
     };
   });
 }
+
+/**
+ * Fetch topic details for a batch of channel IDs.
+ * Uses API key (public data). Batches in groups of 50 (YouTube API limit).
+ */
+export async function fetchChannelTopics(
+  channelIds: string[]
+): Promise<Record<string, { topicIds: string[]; topicCategories: string[] }>> {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) {
+    console.error('[YT_API] YOUTUBE_API_KEY not set');
+    return {};
+  }
+
+  const results: Record<string, { topicIds: string[]; topicCategories: string[] }> = {};
+
+  // Batch channel IDs in groups of 50
+  for (let i = 0; i < channelIds.length; i += 50) {
+    const batch = channelIds.slice(i, i + 50);
+
+    try {
+      const res = await fetch(
+        `${YT_API_BASE}/channels?${new URLSearchParams({
+          part: 'topicDetails',
+          id: batch.join(','),
+          key: apiKey,
+        })}`
+      );
+
+      if (!res.ok) {
+        console.error('[YT_API] Failed to fetch channel topics:', res.status, await res.text());
+        continue;
+      }
+
+      const data = await res.json();
+
+      for (const item of data.items || []) {
+        results[item.id] = {
+          topicIds: item.topicDetails?.topicIds || [],
+          topicCategories: item.topicDetails?.topicCategories || [],
+        };
+      }
+    } catch (err) {
+      console.error('[YT_API] Error fetching channel topics batch:', err);
+      continue;
+    }
+  }
+
+  return results;
+}
