@@ -480,13 +480,13 @@ export default function PodcastPage() {
             </div>
 
             {/* Episodes Section */}
-            <section className="bg-slate-50 dark:bg-[#0f111a] dark:md:bg-transparent -mx-4 px-4 py-8 md:px-0 md:mx-0 md:bg-transparent md:py-0">
-              <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white mb-6">Episodes</h2>
+            <section className="bg-secondary/50 md:bg-transparent -mx-4 px-4 py-8 md:px-0 md:mx-0 md:py-0">
+              <h2 className="text-2xl font-bold tracking-tight text-foreground mb-6">Episodes</h2>
 
               {isLoadingEpisodes ? (
                 <div className="space-y-4">
                   {[...Array(5)].map((_, i) => (
-                    <div key={i} className="bg-white dark:bg-[#1e202e] rounded-2xl p-6 shadow-sm border border-slate-100/50 dark:border-white/5">
+                    <div key={i} className="bg-card rounded-2xl p-6 shadow-[var(--shadow-1)] border border-border">
                       <div className="flex gap-4">
                         <Skeleton className="w-12 h-12 rounded-lg shrink-0" />
                         <div className="flex-1 space-y-2">
@@ -499,11 +499,11 @@ export default function PodcastPage() {
                   ))}
                 </div>
               ) : episodes.length === 0 ? (
-                <div className="text-center py-12 bg-white dark:bg-[#1e202e] rounded-2xl shadow-sm border border-slate-100 dark:border-white/5">
-                  <p className="text-slate-500 dark:text-slate-400 mb-2">
+                <div className="text-center py-12 bg-card rounded-2xl shadow-[var(--shadow-1)] border border-border">
+                  <p className="text-muted-foreground mb-2">
                     No episodes found.
                   </p>
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-muted-foreground/70">
                     This might be a temporary issue. Try refreshing the page.
                   </p>
                 </div>
@@ -515,11 +515,11 @@ export default function PodcastPage() {
                     const canNavigate = summaryInfo?.episodeId;
 
                     return (
-                      <div key={episode.id} className="group bg-white dark:bg-[#1e202e] rounded-2xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300 border border-transparent dark:border-white/5">
+                      <div key={episode.id} className="group bg-card rounded-2xl p-6 shadow-[var(--shadow-1)] hover:shadow-[var(--shadow-2)] transition-all duration-300 border border-border">
                         <div className="flex gap-5 items-start">
                           {/* Thumbnail - Hidden if needed or small */}
                           {episode.artworkUrl && (
-                            <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100 dark:bg-white/5 shadow-inner hidden sm:block">
+                            <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-secondary shadow-inner hidden sm:block">
                               <Image
                                 src={episode.artworkUrl.replace('100x100', '200x200')}
                                 alt={episode.title}
@@ -532,7 +532,7 @@ export default function PodcastPage() {
 
                           <div className="flex-1 min-w-0 space-y-2">
                             {/* Meta Top Line */}
-                            <div className="flex items-center gap-3 text-xs font-medium text-slate-400">
+                            <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
                                 {formatDate(episode.publishedAt)}
@@ -548,18 +548,18 @@ export default function PodcastPage() {
                             {/* Title */}
                             {canNavigate ? (
                               <Link href={`/episode/${summaryInfo.episodeId}`}>
-                                <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight group-hover:text-violet-700 transition-colors cursor-pointer">
+                                <h3 className="text-lg font-bold text-foreground leading-tight group-hover:text-violet-700 transition-colors cursor-pointer">
                                   {episode.title}
                                 </h3>
                               </Link>
                             ) : (
-                              <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+                              <h3 className="text-lg font-bold text-foreground leading-tight">
                                 {episode.title}
                               </h3>
                             )}
 
                             {/* Description */}
-                            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-2">
+                            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
                               {episode.description}
                             </p>
 

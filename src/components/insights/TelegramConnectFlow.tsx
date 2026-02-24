@@ -93,8 +93,8 @@ export function TelegramConnectFlow({ onConnected }: TelegramConnectFlowProps) {
   // step === "verifying"
   return (
     <div className="space-y-4">
-      <div className="rounded-lg bg-slate-50 p-4 space-y-2">
-        <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+      <div className="rounded-lg bg-secondary p-4 space-y-2">
+        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
           <ExternalLink className="h-4 w-4" />
           Telegram bot opened in a new tab
         </div>

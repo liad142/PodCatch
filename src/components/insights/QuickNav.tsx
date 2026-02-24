@@ -106,9 +106,9 @@ export function QuickNav({ sectionRefs, onNavigate, hasHighlights }: QuickNavPro
             "fixed right-4 top-1/2 -translate-y-1/2 z-40",
             "hidden sm:flex flex-col gap-1",
             "p-1.5 rounded-full",
-            "bg-black/70 backdrop-blur-md",
-            "border border-white/10",
-            "shadow-lg"
+            "bg-card/95 backdrop-blur-md",
+            "border border-border",
+            "shadow-[var(--shadow-floating)]"
           )}
           aria-label="Quick navigation"
         >
@@ -127,7 +127,7 @@ export function QuickNav({ sectionRefs, onNavigate, hasHighlights }: QuickNavPro
                   "group",
                   isActive
                     ? "bg-primary text-primary-foreground"
-                    : "text-white/60 hover:text-white hover:bg-white/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                 )}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
@@ -141,7 +141,7 @@ export function QuickNav({ sectionRefs, onNavigate, hasHighlights }: QuickNavPro
                   className={cn(
                     "absolute right-full mr-3 px-2 py-1",
                     "text-xs font-medium whitespace-nowrap",
-                    "bg-black/90 text-white rounded",
+                    "bg-popover text-popover-foreground rounded shadow-[var(--shadow-2)]",
                     "opacity-0 group-hover:opacity-100",
                     "transition-opacity duration-200",
                     "pointer-events-none"
@@ -154,7 +154,7 @@ export function QuickNav({ sectionRefs, onNavigate, hasHighlights }: QuickNavPro
                 {isActive && (
                   <motion.div
                     layoutId="activeIndicator"
-                    className="absolute inset-0 rounded-full ring-2 ring-primary ring-offset-2 ring-offset-black/70"
+                    className="absolute inset-0 rounded-full ring-2 ring-primary ring-offset-2 ring-offset-card"
                     transition={{ type: "spring", stiffness: 500, damping: 30 }}
                   />
                 )}

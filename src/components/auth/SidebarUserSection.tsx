@@ -92,10 +92,10 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
       <button
         onClick={() => setShowDropdown(!showDropdown)}
         className={cn(
-          'flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors w-full text-left group',
+          'flex items-center gap-3 p-2 rounded-xl hover:bg-secondary transition-colors w-full text-left group',
         )}
       >
-        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/50 shrink-0 ring-2 ring-white dark:ring-[#1e202e] shadow-sm group-hover:shadow-md transition-all">
+        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/50 shrink-0 ring-2 ring-background shadow-sm group-hover:shadow-md transition-all">
           {avatarUrl ? (
             <img src={avatarUrl} alt={displayName} className="w-10 h-10 rounded-full object-cover" />
           ) : (

@@ -251,7 +251,7 @@ export default function EpisodeInsightsPage() {
                         }}
                         size="lg"
                         variant="primary"
-                        className="h-10 px-5 bg-green-600 hover:bg-green-500 text-white border-0 gap-2 rounded-lg"
+                        className="h-10 px-5 bg-accent-green hover:bg-accent-green-hover text-white border-0 gap-2 rounded-lg"
                       />
                     ) : null}
                     <Button

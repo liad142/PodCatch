@@ -79,17 +79,17 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
 
   return (
     <div
-      className="px-4 py-2.5 border-b border-white/[0.06] cursor-text hover:bg-white/[0.03] transition-colors"
+      className="px-4 py-2.5 border-b border-border cursor-text hover:bg-secondary/50 transition-colors"
       onClick={() => openChat()}
     >
       <div className="flex items-center gap-2.5">
         <div className="bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full p-1 shrink-0">
           <Sparkles className="h-3 w-3 text-white" />
         </div>
-        <div className="flex-1 text-white/50 text-sm truncate">
+        <div className="flex-1 text-muted-foreground text-sm truncate">
           Ask anything...
         </div>
-        <MessageSquare className="h-3.5 w-3.5 text-white/30 shrink-0" />
+        <MessageSquare className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
       </div>
     </div>
   );

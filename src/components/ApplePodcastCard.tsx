@@ -54,8 +54,8 @@ export const ApplePodcastCard = React.memo(function ApplePodcastCard({ podcast, 
 
   return (
     <Link href={`/browse/podcast/${podcast.id}`} className={cn('block group', className)}>
-      <Card className="bg-white dark:bg-[#1e202e] border-slate-100 dark:border-white/5 shadow-[0_2px_8px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgb(0,0,0,0.12)] hover:border-violet-100 dark:hover:border-violet-500/20 overflow-hidden transition-all duration-300 hover:-translate-y-1">
-        <div className="relative aspect-square overflow-hidden bg-slate-100 dark:bg-white/5">
+      <Card className="overflow-hidden transition-all duration-300 hover:-translate-y-1" interactive>
+        <div className="relative aspect-square overflow-hidden bg-secondary">
           <Image
             src={imageUrl}
             alt={podcast.name}

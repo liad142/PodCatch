@@ -105,12 +105,12 @@ export default function GenrePage({ params }: PageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0f111a]">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <section className="bg-white border-b border-slate-100 dark:bg-[#1e202e] dark:border-white/5 py-8 shadow-sm">
+      <section className="bg-card border-b border-border py-8 shadow-[var(--shadow-1)]">
         <div className="container mx-auto px-4">
           <Link href="/discover">
-            <Button variant="ghost" size="sm" className="mb-4 text-slate-500 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5">
+            <Button variant="ghost" size="sm" className="mb-4 text-muted-foreground hover:text-foreground">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Discover
             </Button>
@@ -121,15 +121,15 @@ export default function GenrePage({ params }: PageProps) {
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs font-semibold text-violet-600 bg-violet-50 dark:text-violet-400 dark:bg-violet-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">Category</span>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">{genreName}</h1>
-              <p className="text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-2 font-medium">
+              <h1 className="text-3xl sm:text-4xl font-black text-foreground tracking-tight">{genreName}</h1>
+              <p className="text-muted-foreground mt-2 flex items-center gap-2 font-medium">
                 <Globe className="h-4 w-4" />
                 Top podcasts in {genreName} • {countryInfo?.flag} {countryInfo?.name}
               </p>
             </div>
 
             {!isLoading && podcasts.length > 0 && (
-              <div className="text-sm font-semibold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 dark:text-slate-500 dark:bg-white/5 dark:border-white/5">
+              <div className="text-sm font-semibold text-muted-foreground bg-secondary px-3 py-1.5 rounded-full border border-border">
                 {podcasts.length} podcasts found
               </div>
             )}

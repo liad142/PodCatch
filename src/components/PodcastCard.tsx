@@ -73,7 +73,7 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
   return (
     <Link href={`/podcast/${podcast.id}`} className="block h-full">
       <div className="group h-full bg-white dark:bg-[#1e202e] dark:border dark:border-white/5 rounded-2xl overflow-hidden transition-all duration-300 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-none dark:hover:shadow-none hover:scale-[1.02]">
-        <div className="relative aspect-square w-full bg-slate-100 dark:bg-white/5">
+        <div className="relative aspect-square w-full bg-secondary">
           {imageUrl ? (
             <Image
               src={imageUrl}
@@ -84,8 +84,8 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
               unoptimized
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-slate-50 dark:bg-white/5">
-              <Mic2 className="h-12 w-12 text-slate-300 dark:text-slate-600" />
+            <div className="flex h-full w-full items-center justify-center bg-secondary">
+              <Mic2 className="h-12 w-12 text-muted-foreground/40" />
             </div>
           )}
 
@@ -133,7 +133,7 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
             )}
 
             {podcast.language && (
-              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-400">
+              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-medium bg-secondary text-muted-foreground">
                 {podcast.language.toUpperCase()}
               </span>
             )}
