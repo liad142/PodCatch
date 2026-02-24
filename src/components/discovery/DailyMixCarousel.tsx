@@ -2,7 +2,6 @@
 
 import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DailyMixCard } from './DailyMixCard';
 import { cn } from '@/lib/utils';
@@ -63,28 +62,30 @@ export function DailyMixCarousel({ episodes, isLoading = false }: DailyMixCarous
     <section>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Daily Mix</h2>
-          <p className="text-sm text-muted-foreground">Fresh summaries picked for you</p>
+          <h2 className="text-h2 text-foreground">Daily Mix</h2>
+          <p className="text-body-sm text-muted-foreground">Fresh summaries picked for you</p>
         </div>
         <div className="hidden sm:flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn('h-8 w-8 rounded-full', !canScrollLeft && 'opacity-40')}
+          <button
+            className={cn(
+              'w-8 h-8 rounded-full bg-secondary hover:bg-accent border border-border flex items-center justify-center transition-colors',
+              !canScrollLeft && 'opacity-40 pointer-events-none'
+            )}
             onClick={() => scroll('left')}
             disabled={!canScrollLeft}
           >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn('h-8 w-8 rounded-full', !canScrollRight && 'opacity-40')}
+            <ChevronLeft className="h-4 w-4 text-foreground" />
+          </button>
+          <button
+            className={cn(
+              'w-8 h-8 rounded-full bg-secondary hover:bg-accent border border-border flex items-center justify-center transition-colors',
+              !canScrollRight && 'opacity-40 pointer-events-none'
+            )}
             onClick={() => scroll('right')}
             disabled={!canScrollRight}
           >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+            <ChevronRight className="h-4 w-4 text-foreground" />
+          </button>
         </div>
       </div>
 
@@ -95,7 +96,7 @@ export function DailyMixCarousel({ episodes, isLoading = false }: DailyMixCarous
       >
         {isLoading
           ? Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="w-[320px] sm:w-[400px] h-[200px] rounded-2xl flex-shrink-0" />
+              <Skeleton key={i} className="w-[340px] h-[200px] rounded-2xl flex-shrink-0" />
             ))
           : episodes.map((ep) => (
               <div

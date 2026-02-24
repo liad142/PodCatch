@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Search, Loader2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
-import { elevation } from '@/lib/elevation';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -124,19 +123,19 @@ export function SemanticSearchBar() {
   };
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative max-w-2xl mx-auto">
       {/* Search Input */}
-      <div className="relative">
+      <div className="relative bg-secondary border border-border-strong rounded-xl">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         <Input
           ref={inputRef}
           type="text"
-          placeholder="Search podcasts..."
+          placeholder="Search podcasts, topics, or creators..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => results.length > 0 && setShowResults(true)}
-          className="pl-12 pr-12 h-12 text-base rounded-full bg-secondary dark:bg-white/10 dark:text-white border-0 dark:border-transparent ring-0 focus-visible:ring-0 placeholder:text-muted-foreground dark:placeholder:text-slate-400 transition-all"
+          className="pl-12 pr-12 h-12 text-base bg-transparent border-0 ring-0 focus-visible:ring-0 placeholder:text-muted-foreground transition-all"
         />
         {query ? (
           <button
@@ -155,7 +154,7 @@ export function SemanticSearchBar() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50 bg-popover border border-border shadow-xl ring-1 ring-border/5"
+            className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50 bg-card border border-border shadow-[var(--shadow-floating)]"
           >
             {isSearching ? (
               <div className="p-6 flex items-center justify-center gap-3">
@@ -172,22 +171,22 @@ export function SemanticSearchBar() {
                     key={podcast.id}
                     href={getPodcastHref(podcast)}
                     onClick={() => setShowResults(false)}
-                    className={`flex items-center gap-4 px-4 py-3 transition-colors ${index === selectedIndex
-                      ? 'bg-muted/70'
-                      : 'hover:bg-muted/50'
+                    className={`flex items-center gap-3 px-4 py-3 transition-colors ${index === selectedIndex
+                      ? 'bg-secondary'
+                      : 'hover:bg-secondary/60'
                       }`}
                   >
-                    <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+                    <div className="relative w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-muted">
                       <Image
                         src={podcast.artworkUrl || '/placeholder-podcast.png'}
                         alt={podcast.title}
                         fill
                         className="object-cover"
-                        sizes="48px"
+                        sizes="40px"
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{podcast.title}</p>
+                      <p className="font-medium text-foreground truncate">{podcast.title}</p>
                       <p className="text-sm text-muted-foreground truncate">{podcast.author}</p>
                     </div>
                   </Link>

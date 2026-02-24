@@ -282,40 +282,51 @@ export default function DiscoverPage() {
     <EpisodeLookupProvider>
       <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
         {/* Sticky Semantic Search */}
-        <div className="sticky top-14 lg:top-0 z-40 bg-background/80 dark:bg-[#0f111a]/80 backdrop-blur-md border-b border-border/50 transition-colors duration-200">
-          <div className="max-w-3xl mx-auto px-4 py-3">
+        <div className="sticky top-14 lg:top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/50 transition-colors duration-200">
+          <div className="max-w-6xl mx-auto px-4 lg:px-8 py-3">
             <SemanticSearchBar />
           </div>
         </div>
 
         {/* Main Content */}
-        <main className="max-w-3xl mx-auto px-4 py-8 space-y-12">
+        <main className="max-w-6xl mx-auto px-4 lg:px-8 py-8">
           {/* Daily Mix - summarized episodes from DB */}
-          <DailyMixCarousel episodes={dailyMixEpisodes} isLoading={isLoadingDailyMix} />
+          <div className="mb-12">
+            <DailyMixCarousel episodes={dailyMixEpisodes} isLoading={isLoadingDailyMix} />
+          </div>
 
           {/* Unified YouTube + Podcast Feed for authenticated users */}
-          {user && <UnifiedFeed />}
+          {user && (
+            <div className="mb-12">
+              <UnifiedFeed />
+            </div>
+          )}
 
           {/* Personalized Sections - for authenticated users with genre preferences */}
           {personalizedSections.length > 0 && personalizedSections.map((section) => (
-            <BrandShelf
-              key={section.genreId}
-              podcasts={section.podcasts}
-              isLoading={false}
-              title={section.label}
-            />
+            <div key={section.genreId} className="mb-12">
+              <BrandShelf
+                podcasts={section.podcasts}
+                isLoading={false}
+                title={section.label}
+              />
+            </div>
           ))}
 
           {/* Brand Shelf - shows as soon as top podcasts load (fastest) */}
-          <BrandShelf podcasts={topPodcasts.slice(0, 15)} isLoading={isLoadingPodcasts} />
+          <div className="mb-12">
+            <BrandShelf podcasts={topPodcasts.slice(0, 15)} isLoading={isLoadingPodcasts} />
+          </div>
 
           {/* Curiosity Feed - shows when feed episodes are ready */}
-          <CuriosityFeed
-            episodes={feedEpisodes}
-            isLoading={isLoadingFeed}
-            hasMore={hasMoreFeed}
-            onLoadMore={handleLoadMore}
-          />
+          <div className="mb-12">
+            <CuriosityFeed
+              episodes={feedEpisodes}
+              isLoading={isLoadingFeed}
+              hasMore={hasMoreFeed}
+              onLoadMore={handleLoadMore}
+            />
+          </div>
         </main>
       </div>
     </EpisodeLookupProvider>

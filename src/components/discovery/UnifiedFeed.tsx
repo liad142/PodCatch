@@ -105,17 +105,17 @@ export function UnifiedFeed() {
   return (
     <section>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Your Feed</h2>
-        <div className="flex items-center gap-1 bg-muted/50 rounded-full p-1">
+        <h2 className="text-h3 text-foreground">Your Feed</h2>
+        <div className="flex items-center gap-1 p-1">
           {filters.map((f) => (
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
               className={cn(
-                'px-3 py-1 text-xs font-medium rounded-full transition-colors',
+                'px-4 py-1.5 text-sm font-medium rounded-full transition-colors cursor-pointer',
                 filter === f.value
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-secondary text-muted-foreground hover:text-foreground'
               )}
             >
               {f.label}
@@ -154,7 +154,7 @@ export function UnifiedFeed() {
                 variant="outline"
                 onClick={handleLoadMore}
                 disabled={isLoadingMore}
-                className="gap-2"
+                className="gap-2 rounded-full"
               >
                 {isLoadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
                 Load More

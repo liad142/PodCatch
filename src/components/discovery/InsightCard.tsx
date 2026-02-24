@@ -4,8 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Clock, Heart } from 'lucide-react';
-import { elevation } from '@/lib/elevation';
+import { Heart } from 'lucide-react';
 import { DiscoverySummarizeButton } from './DiscoverySummarizeButton';
 import { PlayButton, InlinePlayButton } from '@/components/PlayButton';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -86,13 +85,13 @@ export const InsightCard = React.memo(function InsightCard({
     <motion.article
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl p-6 bg-card border border-border dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-none transition-shadow"
+      className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-5"
     >
       {/* Header: Podcast Info */}
-      <div className="flex items-center gap-3 mb-3">
+      <div className="flex items-center gap-3">
         <div className="relative flex-shrink-0 group">
           <Link href={`/browse/podcast/${podcastId}`}>
-            <div className="relative w-10 h-10 rounded-lg overflow-hidden ring-1 ring-border">
+            <div className="relative w-10 h-10 rounded-full overflow-hidden border border-border">
               <Image
                 src={imageUrl}
                 alt={podcastName}
@@ -109,42 +108,41 @@ export const InsightCard = React.memo(function InsightCard({
             </div>
           )}
         </div>
-        <div className="flex-1 min-w-0">
-          <Link href={`/browse/podcast/${podcastId}`} className="hover:underline block">
-            <p className="text-sm font-medium leading-tight break-words">{podcastName}</p>
+        <div className="flex-1 min-w-0 flex items-center gap-1.5">
+          <Link href={`/browse/podcast/${podcastId}`} className="hover:underline">
+            <p className="text-body-sm font-medium text-foreground leading-tight">{podcastName}</p>
           </Link>
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <Clock className="h-3 w-3" />
+          <span className="text-muted-foreground">&#183;</span>
+          <p className="text-body-sm text-muted-foreground">
             {formatDate(publishedAt)}
           </p>
         </div>
         <button
           onClick={handleSubscribe}
           disabled={isLoading}
-          className={`p-2 rounded-full transition-all ${subscribed ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-muted-foreground'
-            }`}
+          className="p-2 rounded-full transition-all cursor-pointer"
           title={subscribed ? 'Unsubscribe' : 'Subscribe'}
         >
-          <Heart className={`h-4 w-4 ${subscribed ? 'fill-current' : ''}`} />
+          <Heart className={`h-5 w-5 ${subscribed ? 'fill-current text-red-500' : 'text-muted-foreground'}`} />
         </button>
       </div>
 
-      {/* Main Content: Episode Title (The Hook) */}
-      <h3 className="text-lg sm:text-xl font-bold leading-tight mb-2 line-clamp-2">
+      {/* Main Content: Episode Title */}
+      <h3 className="text-h4 text-foreground line-clamp-2 mt-2">
         {title}
       </h3>
 
       {/* Description */}
-      <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+      <p className="text-body-sm text-muted-foreground line-clamp-3 mt-1">
         {description}
       </p>
 
-      {/* Actions: Play & Summarize — grouped side-by-side, both pill-shaped */}
-      <div className="flex items-center gap-2">
+      {/* Actions: Play & Summarize */}
+      <div className="mt-3 flex items-center gap-3">
         {track && (
           <InlinePlayButton
             track={track}
-            className="shrink-0 px-5 text-sm shadow-lg shadow-primary/20 hover:shadow-primary/40"
+            className="shrink-0 h-9 px-4 rounded-full bg-accent-green text-white text-sm font-medium hover:bg-accent-green-hover transition-colors shadow-none"
           />
         )}
         <DiscoverySummarizeButton

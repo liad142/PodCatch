@@ -3,9 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Play, Clock } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { Button } from '@/components/ui/button';
+import { Play } from 'lucide-react';
 
 interface DailyMixCardProps {
   episodeId: string;
@@ -49,10 +47,9 @@ export const DailyMixCard = React.memo(function DailyMixCard({
   const artwork = isValidImageUrl(podcastArtwork) ? podcastArtwork : '/placeholder-podcast.png';
 
   return (
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      className="relative w-[320px] sm:w-[400px] h-[200px] rounded-2xl overflow-hidden flex-shrink-0 group shadow-xl shadow-slate-200/50 dark:shadow-none dark:border dark:border-white/10"
+    <Link
+      href={`/episode/${episodeId}/insights`}
+      className="relative w-[340px] h-[200px] rounded-2xl overflow-hidden flex-shrink-0 bg-card border border-border shadow-[var(--shadow-1)] cursor-pointer hover:shadow-[var(--shadow-2)] transition-all duration-150 block"
     >
       {/* Blurred Background */}
       <div className="absolute inset-0">
@@ -60,55 +57,46 @@ export const DailyMixCard = React.memo(function DailyMixCard({
         <img
           src={artwork}
           alt=""
-          className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl brightness-[0.6]"
+          className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-30"
         />
-        {/* Internal Gradient Overlay for Text Readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+        <div className="absolute inset-0 bg-card/80" />
       </div>
 
       {/* Content */}
-      <Link href={`/episode/${episodeId}/insights`} className="absolute inset-0 p-5 flex gap-4">
-        {/* Podcast Artwork */}
-        <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden shadow-2xl flex-shrink-0">
-          <Image
-            src={artwork}
-            alt={podcastName}
-            fill
-            unoptimized
-            className="object-cover"
-            sizes="112px"
-          />
-        </div>
-
-        {/* Text Content */}
-        <div className="flex-1 flex flex-col justify-between min-w-0 text-white">
-          <div>
-            <p className="text-xs font-medium text-white/70 mb-1 flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {formatDate(publishedAt)}
-            </p>
-            <h3 className="font-bold text-lg leading-tight line-clamp-2 mb-1 drop-shadow-lg">
-              {title}
-            </h3>
-            <p className="text-sm text-white/80 line-clamp-2">
-              {description}
-            </p>
+      <div className="absolute inset-0 p-5 flex flex-col justify-between">
+        {/* Top row: avatar, podcast name, date */}
+        <div className="flex items-center gap-3">
+          <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-border flex-shrink-0">
+            <Image
+              src={artwork}
+              alt={podcastName}
+              fill
+              unoptimized
+              className="object-cover"
+              sizes="48px"
+            />
           </div>
-
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-white/60 max-w-[200px] leading-tight break-words">
-              {podcastName}
-            </p>
-            <Button
-              size="sm"
-              className="bg-white/20 hover:bg-white/30 backdrop-blur-md text-white border-0 gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <Play className="h-3.5 w-3.5 fill-current" />
-              Play
-            </Button>
+          <div className="flex-1 min-w-0">
+            <p className="text-body-sm text-muted-foreground truncate">{podcastName}</p>
+            <p className="text-caption text-muted-foreground">{formatDate(publishedAt)}</p>
           </div>
         </div>
-      </Link>
-    </motion.div>
+
+        {/* Middle: episode title */}
+        <h3 className="text-h4 text-foreground line-clamp-2">
+          {title}
+        </h3>
+
+        {/* Bottom row: play button + duration placeholder */}
+        <div className="flex items-center justify-between">
+          <div className="w-8 h-8 rounded-full bg-accent-green flex items-center justify-center">
+            <Play className="h-4 w-4 text-white fill-white ml-0.5" />
+          </div>
+          <p className="text-caption text-muted-foreground">
+            {description?.slice(0, 50)}
+          </p>
+        </div>
+      </div>
+    </Link>
   );
 });
