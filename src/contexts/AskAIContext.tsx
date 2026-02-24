@@ -102,12 +102,19 @@ export function useActivateAskAI(episodeId: string) {
 }
 
 /**
- * Hook for the StickyAudioPlayer to auto-activate Ask AI when
- * playing an episode that has a transcript available.
+ * Hook for the StickyAudioPlayer to auto-activate Ask AI and load chapters
+ * when playing an episode that has a transcript/summary available.
+ * Combines both checks into a single API call.
  */
-export function usePlayerAskAI(episodeId: string | null) {
+export function usePlayerAskAI(
+  episodeId: string | null,
+  onChaptersLoaded?: (chapters: { title: string; timestamp: string; timestamp_seconds: number }[]) => void
+) {
   const { activateFromPlayer, deactivateFromPlayer } = useContext(AskAIContext);
   const checkedRef = useRef<string | null>(null);
+  // Use refs for callbacks to avoid re-triggering the effect
+  const chaptersCallbackRef = useRef(onChaptersLoaded);
+  chaptersCallbackRef.current = onChaptersLoaded;
 
   useEffect(() => {
     if (!episodeId) {
@@ -120,12 +127,10 @@ export function usePlayerAskAI(episodeId: string | null) {
     if (checkedRef.current === episodeId) return;
     checkedRef.current = episodeId;
 
-    // Capture for closure (TypeScript narrowing doesn't carry into async)
     const id = episodeId;
     let cancelled = false;
 
-    // Lightweight check: does this episode have a transcript?
-    async function checkTranscript() {
+    async function checkEpisodeData() {
       try {
         const res = await fetch(`/api/episodes/${id}/summaries/status`);
         if (!res.ok || cancelled) return;
@@ -143,12 +148,36 @@ export function usePlayerAskAI(episodeId: string | null) {
         } else {
           deactivateFromPlayer();
         }
+
+        // Extract chapters from deep summary's chronological_breakdown
+        if (chaptersCallbackRef.current && data?.summaries?.deep?.status === "ready") {
+          const deepContent = data.summaries.deep.content;
+          const sections = deepContent?.chronological_breakdown;
+          if (sections && Array.isArray(sections)) {
+            // Normalize and filter valid chapters
+            const chapters = sections
+              .map((s: Record<string, unknown>) => ({
+                title: (s.title || s.timestamp_description || "Untitled") as string,
+                timestamp: (s.timestamp || "00:00") as string,
+                timestamp_seconds: (s.timestamp_seconds ?? 0) as number,
+              }))
+              .filter((ch: { timestamp_seconds: number; timestamp: string }) =>
+                ch.timestamp_seconds >= 0 && ch.timestamp
+              );
+
+            // Only use chapters if at least one has a real (non-zero) timestamp
+            const hasReal = chapters.some((ch: { timestamp_seconds: number }) => ch.timestamp_seconds > 0);
+            if (hasReal && chapters.length > 0) {
+              chaptersCallbackRef.current(chapters);
+            }
+          }
+        }
       } catch {
-        // Silently fail — don't show Ask AI if check fails
+        // Silently fail
       }
     }
 
-    checkTranscript();
+    checkEpisodeData();
 
     return () => {
       cancelled = true;

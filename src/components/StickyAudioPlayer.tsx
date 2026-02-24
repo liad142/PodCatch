@@ -276,8 +276,19 @@ function ChapterScrubber({
 export function StickyAudioPlayer() {
   const player = useAudioPlayerSafe();
 
-  // Auto-activate Ask AI when playing an episode with a transcript
-  usePlayerAskAI(player?.currentTrack?.id ?? null);
+  // Stable ref for chapter injection to avoid re-triggering usePlayerAskAI effect
+  const playerRef = useRef(player);
+  playerRef.current = player;
+
+  const handleChaptersLoaded = useCallback((chapters: { title: string; timestamp: string; timestamp_seconds: number }[]) => {
+    const p = playerRef.current;
+    if (p?.currentTrack && !p.currentTrack.chapters?.length) {
+      p.updateTrackMeta({ chapters });
+    }
+  }, []);
+
+  // Auto-activate Ask AI + load chapters when playing an episode with a summary
+  usePlayerAskAI(player?.currentTrack?.id ?? null, handleChaptersLoaded);
 
   // All hooks must be before conditional return
   const VolumeIcon = useMemo(() => {
