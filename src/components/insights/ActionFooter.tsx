@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
-  BookmarkPlus,
   CheckCircle2,
+  CheckSquare,
   ChevronDown,
   Wrench,
   GitBranch,
@@ -69,12 +69,12 @@ function getPriorityStyles(priority?: string) {
     case "high":
       return {
         label: "High priority",
-        className: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800",
+        className: "bg-red-500/10 text-red-500 border-0",
       };
     case "low":
       return {
         label: "Quick win",
-        className: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+        className: "bg-blue-500/10 text-blue-500 border-0",
       };
     default:
       return null; // medium = no pill
@@ -164,37 +164,25 @@ export function ActionFooter({ episode, actionPrompts, summaryReady = false }: A
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.4 }}
-        className="space-y-8"
+        className="space-y-5"
       >
-        {/* Header */}
-        <div className="text-center">
-          <h2 className="text-lg font-semibold text-foreground mb-1">What&apos;s next?</h2>
-          <p className="text-sm text-muted-foreground">
-            Continue exploring or take action on what you&apos;ve learned
-          </p>
+        {/* Section heading */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-h2 text-foreground flex items-center gap-2">
+            <CheckSquare className="h-5 w-5 text-green-500" />
+            Action Items
+          </h2>
+          {sortedActions.length > 0 && (
+            <span className="text-caption text-muted-foreground font-medium">
+              {checkedItems.size}/{sortedActions.length} done
+            </span>
+          )}
         </div>
-
-        {/* Secondary Actions - REMOVED (Replaced by QuickShare and SubscriptionCard) */}
-        {/* 
-        <div className="grid grid-cols-2 gap-4">
-           ...
-        </div>
-        */}
 
         {/* Structured Action Items */}
         {sortedActions.length > 0 && (
-          <div className="bg-card rounded-3xl shadow-sm border border-border dark:border-white/10 p-6 space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-bold text-foreground flex items-center gap-2">
-                <Target className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-                Action Items
-              </h3>
-              <span className="text-xs font-medium bg-muted text-muted-foreground px-2 py-1 rounded-full">
-                {checkedItems.size}/{sortedActions.length} done
-              </span>
-            </div>
-
-            <div className="space-y-1">
+          <div className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-5">
+            <div>
               {visibleActions.map((action, displayIndex) => {
                 const actualIndex = sortedActions.indexOf(action);
                 const isChecked = checkedItems.has(actualIndex);
@@ -208,76 +196,71 @@ export function ActionFooter({ episode, actionPrompts, summaryReady = false }: A
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: displayIndex * 0.05 }}
                     className={cn(
-                      "group py-4 border-b border-border last:border-0 transition-all",
+                      "flex items-start gap-4 py-4 border-b border-border last:border-0 transition-all",
                       isChecked && "opacity-60"
                     )}
                   >
-                    <div className="flex items-start gap-4">
-                      {/* Checkbox */}
-                      <button
-                        onClick={() => toggleItem(actualIndex)}
-                        className="shrink-0 mt-1 transition-transform active:scale-95"
-                      >
-                        {isChecked ? (
-                          <div className="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
-                            <CheckCircle2 className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-                          </div>
-                        ) : (
-                          <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30 group-hover:border-violet-400 transition-colors" />
-                        )}
-                      </button>
-
-                      <div className="flex-1 min-w-0 space-y-2">
-                        {/* Header: category + title + priority */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="secondary" className="gap-1 text-[10px] uppercase tracking-wider bg-muted text-muted-foreground font-medium border-0">
-                            {getCategoryLabel(action.category)}
-                          </Badge>
-                          {priorityStyles && (
-                            <Badge
-                              variant="outline"
-                              className={cn("text-[10px] h-5 px-1.5 shrink-0 uppercase tracking-wider border-0 font-medium", priorityStyles.className)}
-                            >
-                              {priorityStyles.label}
-                            </Badge>
-                          )}
+                    {/* Checkbox */}
+                    <button
+                      onClick={() => toggleItem(actualIndex)}
+                      className="shrink-0 mt-0.5 transition-transform active:scale-95"
+                    >
+                      {isChecked ? (
+                        <div className="w-5 h-5 rounded-md bg-green-500 border-2 border-green-500 flex items-center justify-center">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-white" />
                         </div>
+                      ) : (
+                        <div className="w-5 h-5 rounded-md border-2 border-border-strong cursor-pointer hover:border-green-400 transition-colors" />
+                      )}
+                    </button>
 
-                        {/* Action text */}
-                        <p
-                          className={cn(
-                            "text-base text-card-foreground leading-relaxed font-medium",
-                            isChecked && "line-through text-muted-foreground"
-                          )}
-                        >
-                          {action.text}
-                        </p>
-
-                        {/* Resource pills */}
-                        {action.resources && action.resources.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-1">
-                            {action.resources.map((resource, ri) => {
-                              const ResourceIcon = getResourceIcon(resource.type);
-                              return (
-                                <a
-                                  key={ri}
-                                  href={getResourceSearchUrl(resource)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={cn(
-                                    "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium",
-                                    "bg-muted border border-border text-muted-foreground hover:bg-violet-50 dark:hover:bg-violet-900/20 hover:text-violet-700 dark:hover:text-violet-300 hover:border-violet-200 dark:hover:border-violet-800 transition-all"
-                                  )}
-                                  title={resource.context || `Search for ${resource.name}`}
-                                >
-                                  <ResourceIcon className="h-3 w-3" />
-                                  {resource.name}
-                                </a>
-                              );
-                            })}
-                          </div>
+                    <div className="flex-1 min-w-0 space-y-2">
+                      {/* Header: category + priority */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="secondary" className="text-caption">
+                          {getCategoryLabel(action.category)}
+                        </Badge>
+                        {priorityStyles && (
+                          <Badge
+                            variant="outline"
+                            className={cn("text-caption h-5 px-1.5 shrink-0 font-medium", priorityStyles.className)}
+                          >
+                            {priorityStyles.label}
+                          </Badge>
                         )}
                       </div>
+
+                      {/* Action text */}
+                      <p
+                        className={cn(
+                          "text-body text-foreground",
+                          isChecked && "line-through text-muted-foreground"
+                        )}
+                      >
+                        {action.text}
+                      </p>
+
+                      {/* Resource pills */}
+                      {action.resources && action.resources.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {action.resources.map((resource, ri) => {
+                            const ResourceIcon = getResourceIcon(resource.type);
+                            return (
+                              <a
+                                key={ri}
+                                href={getResourceSearchUrl(resource)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-caption font-medium bg-secondary border border-border text-muted-foreground hover:text-primary hover:border-primary transition-all"
+                                title={resource.context || `Search for ${resource.name}`}
+                              >
+                                <ResourceIcon className="h-3 w-3" />
+                                {resource.name}
+                              </a>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 );
@@ -290,7 +273,7 @@ export function ActionFooter({ episode, actionPrompts, summaryReady = false }: A
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowAll(true)}
-                className="w-full gap-2 text-muted-foreground hover:text-foreground hover:bg-muted mt-2"
+                className="w-full gap-2 text-muted-foreground hover:text-foreground mt-2"
               >
                 <ChevronDown className="h-4 w-4" />
                 Show {hiddenCount} more

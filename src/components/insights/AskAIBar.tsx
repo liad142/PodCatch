@@ -1,6 +1,6 @@
 "use client";
 
-import { Play, Sparkles, MessageSquare } from "lucide-react";
+import { Play, Sparkles, ArrowUp, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAskAI } from "@/contexts/AskAIContext";
 import { useAudioPlayerSafe } from "@/contexts/AudioPlayerContext";
@@ -32,19 +32,19 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
 
     return (
       <div className="fixed bottom-6 left-4 right-4 z-50 pointer-events-none flex justify-center">
-        <div className="pointer-events-auto w-full max-w-xl">
-          <div className="bg-card/90 backdrop-blur-md dark:bg-muted/90 rounded-full shadow-2xl shadow-black/20 dark:shadow-indigo-500/10 flex items-center border border-border dark:border-white/10 overflow-hidden transition-transform hover:scale-[1.01]">
+        <div className="pointer-events-auto w-full max-w-2xl">
+          <div className="bg-card border border-border shadow-[var(--shadow-floating)] rounded-2xl flex items-center overflow-hidden">
 
             {/* Play section */}
             {showPlay && (
               <>
                 <button
                   onClick={handlePlay}
-                  className="flex items-center gap-2 px-5 py-3 hover:bg-muted/60 dark:hover:bg-white/10 transition-colors shrink-0 group/play"
+                  className="flex items-center gap-2 px-5 py-3 hover:bg-secondary transition-colors shrink-0 group/play"
                   aria-label="Play episode"
                 >
                   <Play className="h-4 w-4 fill-current text-foreground group-hover/play:text-primary transition-colors" />
-                  <span className="text-sm font-semibold text-foreground group-hover/play:text-primary transition-colors">Play</span>
+                  <span className="text-body-sm font-semibold text-foreground group-hover/play:text-primary transition-colors">Play</span>
                 </button>
                 <div className="w-px h-6 bg-border shrink-0" />
               </>
@@ -52,21 +52,19 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
 
             {/* Ask AI section */}
             <div
-              className="flex-1 flex items-center gap-2.5 px-4 py-2 cursor-text"
+              className="flex-1 flex items-center gap-2.5 px-4 py-2.5 cursor-text"
               onClick={() => openChat()}
             >
-              <div className="bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full p-1.5 shrink-0">
-                <Sparkles className="h-3.5 w-3.5 text-white" />
-              </div>
-              <div className="flex-1 text-muted-foreground text-sm font-medium truncate">
-                Ask anything...
+              <Sparkles className="h-5 w-5 text-primary shrink-0" />
+              <div className="flex-1 text-muted-foreground text-body-sm truncate">
+                Ask about this episode...
               </div>
               <Button
                 size="icon"
-                className="rounded-full w-9 h-9 bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 shadow"
+                className="rounded-full w-8 h-8 bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
                 onClick={(e) => { e.stopPropagation(); openChat(); }}
               >
-                <MessageSquare className="h-3.5 w-3.5" />
+                <ArrowUp className="h-4 w-4" />
               </Button>
             </div>
 

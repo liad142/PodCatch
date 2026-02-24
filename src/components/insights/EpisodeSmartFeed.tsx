@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Sparkles, BookOpen, Lightbulb, Clock, MessageSquareQuote, Play, ChevronDown, ChevronsUpDown, ChevronsDownUp } from "lucide-react";
+import { Loader2, Sparkles, FileText, Lightbulb, ListMusic, Scale, Play, ChevronDown, ChevronsUpDown, ChevronsDownUp, Quote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TranscriptAccordion } from "./TranscriptAccordion";
@@ -348,23 +348,28 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
    ═══════════════════════════════════════════ */
 
 /** Section header with icon + label */
-function SectionHeader({ icon: Icon, label, className, isRTL, children }: {
+function SectionHeader({ icon: Icon, label, iconClassName, subtitle, isRTL, children }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
-  className?: string;
+  iconClassName?: string;
+  subtitle?: string;
   isRTL?: boolean;
   children?: React.ReactNode;
 }) {
   return (
     <div className={cn("flex items-center justify-between mb-5", isRTL && "flex-row-reverse")}>
-      <h3 className={cn(
-        "text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2",
-        isRTL && "flex-row-reverse",
-        className,
-      )}>
-        <Icon className="h-4 w-4" />
-        {label}
-      </h3>
+      <div>
+        <h2 className={cn(
+          "text-h2 text-foreground flex items-center gap-2",
+          isRTL && "flex-row-reverse",
+        )}>
+          <Icon className={cn("h-5 w-5", iconClassName)} />
+          {label}
+        </h2>
+        {subtitle && (
+          <p className="text-body-sm text-muted-foreground mt-1">{subtitle}</p>
+        )}
+      </div>
       {children}
     </div>
   );
@@ -373,11 +378,11 @@ function SectionHeader({ icon: Icon, label, className, isRTL, children }: {
 /* ─── 1. Teaser Card ─── */
 function TeaserCard({ content, isRTL }: { content: QuickSummaryContent; isRTL: boolean }) {
   return (
-    <div className="bg-card rounded-3xl shadow-sm p-8 md:p-10 space-y-6">
+    <div className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-6 lg:p-8 space-y-6">
       {/* Headline */}
       {content.hook_headline && (
         <h2 className={cn(
-          "text-2xl md:text-3xl font-bold text-foreground tracking-tight",
+          "text-display text-foreground",
           isRTL && "text-right"
         )}>
           {content.hook_headline}
@@ -387,7 +392,7 @@ function TeaserCard({ content, isRTL }: { content: QuickSummaryContent; isRTL: b
       {/* Executive Brief */}
       {content.executive_brief && (
         <p className={cn(
-          "text-lg leading-relaxed text-card-foreground/90",
+          "text-body text-muted-foreground prose-width",
           isRTL && "text-right"
         )}>
           {content.executive_brief}
@@ -397,14 +402,16 @@ function TeaserCard({ content, isRTL }: { content: QuickSummaryContent; isRTL: b
       {/* Golden Nugget */}
       {content.golden_nugget && (
         <div className={cn(
-          "p-5 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40",
-          isRTL ? "border-r-4 border-r-amber-400 dark:border-r-amber-600" : "border-l-4 border-l-amber-400 dark:border-l-amber-600"
+          "bg-[var(--accent-amber-subtle)] rounded-r-xl p-4",
+          isRTL
+            ? "border-r-4 border-[hsl(var(--accent-amber))]"
+            : "border-l-4 border-[hsl(var(--accent-amber))]"
         )}>
           <div className={cn("flex items-center gap-2 mb-2", isRTL && "flex-row-reverse")}>
-            <Sparkles className="h-4 w-4 text-amber-500 fill-amber-500" />
-            <span className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Golden Nugget</span>
+            <Quote className="h-5 w-5 text-amber-500" />
+            <span className="text-caption font-bold text-[hsl(var(--accent-amber))] uppercase tracking-wider">Golden Nugget</span>
           </div>
-          <p className={cn("text-base italic text-foreground/90 font-medium", isRTL && "text-right")}>
+          <p className={cn("text-body italic text-foreground font-medium", isRTL && "text-right")}>
             &ldquo;{content.golden_nugget}&rdquo;
           </p>
         </div>
@@ -414,12 +421,12 @@ function TeaserCard({ content, isRTL }: { content: QuickSummaryContent; isRTL: b
       {(content.perfect_for || (content.tags && content.tags.length > 0)) && (
         <div className={cn("flex flex-wrap items-center gap-2", isRTL && "flex-row-reverse")}>
           {content.perfect_for && (
-            <Badge variant="secondary" className="gap-1.5 py-1 px-3 bg-muted text-muted-foreground">
+            <Badge variant="secondary">
               {content.perfect_for}
             </Badge>
           )}
           {content.tags?.map((tag, i) => (
-            <Badge key={i} variant="outline" className="text-xs border-border text-muted-foreground">
+            <Badge key={i} variant="secondary">
               {tag}
             </Badge>
           ))}
@@ -433,8 +440,8 @@ function TeaserCard({ content, isRTL }: { content: QuickSummaryContent; isRTL: b
 function ComprehensiveOverview({ text, isRTL }: { text: string; isRTL: boolean }) {
   return (
     <div>
-      <SectionHeader icon={BookOpen} label="Comprehensive Overview" isRTL={isRTL} />
-      <div className={cn("prose prose-lg dark:prose-invert text-foreground/90 max-w-none leading-relaxed", isRTL && "text-right")}>
+      <SectionHeader icon={FileText} label="Comprehensive Overview" isRTL={isRTL} />
+      <div className={cn("prose-width", isRTL && "text-right")}>
         {text.split('\n').filter(p => p.trim()).map((paragraph, i) => (
           <AnnotatedParagraph key={i} text={paragraph} isRTL={isRTL} />
         ))}
@@ -447,12 +454,12 @@ function ComprehensiveOverview({ text, isRTL }: { text: string; isRTL: boolean }
 function AnnotatedParagraph({ text, isRTL }: { text: string; isRTL: boolean }) {
   const segments = parseHighlightMarkers(text);
   return (
-    <p className={cn("mb-4 last:mb-0 leading-relaxed", isRTL && "text-right")}>
+    <p className={cn("text-body text-muted-foreground leading-relaxed mb-6 last:mb-0", isRTL && "text-right")}>
       {segments.map((seg, i) =>
         seg.type === "highlight" ? (
           <mark
             key={i}
-            className="bg-amber-100/80 dark:bg-amber-400/20 dark:text-amber-200 px-0.5 rounded text-amber-900 font-medium italic"
+            className="bg-[var(--accent-amber-subtle)] text-foreground px-1 rounded font-medium"
           >
             {seg.content}
           </mark>
@@ -471,22 +478,24 @@ function CoreConcepts({ concepts, isRTL }: {
 }) {
   return (
     <div>
-      <SectionHeader icon={Lightbulb} label="Core Concepts" isRTL={isRTL} />
+      <SectionHeader icon={Lightbulb} label="Core Concepts" iconClassName="text-amber-500" isRTL={isRTL} />
       <div className="grid gap-4">
         {concepts.map((concept, i) => (
-          <div key={i} className="bg-card rounded-2xl shadow-sm p-6 border border-border space-y-3">
-            <h4 className={cn("font-bold text-foreground flex items-center gap-2", isRTL && "text-right flex-row-reverse")}>
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <Lightbulb className="h-4 w-4 text-primary" />
+          <div key={i} className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-6">
+            <div className={cn("flex items-center gap-2", isRTL && "flex-row-reverse")}>
+              <div className="w-7 h-7 rounded-full bg-[var(--primary-subtle)] text-primary text-sm font-bold flex items-center justify-center shrink-0">
+                {i + 1}
               </div>
-              {concept.concept}
-            </h4>
-            <p className={cn("text-muted-foreground leading-relaxed", isRTL && "text-right")}>
+              <h3 className={cn("text-h3 text-foreground", isRTL && "text-right")}>
+                {concept.concept}
+              </h3>
+            </div>
+            <p className={cn("text-body text-muted-foreground mt-3", isRTL && "text-right")}>
               {concept.explanation}
             </p>
             {concept.quote_reference && (
               <blockquote className={cn(
-                "mt-2 pl-4 border-l-2 border-primary/20 italic text-muted-foreground/80 text-sm",
+                "mt-4 pl-4 border-l-2 border-border-strong text-body-sm text-muted-foreground italic",
                 isRTL && "border-l-0 border-r-2 pr-4 pl-0 text-right"
               )}>
                 &ldquo;{concept.quote_reference}&rdquo;
@@ -571,7 +580,7 @@ function EpisodeChapters({ sections, isRTL, episode }: {
 
   return (
     <div>
-      <SectionHeader icon={Clock} label="Episode Chapters" isRTL={isRTL}>
+      <SectionHeader icon={ListMusic} label="Episode Chapters" isRTL={isRTL}>
         {normalized.length > 1 && (
           <Button
             variant="ghost"
@@ -588,15 +597,7 @@ function EpisodeChapters({ sections, isRTL, episode }: {
         )}
       </SectionHeader>
 
-      <div
-        dir={isRTL ? "rtl" : "ltr"}
-        className={cn(
-          "relative",
-          isRTL
-            ? "border-r-2 border-slate-200 dark:border-white/10"
-            : "border-l-2 border-slate-200 dark:border-white/10"
-        )}
-      >
+      <div dir={isRTL ? "rtl" : "ltr"} className="space-y-1">
         {normalized.map((section, i) => {
           const isActive = i === activeIndex;
           const isExpanded = allExpanded || expandedIndex === i;
@@ -604,53 +605,45 @@ function EpisodeChapters({ sections, isRTL, episode }: {
           const hasTimestamp = showTimestamps && (section.timestamp_seconds ?? 0) > 0;
 
           return (
-            <div key={i} className="relative">
-              {/* Timeline dot */}
-              <div className={cn(
-                "absolute top-3.5 w-2.5 h-2.5 rounded-full z-10 transition-colors",
-                isRTL ? "-right-[7px]" : "-left-[7px]",
+            <div
+              key={i}
+              className={cn(
+                "rounded-xl transition-colors duration-150",
                 isActive
-                  ? "bg-primary ring-2 ring-primary/30"
-                  : "bg-slate-300 dark:bg-white/20"
-              )} />
-
+                  ? "bg-[var(--primary-subtle)] border border-primary"
+                  : "hover:bg-secondary"
+              )}
+            >
               {/* Clickable row */}
               <button
                 onClick={() => toggleExpand(i)}
                 className={cn(
-                  "w-full p-2.5 rounded-lg transition-colors",
-                  "hover:bg-slate-50 dark:hover:bg-white/5",
-                  isRTL ? "pr-4 text-right" : "pl-4 text-left",
-                  isActive && "bg-primary/5"
+                  "w-full p-4 cursor-pointer",
+                  isRTL ? "text-right" : "text-left",
                 )}
               >
-                <div className="flex items-center gap-1.5 flex-wrap">
+                <div className={cn("flex items-center gap-2 flex-wrap", isRTL && "flex-row-reverse")}>
                   {hasTimestamp && (
                     <span
                       role="button"
-                      className={cn(
-                        "text-xs font-mono tabular-nums px-2 py-0.5 rounded-full cursor-pointer transition-colors shrink-0",
-                        isActive
-                          ? "bg-primary/15 text-primary font-semibold"
-                          : "bg-slate-100 dark:bg-white/10 text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                      )}
+                      className="text-caption bg-secondary px-2 py-1 rounded-md font-mono shrink-0"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleSeekTo(section.timestamp_seconds!);
                       }}
                     >
-                      {section.timestamp}~
+                      {section.timestamp}
                     </span>
                   )}
                   <span className={cn(
-                    "font-semibold text-sm",
-                    isActive ? "text-primary" : "text-foreground"
+                    "text-h4 text-foreground",
+                    isActive && "text-primary"
                   )}>
                     {sectionTitle}
                   </span>
                   {isActive && (
-                    <span className="text-[10px] font-bold text-primary/70 uppercase tracking-wider shrink-0">
-                      Playing
+                    <span className="bg-primary text-primary-foreground text-caption px-2 py-0.5 rounded-full font-medium shrink-0">
+                      Now Playing
                     </span>
                   )}
                   {!isExpanded && (
@@ -663,7 +656,7 @@ function EpisodeChapters({ sections, isRTL, episode }: {
 
                 {/* Summary teaser (collapsed only) */}
                 {!isExpanded && section.hook && (
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                  <p className="text-body-sm text-muted-foreground mt-1 line-clamp-2">
                     {section.hook}
                   </p>
                 )}
@@ -680,21 +673,21 @@ function EpisodeChapters({ sections, isRTL, episode }: {
                     className="overflow-hidden"
                   >
                     <div className={cn(
-                      "pb-3 space-y-2",
+                      "px-4 pb-4 space-y-2",
                       isRTL ? "pr-4" : "pl-4"
                     )}>
                       {section.hook && (
-                        <p className="text-sm text-slate-500 dark:text-slate-400 italic">
+                        <p className="text-body-sm text-muted-foreground italic">
                           {section.hook}
                         </p>
                       )}
-                      <p className="text-sm leading-relaxed text-foreground">
+                      <p className="text-body text-muted-foreground prose-width">
                         {section.content}
                       </p>
                       {hasTimestamp && (
                         <div className="pt-1">
                           <Button
-                            variant="outline"
+                            variant="secondary"
                             size="sm"
                             className="gap-2 h-8 text-xs"
                             onClick={(e) => {
@@ -725,7 +718,7 @@ function renderBoldMarkers(text: string) {
   const parts = text.split(/\*\*([^*]+)\*\*/g);
   return parts.map((part, i) =>
     i % 2 === 1 ? (
-      <strong key={i} className="font-bold text-foreground">{part}</strong>
+      <strong key={i} className="font-semibold text-foreground">{part}</strong>
     ) : (
       <span key={i}>{part}</span>
     )
@@ -735,17 +728,20 @@ function renderBoldMarkers(text: string) {
 function ContrarianViews({ views, isRTL }: { views: string[]; isRTL: boolean }) {
   return (
     <div>
-      <SectionHeader icon={MessageSquareQuote} label="Contrarian Views" isRTL={isRTL} className="text-violet-500 [&_svg]:text-violet-500" />
+      <SectionHeader
+        icon={Scale}
+        label="Contrarian Views"
+        iconClassName="text-red-400"
+        subtitle="Perspectives that challenge conventional thinking"
+        isRTL={isRTL}
+      />
       <div className="grid gap-4">
         {views.map((view, i) => (
           <div key={i} className={cn(
-            "bg-card rounded-2xl shadow-sm p-6 border border-border/50 flex items-start gap-4",
-            isRTL && "flex-row-reverse"
+            "bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-5",
+            isRTL ? "border-r-4 border-r-red-500/50" : "border-l-4 border-l-red-500/50",
           )}>
-            <div className="w-8 h-8 rounded-full bg-destructive/10 flex items-center justify-center shrink-0 mt-0.5">
-              <MessageSquareQuote className="h-4 w-4 text-destructive" />
-            </div>
-            <p className={cn("text-card-foreground/90 leading-relaxed", isRTL && "text-right")}>{renderBoldMarkers(view)}</p>
+            <p className={cn("text-body text-muted-foreground", isRTL && "text-right")}>{renderBoldMarkers(view)}</p>
           </div>
         ))}
       </div>

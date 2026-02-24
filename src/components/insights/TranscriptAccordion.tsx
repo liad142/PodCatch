@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
-  ScrollText,
+  FileText,
   ChevronDown,
   ChevronRight,
   Play,
@@ -216,13 +216,13 @@ export function TranscriptAccordion({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.3 }}
-          className="rounded-2xl border bg-muted/30 p-8 text-center"
+          className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-8 text-center"
         >
-          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-            <ScrollText className="h-8 w-8 text-muted-foreground" />
+          <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
+            <FileText className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h3 className="font-semibold mb-2">Episode Transcript</h3>
-          <p className="text-sm text-muted-foreground mb-4">
+          <h3 className="text-h3 text-foreground mb-2">Episode Transcript</h3>
+          <p className="text-body-sm text-muted-foreground mb-4">
             {isTranscribing || isGenerating
               ? "Transcribing audio..."
               : transcriptStatus === "failed"
@@ -251,20 +251,20 @@ export function TranscriptAccordion({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.3 }}
-        className="bg-card rounded-3xl shadow-sm border border-border overflow-hidden"
+        className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] overflow-hidden"
       >
         {/* Header */}
-        <div className="p-6 border-b border-border bg-card">
+        <div className="px-5 py-4 border-b border-border">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <ScrollText className="h-5 w-5 text-primary" />
-              <h2 className="font-semibold text-foreground">Transcript</h2>
-              <Badge variant="secondary" className="bg-muted text-muted-foreground">
+              <FileText className="h-5 w-5 text-foreground" />
+              <h3 className="text-h3 text-foreground">Transcript</h3>
+              <span className="text-caption text-muted-foreground">
                 {segments.length} segments
-              </Badge>
+              </span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <User className="h-3 w-3" />
+            <div className="flex items-center gap-2 text-caption text-muted-foreground">
+              <User className="h-3.5 w-3.5" />
               <span>{speakers.length} speakers</span>
             </div>
           </div>
@@ -277,14 +277,40 @@ export function TranscriptAccordion({
               placeholder="Search transcript..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-4 bg-muted/50 border-0 text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary/20"
+              className="h-10 pl-9 pr-4 bg-secondary border-0 text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary/20"
             />
             {searchQuery && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-caption text-muted-foreground">
                 {filteredSegments.length} matches
               </span>
             )}
           </div>
+
+          {/* Speaker filter pills */}
+          {speakers.length > 1 && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {speakers.map((speaker) => (
+                <button
+                  key={speaker.name}
+                  onClick={() => setSearchQuery(speaker.name)}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-caption font-medium flex items-center gap-1.5 transition-colors",
+                    searchQuery === speaker.name
+                      ? "bg-[var(--primary-subtle)] text-primary border border-primary"
+                      : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                  )}
+                >
+                  <span
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+                    style={{ backgroundColor: speaker.color }}
+                  >
+                    {speaker.initials}
+                  </span>
+                  {speaker.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Segments */}
@@ -304,24 +330,23 @@ export function TranscriptAccordion({
                     : segment.text;
 
                 return (
-                  <div key={segment.id} className="bg-card hover:bg-muted/30 transition-colors">
+                  <div key={segment.id} className="hover:bg-secondary transition-colors">
                     {/* Accordion Header */}
                     <button
                       onClick={() => setExpandedId(isExpanded ? null : segment.id)}
-                      className="w-full p-4 flex items-start gap-3 text-left"
+                      className="w-full px-5 py-4 flex items-start gap-3 text-left cursor-pointer"
                     >
                       {/* Expand Icon */}
                       <div className="shrink-0 mt-0.5">
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        )}
+                        <ChevronDown className={cn(
+                          "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                          !isExpanded && "-rotate-90"
+                        )} />
                       </div>
 
                       {/* Speaker Avatar */}
                       <div
-                        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm"
+                        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
                         style={{ backgroundColor: speakerInfo?.color }}
                       >
                         {speakerInfo?.initials}
@@ -330,9 +355,9 @@ export function TranscriptAccordion({
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold text-sm text-foreground">{segment.speaker}</span>
+                          <span className="font-semibold text-body-sm text-foreground">{segment.speaker}</span>
                           {segment.timestamp && (
-                            <span className="text-xs text-muted-foreground font-medium font-mono bg-muted/50 px-1.5 py-0.5 rounded">
+                            <span className="text-caption text-muted-foreground font-mono bg-secondary px-1.5 py-0.5 rounded-md">
                               {segment.timestamp}
                             </span>
                           )}
@@ -340,7 +365,7 @@ export function TranscriptAccordion({
                         {!isExpanded && (
                           <p
                             className={cn(
-                              "text-sm text-muted-foreground line-clamp-2 leading-relaxed transition-colors group-hover:text-foreground",
+                              "text-body-sm text-muted-foreground line-clamp-2 leading-relaxed",
                               segment.isRTL && "text-right"
                             )}
                             dir={segment.isRTL ? "rtl" : "ltr"}
@@ -362,12 +387,12 @@ export function TranscriptAccordion({
                           className="overflow-hidden"
                         >
                           <div
-                            className="px-4 pb-4 pl-14 md:pl-16"
+                            className="px-5 pb-4 pl-14 md:pl-16"
                             dir={segment.isRTL ? "rtl" : "ltr"}
                           >
                             <p
                               className={cn(
-                                "text-sm leading-relaxed mb-3 text-foreground",
+                                "text-body-sm leading-relaxed mb-3 text-foreground",
                                 segment.isRTL && "text-right"
                               )}
                             >
@@ -376,16 +401,16 @@ export function TranscriptAccordion({
 
                             {segment.timestamp && (
                               <Button
-                                variant="ghost"
+                                variant="secondary"
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handlePlayFrom(segment.timestamp);
                                 }}
-                                className="gap-2 text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/40 h-8 px-3 rounded-full bg-violet-50/50 dark:bg-violet-900/20"
+                                className="gap-2 h-8 px-3 rounded-full"
                               >
                                 <Play className="h-3 w-3 fill-current" />
-                                <span className="text-xs font-medium">Play from {segment.timestamp}</span>
+                                <span className="text-caption font-medium">Play from {segment.timestamp}</span>
                               </Button>
                             )}
                           </div>
@@ -400,9 +425,9 @@ export function TranscriptAccordion({
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t border-border bg-muted/30 text-center">
-          <p className="text-xs text-muted-foreground font-medium">
-            Click a segment to expand • Search to find specific topics
+        <div className="p-3 border-t border-border text-center">
+          <p className="text-caption text-muted-foreground">
+            Click a segment to expand &middot; Search to find specific topics
           </p>
         </div>
       </motion.div>

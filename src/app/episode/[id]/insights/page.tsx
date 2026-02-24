@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase";
 import type { Episode, Podcast } from "@/types/database";
-import { ArrowLeft, Clock, Calendar, BarChart3, ExternalLink } from "lucide-react";
+import { Clock, Calendar, BarChart3, ExternalLink, ChevronRight, Share2 } from "lucide-react";
 import { PlayButton } from "@/components/PlayButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
@@ -130,97 +130,113 @@ export default function EpisodeInsightsPage() {
         : null;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0f111a] flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
 
       {/* ── Hero Header ── */}
-      <div className="relative overflow-hidden">
-
-        {/* Blurred artwork background */}
-        {artworkUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={artworkUrl}
-            alt=""
-            aria-hidden
-            className="absolute inset-0 w-full h-full object-cover opacity-50 dark:opacity-35 pointer-events-none select-none"
-            style={{ filter: "blur(48px)", transform: "scale(1.25)" }}
-          />
-        )}
-
-        {/* Dark overlay — fades strongly at top, lightens toward bottom */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/40 to-black/10" />
-
-        {/* Bottom fade — tall and smooth into the page background */}
-        <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-b from-transparent to-slate-50 dark:to-[#0f111a]" />
-
-        {/* ── Content ── */}
-        <div className="relative z-10 container mx-auto px-4 pt-5 pb-20 max-w-4xl">
+      <div className="border-b border-border mb-8">
+        <div className="container mx-auto px-4 pt-5 pb-8 max-w-3xl">
           {isLoading ? (
             <div className="space-y-5">
-              <Skeleton className="h-4 w-28 bg-white/20" />
-              <div className="flex gap-6 items-start">
-                <Skeleton className="w-24 h-24 rounded-xl shrink-0 bg-white/20" />
+              <Skeleton className="h-4 w-28" />
+              <div className="flex gap-5 items-start">
+                <Skeleton className="w-20 h-20 rounded-xl shrink-0" />
                 <div className="space-y-3 flex-1 pt-1">
-                  <Skeleton className="h-8 w-5/6 bg-white/20" />
-                  <Skeleton className="h-5 w-2/3 bg-white/20" />
-                  <div className="flex gap-2 pt-1">
-                    <Skeleton className="h-6 w-24 rounded-full bg-white/20" />
-                    <Skeleton className="h-6 w-16 rounded-full bg-white/20" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-8 w-5/6" />
+                  <div className="flex gap-3 pt-1">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-16" />
                   </div>
-                  <Skeleton className="w-14 h-14 rounded-full bg-white/20" />
+                  <div className="flex gap-2 pt-2">
+                    <Skeleton className="h-10 w-24 rounded-lg" />
+                    <Skeleton className="h-10 w-20 rounded-lg" />
+                  </div>
                 </div>
               </div>
             </div>
           ) : episode ? (
             <div className="space-y-5">
-              {/* Back nav + Admin analytics */}
-              <div className="flex items-center justify-between">
+              {/* Breadcrumb */}
+              <nav className="flex items-center gap-1.5 text-caption text-muted-foreground">
+                <button
+                  onClick={() => router.push('/discover')}
+                  className="hover:text-foreground transition-colors"
+                >
+                  Discover
+                </button>
+                <ChevronRight className="h-3.5 w-3.5" />
                 <button
                   onClick={() => router.push(getBackLink())}
-                  className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white transition-colors group w-fit"
+                  className="hover:text-foreground transition-colors truncate max-w-[200px]"
                 >
-                  <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
-                  <span className="truncate max-w-[220px] font-medium">
-                    {episode.podcast?.title || "Back"}
-                  </span>
+                  {episode.podcast?.title || "Podcast"}
                 </button>
+                <ChevronRight className="h-3.5 w-3.5" />
+                <span className="text-foreground truncate max-w-[200px]">Insights</span>
                 {isAdmin && (
-                  <button
-                    onClick={() => router.push(`/admin/episodes/${episodeId}/analytics`)}
-                    className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white transition-colors"
-                  >
-                    <BarChart3 className="h-3.5 w-3.5" />
-                    <span className="font-medium">Analytics</span>
-                  </button>
+                  <>
+                    <span className="mx-1">|</span>
+                    <button
+                      onClick={() => router.push(`/admin/episodes/${episodeId}/analytics`)}
+                      className="flex items-center gap-1 hover:text-foreground transition-colors"
+                    >
+                      <BarChart3 className="h-3 w-3" />
+                      Analytics
+                    </button>
+                  </>
                 )}
-              </div>
+              </nav>
 
               {/* Art + Info */}
-              <div className="flex gap-6 items-start">
+              <div className="flex gap-5 items-start">
                 {artworkUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={artworkUrl}
                     alt={episode.podcast?.title || "Podcast artwork"}
-                    className="w-24 h-24 md:w-28 md:h-28 rounded-xl object-cover border border-white/10 shrink-0"
-                    style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.4)" }}
+                    className="w-20 h-20 rounded-xl object-cover shrink-0 shadow-[var(--shadow-2)]"
                   />
                 )}
 
-                <div className="flex-1 min-w-0 space-y-3">
-                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight leading-snug line-clamp-3 text-white drop-shadow-sm">
+                <div className="flex-1 min-w-0 space-y-2">
+                  {/* Podcast name */}
+                  <button
+                    onClick={() => router.push(getBackLink())}
+                    className="text-body-sm text-muted-foreground font-medium hover:text-foreground transition-colors truncate block max-w-full"
+                  >
+                    {episode.podcast?.title || "Unknown Podcast"}
+                  </button>
+
+                  {/* Episode title */}
+                  <h1 className="text-h1 text-foreground line-clamp-3">
                     {episode.title}
                   </h1>
 
-                  {/* Play CTA + metadata pills — single aligned row */}
-                  <div className="flex items-center gap-3">
+                  {/* Metadata: date + duration */}
+                  <div className="flex items-center gap-4 text-muted-foreground">
+                    {episode.published_at && (
+                      <span className="inline-flex items-center gap-1.5 text-body-sm">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {formatDate(episode.published_at)}
+                      </span>
+                    )}
+                    {episode.duration_seconds && (
+                      <span className="inline-flex items-center gap-1.5 text-body-sm">
+                        <Clock className="h-3.5 w-3.5" />
+                        {formatDuration(episode.duration_seconds)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-2 pt-1">
                     {isYouTube && episode.audio_url ? (
                       <Button
                         onClick={() => window.open(episode.audio_url, '_blank', 'noopener,noreferrer')}
-                        className="h-14 px-6 bg-red-600 hover:bg-red-500 text-white border-0 shadow-lg shadow-red-500/40 hover:shadow-red-500/60 gap-2 shrink-0"
+                        className="h-10 px-5 bg-red-600 hover:bg-red-500 text-white border-0 gap-2"
                       >
-                        <ExternalLink className="h-5 w-5" />
+                        <ExternalLink className="h-4 w-4" />
                         Watch on YouTube
                       </Button>
                     ) : episode.audio_url && episode.podcast ? (
@@ -235,21 +251,24 @@ export default function EpisodeInsightsPage() {
                         }}
                         size="lg"
                         variant="primary"
-                        className="w-14 h-14 bg-gradient-to-br from-violet-500 to-fuchsia-500 hover:from-violet-400 hover:to-fuchsia-400 border-0 shadow-lg shadow-violet-500/40 hover:shadow-violet-500/60 text-white shrink-0"
+                        className="h-10 px-5 bg-green-600 hover:bg-green-500 text-white border-0 gap-2 rounded-lg"
                       />
                     ) : null}
-                    {episode.published_at && (
-                      <span className="inline-flex items-center gap-1.5 text-xs bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 rounded-full px-3 py-1">
-                        <Calendar className="h-3 w-3" />
-                        {formatDate(episode.published_at)}
-                      </span>
-                    )}
-                    {episode.duration_seconds && (
-                      <span className="inline-flex items-center gap-1.5 text-xs bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 rounded-full px-3 py-1">
-                        <Clock className="h-3 w-3" />
-                        {formatDuration(episode.duration_seconds)}
-                      </span>
-                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-10 px-4 gap-2 text-muted-foreground"
+                      onClick={() => {
+                        if (navigator.share) {
+                          navigator.share({ title: episode.title, url: window.location.href });
+                        } else {
+                          navigator.clipboard.writeText(window.location.href);
+                        }
+                      }}
+                    >
+                      <Share2 className="h-4 w-4" />
+                      Share
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -259,7 +278,7 @@ export default function EpisodeInsightsPage() {
       </div>
 
       {/* Smart Feed */}
-      <div className="flex-1 py-6">
+      <div className="flex-1">
         {episode && <EpisodeSmartFeed episode={episode} />}
       </div>
     </div>
