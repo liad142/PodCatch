@@ -25,7 +25,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <AskAIProvider>
       <div className="min-h-screen">
         <Sidebar />
-        <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen pb-24">
+        {/* Main content: offset for desktop sidebar (lg:pl-64), mobile top bar (pt-14), mobile bottom nav + player space (pb-28) */}
+        <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen pb-28 lg:pb-24">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>
@@ -34,6 +35,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <AuthModal />
       <CompactAuthPrompt />
       <QueueToast />
+      {/* Audio player z-40: above mobile bottom nav (z-30), below modals */}
       <StickyAudioPlayer />
       <AskAIChatPopup />
       <AnalyticsTracker />

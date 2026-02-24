@@ -44,11 +44,11 @@ import { cn } from '@/lib/utils';
 // Format seconds to mm:ss or hh:mm:ss
 function formatTime(seconds: number): string {
   if (!seconds || !isFinite(seconds)) return '0:00';
-  
+
   const hours = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
-  
+
   if (hours > 0) {
     return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
@@ -77,10 +77,10 @@ function PlayerChapters({
   }, [chapters, currentTime]);
 
   return (
-    <div className="mt-4 pt-4 border-t border-white/5">
+    <div className="mt-4 pt-4 border-t border-border/30">
       <div className="flex items-center gap-1.5 mb-2">
-        <Clock className="w-3.5 h-3.5 text-white/40" />
-        <span className="text-xs font-medium text-white/40 uppercase tracking-wide">Chapters</span>
+        <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Chapters</span>
       </div>
       <div className="max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 space-y-0.5">
         {chapters.map((ch, i) => {
@@ -92,8 +92,8 @@ function PlayerChapters({
               className={cn(
                 'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors',
                 isActive
-                  ? 'bg-primary/20 text-white'
-                  : 'text-white/60 hover:bg-white/5 hover:text-white/80'
+                  ? 'bg-primary/20 text-foreground'
+                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
               )}
             >
               <span
@@ -101,7 +101,7 @@ function PlayerChapters({
                   'text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded shrink-0',
                   isActive
                     ? 'bg-primary/30 text-primary-foreground'
-                    : 'bg-white/5 text-white/40'
+                    : 'bg-secondary text-muted-foreground'
                 )}
               >
                 {ch.timestamp}
@@ -237,23 +237,17 @@ function ChapterScrubber({
           return (
             <div
               key={i}
-              className="relative h-full rounded-[1px] overflow-hidden bg-white/15"
+              className="relative h-full rounded-[1px] overflow-hidden bg-secondary"
               style={{ flex: `${seg.widthPct} 0 0%` }}
             >
               <div
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary via-primary to-violet-400 rounded-[1px]"
+                className="absolute inset-y-0 left-0 bg-primary rounded-[1px]"
                 style={{ width: `${fillPct}%` }}
               />
             </div>
           );
         })}
       </div>
-
-      {/* Glow effect on progress */}
-      <div
-        className="absolute top-0 h-full bg-primary/50 blur-sm pointer-events-none"
-        style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-      />
 
       {/* Hover tooltip */}
       {hoverInfo && barRef.current && (
@@ -263,7 +257,7 @@ function ChapterScrubber({
             left: Math.max(60, Math.min(hoverInfo.x, barRef.current.getBoundingClientRect().width - 60)),
           }}
         >
-          <div className="bg-black/90 text-white text-xs rounded px-2 py-1 shadow-lg">
+          <div className="bg-popover text-popover-foreground text-xs rounded px-2 py-1 shadow-lg border border-border">
             {hoverInfo.chapterTitle} &middot; {formatTime(hoverInfo.time)}
           </div>
         </div>
@@ -347,52 +341,40 @@ export function StickyAudioPlayer() {
         exit={{ y: 100, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className={cn(
-          'fixed bottom-5 left-4 right-4 z-50 flex justify-center',
-          'lg:left-[17rem]' // Account for desktop sidebar
+          'fixed bottom-16 left-0 right-0 z-40',
+          'lg:bottom-0 lg:left-64' // Account for desktop sidebar; mobile sits above bottom nav
         )}
       >
-        {/* Unified Floating Card */}
-        <div className="relative w-full max-w-3xl rounded-2xl overflow-hidden bg-[#0f111a]/95 backdrop-blur-xl border border-white/[0.08] shadow-2xl shadow-black/50">
-          {/* 1. Integrated Ask AI Bar */}
-          <AskAIBar mode="integrated" />
-
-          {/* 2. Progress Bar / Chapter Scrubber — padded hit area so taps don't bleed into AskAI */}
-          {currentTrack.chapters && currentTrack.chapters.length > 0 ? (
-            <div className="relative pt-5 pb-1 px-1 group cursor-pointer">
-              <div className="relative h-2 group-hover:h-2.5 transition-all">
-                <ChapterScrubber
-                  chapters={currentTrack.chapters}
-                  currentTime={currentTime}
-                  duration={duration}
-                  onSeek={seek}
+        {/* Player card with glass effect — the ONE place we keep backdrop-blur */}
+        <div className="relative w-full overflow-hidden backdrop-blur-xl bg-background/80 border-t border-border">
+          {/* Progress bar — full-width thin bar at the very top */}
+          <div className="absolute top-0 left-0 right-0 h-1 z-10">
+            {currentTrack.chapters && currentTrack.chapters.length > 0 ? (
+              <ChapterScrubber
+                chapters={currentTrack.chapters}
+                currentTime={currentTime}
+                duration={duration}
+                onSeek={seek}
+              />
+            ) : (
+              <div className="relative w-full h-full bg-secondary">
+                <div
+                  className="absolute inset-y-0 left-0 bg-primary"
+                  style={{ width: `${progressPercentage}%` }}
                 />
               </div>
-            </div>
-          ) : (
-            <div className="relative pt-5 pb-1 px-1 group cursor-pointer">
-              <Slider
-                value={[progressPercentage]}
-                onValueChange={handleProgressChange}
-                max={100}
-                step={0.1}
-                className="h-2"
-                trackClassName="h-2 rounded-sm bg-white/5 group-hover:h-2.5 transition-all"
-                rangeClassName="bg-gradient-to-r from-primary via-primary to-violet-400"
-                thumbClassName="opacity-0 group-hover:opacity-100 h-3.5 w-3.5 -mt-0.5 border-primary bg-white"
-              />
-              {/* Glow effect on progress */}
-              <div
-                className="absolute top-3 h-2 bg-primary/50 blur-sm pointer-events-none transition-all"
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* 3. Slim Player Controls — Spotify-style single row */}
-          <div className="flex items-center gap-3 px-3 py-2">
-            {/* Album Art */}
-            <div className="relative shrink-0">
-              <div className="relative w-10 h-10 rounded-md overflow-hidden ring-1 ring-white/10">
+          {/* Integrated Ask AI Bar */}
+          <AskAIBar mode="integrated" />
+
+          {/* Collapsed player controls (h-16) */}
+          <div className="flex items-center gap-3 h-16 px-3 pt-1">
+            {/* Left: Track artwork + info */}
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              {/* Artwork */}
+              <div className="relative shrink-0 w-11 h-11 rounded-lg overflow-hidden shadow-[var(--shadow-1)]">
                 {sanitizedArtwork ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
@@ -401,25 +383,26 @@ export function StickyAudioPlayer() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-primary/30 to-violet-600/30 flex items-center justify-center">
-                    <Volume2 className="w-4 h-4 text-white/50" />
+                  <div className="w-full h-full bg-secondary flex items-center justify-center">
+                    <Volume2 className="w-4 h-4 text-muted-foreground" />
                   </div>
                 )}
               </div>
+
+              {/* Track info */}
+              <div className="min-w-0 flex-1">
+                <h4 className="text-sm font-medium text-foreground truncate leading-tight">
+                  {activeChapterTitle || currentTrack.title}
+                </h4>
+                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                  {currentTrack.artist}
+                </p>
+              </div>
             </div>
 
-            {/* Track Info — two lines */}
-            <div className="min-w-0 flex-1">
-              <h4 className="text-sm font-bold text-white truncate leading-tight">
-                {activeChapterTitle || currentTrack.title}
-              </h4>
-              <p className="text-[11px] text-white/45 truncate mt-0.5">
-                {currentTrack.artist} &middot; {formatTime(currentTime)} / {formatTime(duration)}
-              </p>
-            </div>
-
-            {/* Compact Controls */}
+            {/* Center: Transport controls */}
             <div className="flex items-center gap-0.5 shrink-0">
+              {/* Skip back */}
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={() => {
@@ -430,19 +413,20 @@ export function StickyAudioPlayer() {
                     seekRelative(-15);
                   }
                 }}
-                className="p-1.5 rounded-full text-white/60 hover:text-white transition-colors"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
                 aria-label={currentTrack.chapters ? 'Previous chapter' : 'Skip back 15 seconds'}
               >
                 <SkipBack className="w-4 h-4" />
               </motion.button>
 
+              {/* Play/Pause */}
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={toggle}
                 disabled={isLoading}
                 className={cn(
                   'w-10 h-10 rounded-full flex items-center justify-center transition-all',
-                  'bg-white text-black shadow-lg shadow-white/20',
+                  'bg-accent-green text-white',
                   isLoading && 'opacity-70'
                 )}
                 aria-label={isPlaying ? 'Pause' : 'Play'}
@@ -456,6 +440,7 @@ export function StickyAudioPlayer() {
                 )}
               </motion.button>
 
+              {/* Skip forward */}
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={() => {
@@ -466,16 +451,45 @@ export function StickyAudioPlayer() {
                     seekRelative(15);
                   }
                 }}
-                className="p-1.5 rounded-full text-white/60 hover:text-white transition-colors"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
                 aria-label={currentTrack.chapters ? 'Next chapter' : 'Skip forward 15 seconds'}
               >
                 <SkipForward className="w-4 h-4" />
               </motion.button>
+            </div>
 
+            {/* Right: Time, volume, expand, close */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Time display */}
+              <span className="hidden sm:inline-block font-mono text-xs text-muted-foreground tabular-nums">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </span>
+
+              {/* Desktop volume */}
+              <div className="hidden md:flex items-center gap-1.5">
+                <button
+                  onClick={() => setVolume(volume === 0 ? 0.7 : 0)}
+                  className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={volume === 0 ? 'Unmute' : 'Mute'}
+                >
+                  <VolumeIcon className="w-4 h-4" />
+                </button>
+                <Slider
+                  value={[volume * 100]}
+                  onValueChange={handleVolumeChange}
+                  max={100}
+                  className="w-20"
+                  trackClassName="h-1 bg-secondary"
+                  rangeClassName="bg-foreground/60"
+                  thumbClassName="h-3 w-3 border-foreground/60 bg-foreground"
+                />
+              </div>
+
+              {/* Expand chevron */}
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={toggleExpanded}
-                className="p-1.5 rounded-full text-white/50 hover:text-white transition-colors"
+                className="p-1.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
                 aria-label={isExpanded ? 'Minimize player' : 'Expand player'}
               >
                 {isExpanded ? (
@@ -485,10 +499,11 @@ export function StickyAudioPlayer() {
                 )}
               </motion.button>
 
+              {/* Close */}
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={clearTrack}
-                className="p-1.5 rounded-full text-white/30 hover:text-white transition-colors"
+                className="p-1.5 rounded-full text-muted-foreground/50 hover:text-foreground transition-colors"
                 aria-label="Close player"
               >
                 <X className="w-3.5 h-3.5" />
@@ -504,10 +519,28 @@ export function StickyAudioPlayer() {
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.3 }}
-                className="overflow-hidden border-t border-white/5"
+                className="overflow-hidden border-t border-border"
               >
                 <div className="px-4 py-4">
-                  {/* Full Progress Bar */}
+                  {/* Larger artwork in expanded */}
+                  <div className="flex justify-center mb-4">
+                    <div className="w-[120px] h-[120px] rounded-2xl overflow-hidden shadow-[var(--shadow-floating)]">
+                      {sanitizedArtwork ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={sanitizedArtwork}
+                          alt={currentTrack.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-secondary flex items-center justify-center">
+                          <Volume2 className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Seek slider */}
                   <div className="mb-4">
                     <Slider
                       value={[progressPercentage]}
@@ -515,19 +548,26 @@ export function StickyAudioPlayer() {
                       max={100}
                       step={0.1}
                       className="mb-2"
-                      trackClassName="h-2 bg-white/10"
-                      rangeClassName="bg-gradient-to-r from-primary to-violet-400"
+                      trackClassName="h-1.5 rounded-full bg-secondary"
+                      rangeClassName="bg-primary"
                       thumbClassName="h-4 w-4 border-2 border-primary"
                     />
-                    <div className="flex justify-between text-xs text-white/50 font-mono">
+                    <div className="flex justify-between text-xs text-muted-foreground font-mono">
                       <span>{formatTime(currentTime)}</span>
                       <span>{formatTime(duration)}</span>
                     </div>
                   </div>
 
-                  {/* Playback Speed Options */}
+                  {/* Active chapter name */}
+                  {activeChapterTitle && (
+                    <p className="text-xs text-muted-foreground text-center mb-3">
+                      {activeChapterTitle}
+                    </p>
+                  )}
+
+                  {/* Speed selector pills */}
                   <div className="flex items-center justify-center gap-2">
-                    <span className="text-xs text-white/40 mr-2">Speed:</span>
+                    <span className="text-xs text-muted-foreground mr-2">Speed:</span>
                     {PLAYBACK_RATES.map((rate) => (
                       <motion.button
                         key={rate}
@@ -537,8 +577,8 @@ export function StickyAudioPlayer() {
                         className={cn(
                           'px-3 py-1.5 rounded-full text-xs font-medium transition-all',
                           playbackRate === rate
-                            ? 'bg-primary text-white shadow-lg shadow-primary/30'
-                            : 'text-white/50 hover:text-white hover:bg-white/10'
+                            ? 'bg-secondary text-foreground'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60'
                         )}
                       >
                         {rate}x
@@ -547,18 +587,18 @@ export function StickyAudioPlayer() {
                   </div>
 
                   {/* Mobile Volume */}
-                  <div className="flex md:hidden items-center gap-3 mt-4 pt-4 border-t border-white/5">
-                    <VolumeIcon className="w-4 h-4 text-white/50" />
+                  <div className="flex md:hidden items-center gap-3 mt-4 pt-4 border-t border-border/30">
+                    <VolumeIcon className="w-4 h-4 text-muted-foreground" />
                     <Slider
                       value={[volume * 100]}
                       onValueChange={handleVolumeChange}
                       max={100}
                       className="flex-1"
-                      trackClassName="h-1.5 bg-white/10"
-                      rangeClassName="bg-white/70"
-                      thumbClassName="h-4 w-4 border-white/70 bg-white"
+                      trackClassName="h-1.5 bg-secondary"
+                      rangeClassName="bg-foreground/60"
+                      thumbClassName="h-4 w-4 border-foreground/60 bg-foreground"
                     />
-                    <span className="text-xs text-white/50 w-8 text-right font-mono">
+                    <span className="text-xs text-muted-foreground w-8 text-right font-mono">
                       {Math.round(volume * 100)}%
                     </span>
                   </div>
@@ -575,14 +615,6 @@ export function StickyAudioPlayer() {
               </motion.div>
             )}
           </AnimatePresence>
-
-          {/* Ambient Glow Effect */}
-          <div 
-            className="absolute inset-0 pointer-events-none opacity-30"
-            style={{
-              background: `radial-gradient(ellipse at 50% 0%, hsl(var(--primary) / 0.15) 0%, transparent 70%)`,
-            }}
-          />
         </div>
       </motion.div>
     </AnimatePresence>

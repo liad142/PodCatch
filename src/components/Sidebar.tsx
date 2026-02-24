@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Compass,
-  Radio,
-  FileText,
+  Library,
+  BookOpen,
   Bookmark,
   Settings,
   Headphones,
@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { elevation } from '@/lib/elevation';
 import { SidebarUserSection } from '@/components/auth/SidebarUserSection';
 
 const ROOT_PATHS = ['/', '/discover', '/my-podcasts', '/summaries', '/saved', '/settings', '/onboarding'];
@@ -24,8 +23,8 @@ const ROOT_PATHS = ['/', '/discover', '/my-podcasts', '/summaries', '/saved', '/
 // Navigation configuration - easy to edit
 const NAV_ITEMS = [
   { label: 'Discover', href: '/discover', icon: Compass },
-  { label: 'My Podcasts', href: '/my-podcasts', icon: Radio },
-  { label: 'Episode Summaries', href: '/summaries', icon: FileText },
+  { label: 'My Podcasts', href: '/my-podcasts', icon: Library },
+  { label: 'Summaries', href: '/summaries', icon: BookOpen },
   { label: 'Saved', href: '/saved', icon: Bookmark },
   { label: 'Settings', href: '/settings', icon: Settings },
 ] as const;
@@ -44,15 +43,15 @@ function NavItem({ item, isActive, onClick }: NavItemProps) {
       href={item.href}
       onClick={onClick}
       className={cn(
-        'flex items-center gap-3 px-4 py-3 rounded-full text-base font-medium transition-all duration-200',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2',
+        'h-10 px-3 rounded-xl flex items-center gap-3 cursor-pointer transition-colors duration-150',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
         isActive
-          ? 'bg-violet-50 dark:bg-white/10 text-violet-700 dark:text-white shadow-sm'
-          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
+          ? 'bg-primary-subtle text-primary'
+          : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
       )}
     >
-      <Icon className="h-5 w-5 shrink-0" />
-      <span>{item.label}</span>
+      <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-primary')} />
+      <span className="text-sm font-medium">{item.label}</span>
     </Link>
   );
 }
@@ -74,30 +73,33 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex flex-col h-full">
       {/* Brand Header */}
-      <div className="flex items-center justify-between px-6 py-8">
+      <div className="px-5 pt-6 pb-4">
         <Link href="/" className="flex items-center gap-2" onClick={onNavigate}>
-          <Headphones className="h-7 w-7 text-primary" />
-          <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          <Headphones className="h-6 w-6 text-primary" />
+          <span className="text-lg font-bold text-foreground">
             PodCatch
           </span>
         </Link>
       </div>
 
+      {/* Separator */}
+      <div className="border-b border-border mb-4 mx-5" />
+
       {/* Back Button - shown on sub-pages */}
       {!isRoot && (
-        <div className="px-4 pb-2">
+        <div className="px-3 pb-2">
           <button
             onClick={() => { router.back(); onNavigate?.(); }}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-colors w-full"
+            className="h-10 px-3 rounded-xl flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors w-full cursor-pointer"
           >
-            <ArrowLeft className="h-4 w-4 shrink-0" />
+            <ArrowLeft className="h-5 w-5 shrink-0" />
             Back
           </button>
         </div>
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 py-6 space-y-3 overflow-y-auto" aria-label="Main navigation">
+      <nav className="flex-1 px-3 space-y-1 overflow-y-auto" aria-label="Main navigation">
         {NAV_ITEMS.map((item) => (
           <NavItem
             key={item.href}
@@ -109,7 +111,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       {/* Footer - User Status */}
-      <div className="px-4 py-6 pb-8">
+      <div className="px-4 py-4 pb-6">
         <SidebarUserSection />
       </div>
     </div>
@@ -157,7 +159,7 @@ function MobileDrawer({
       {/* Backdrop */}
       <div
         className={cn(
-          'fixed inset-0 bg-black/50 z-[60] transition-opacity lg:hidden',
+          'fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] transition-opacity lg:hidden',
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         )}
         onClick={onClose}
@@ -171,7 +173,7 @@ function MobileDrawer({
         aria-modal="true"
         aria-label="Navigation menu"
         className={cn(
-          'fixed top-0 left-0 bottom-0 w-72 z-[60] transition-transform lg:hidden bg-white/95 dark:bg-[#0f111a]/95 backdrop-blur-xl border-r border-slate-100 dark:border-white/5',
+          'fixed top-0 left-0 bottom-0 w-64 z-[60] transition-transform lg:hidden bg-background border-r border-border',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -180,7 +182,7 @@ function MobileDrawer({
           onClick={onClose}
           className={cn(
             'absolute top-4 right-4 p-2 rounded-lg transition-colors',
-            'hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+            'hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
           )}
           aria-label="Close navigation menu"
         >
@@ -190,6 +192,53 @@ function MobileDrawer({
         <SidebarContent onNavigate={onClose} />
       </div>
     </>
+  );
+}
+
+// Mobile bottom navigation bar items (shorter labels for compact display)
+const BOTTOM_NAV_ITEMS = [
+  { label: 'Discover', href: '/discover', icon: Compass },
+  { label: 'Podcasts', href: '/my-podcasts', icon: Library },
+  { label: 'Summaries', href: '/summaries', icon: BookOpen },
+  { label: 'Saved', href: '/saved', icon: Bookmark },
+  { label: 'Settings', href: '/settings', icon: Settings },
+] as const;
+
+function MobileBottomNav() {
+  const pathname = usePathname();
+
+  const isActive = (href: string) => {
+    if (href === '/my-podcasts') {
+      return pathname === '/my-podcasts' || pathname === '/';
+    }
+    return pathname.startsWith(href);
+  };
+
+  return (
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-30 bg-background border-t border-border h-14 lg:hidden"
+      aria-label="Mobile navigation"
+    >
+      <div className="flex items-center justify-around h-full px-2">
+        {BOTTOM_NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const active = isActive(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex flex-col items-center gap-1 min-w-0 px-2',
+                active ? 'text-primary' : 'text-muted-foreground'
+              )}
+            >
+              <Icon className="h-5 w-5" />
+              <span className="text-[10px] font-medium leading-none">{item.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
 
@@ -211,8 +260,8 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile Header */}
-      <header className="fixed top-0 left-0 right-0 h-14 bg-background/95 backdrop-blur border-b border-border z-50 lg:hidden">
+      {/* Mobile Top Bar */}
+      <header className="fixed top-0 left-0 right-0 h-14 bg-background border-b border-border z-50 lg:hidden">
         <div className="flex items-center justify-between h-full px-4">
           {isRoot ? (
             <Button
@@ -238,7 +287,7 @@ export function Sidebar() {
 
           <Link href="/" className="flex items-center gap-2">
             <Headphones className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            <span className="text-lg font-bold text-foreground">
               PodCatch
             </span>
           </Link>
@@ -250,9 +299,12 @@ export function Sidebar() {
       {/* Mobile Drawer */}
       <MobileDrawer isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
 
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
+
       {/* Desktop Sidebar */}
       <aside
-        className="fixed top-0 left-0 bottom-0 w-64 hidden lg:flex flex-col z-30 bg-white/90 dark:bg-[#0f111a] backdrop-blur-xl border-r border-slate-100 dark:border-white/5"
+        className="fixed top-0 left-0 bottom-0 w-64 hidden lg:flex flex-col z-30 bg-background border-r border-border"
         aria-label="Main navigation"
       >
         <SidebarContent />

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, use } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Clock, Calendar, Loader2, FileText, Heart, Sparkles } from 'lucide-react';
+import { ArrowLeft, Clock, Calendar, Loader2, FileText, Heart, Share2, Sparkles } from 'lucide-react';
 import { SummarizeButton } from '@/components/SummarizeButton';
 import { PlayButton, InlinePlayButton } from '@/components/PlayButton';
 import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
@@ -327,9 +327,21 @@ export default function PodcastPage({ params }: PageProps) {
   // Helper for consistent image URL
   const imageUrl = podcast?.artworkUrl?.replace('100x100', '600x600') || '/placeholder-podcast.png';
 
+  const handleShare = async () => {
+    if (typeof navigator.share === 'function' && podcast) {
+      try {
+        await navigator.share({ title: podcast.name, url: window.location.href });
+      } catch {
+        // user cancelled
+      }
+    } else {
+      await navigator.clipboard.writeText(window.location.href);
+    }
+  };
+
   if (error && !podcast) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0f111a]">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <p className="text-destructive mb-4">{error}</p>
           <Link href="/discover">
@@ -341,11 +353,11 @@ export default function PodcastPage({ params }: PageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0f111a]">
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         {/* Back Button */}
         <Link href="/discover">
-          <Button variant="ghost" className="mb-6 -ml-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5">
+          <Button variant="ghost" className="mb-6 -ml-2 text-muted-foreground hover:text-foreground hover:bg-secondary">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Discover
           </Button>
@@ -353,100 +365,92 @@ export default function PodcastPage({ params }: PageProps) {
 
         {isLoadingPodcast ? (
           <div className="space-y-8">
-            <div className="relative overflow-hidden rounded-3xl bg-slate-200 h-96 animate-pulse" />
+            <div className="relative overflow-hidden rounded-2xl bg-secondary h-80 animate-pulse" />
           </div>
         ) : podcast && (
           <div className="space-y-12">
-            {/* Immersive Header */}
-            <div className="relative overflow-hidden rounded-3xl bg-slate-900 shadow-2xl">
-              {/* Blurred Background Backdrop */}
-              <div className="absolute inset-0 z-0">
+            {/* Podcast Header */}
+            <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
+              {/* Podcast Artwork */}
+              <div className="w-40 h-40 shrink-0 rounded-2xl overflow-hidden shadow-[var(--shadow-3)]">
                 <Image
                   src={imageUrl}
-                  alt=""
-                  fill
-                  className="object-cover blur-3xl scale-110 opacity-50"
+                  alt={podcast.name}
+                  width={160}
+                  height={160}
+                  className="w-full h-full object-cover"
+                  priority
                   unoptimized={imageUrl.includes('mzstatic.com')}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-slate-950/40" />
               </div>
 
-              {/* Content Overlay */}
-              <div className="relative z-10 p-8 md:p-12 flex flex-col md:flex-row gap-8 items-center md:items-start text-center md:text-left">
-                {/* Podcast Cover */}
-                <div className="w-48 h-48 md:w-64 md:h-64 shrink-0 rounded-2xl overflow-hidden shadow-2xl border-4 border-white/10 rotate-1 md:rotate-0 transition-transform hover:scale-105 duration-500 group">
-                  <Image
-                    src={imageUrl}
-                    alt={podcast.name}
-                    width={256}
-                    height={256}
-                    className="w-full h-full object-cover"
-                    priority
-                    unoptimized={imageUrl.includes('mzstatic.com')}
-                  />
+              <div className="flex-1 space-y-4 text-center md:text-left max-w-3xl">
+                {/* Title */}
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-foreground tracking-tight leading-tight">
+                  {podcast.name}
+                </h1>
+
+                {/* Publisher */}
+                <p className="text-base text-muted-foreground">
+                  {podcast.artistName}
+                </p>
+
+                {/* Tags */}
+                <div className="flex flex-wrap justify-center md:justify-start gap-2">
+                  {podcast.contentAdvisoryRating === 'Explicit' && (
+                    <Badge variant="destructive">Explicit</Badge>
+                  )}
+                  {podcast.genres?.slice(0, 3).map((genre) => (
+                    <Badge key={genre} variant="secondary">
+                      {genre}
+                    </Badge>
+                  ))}
                 </div>
 
-                <div className="flex-1 space-y-6 max-w-3xl">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
-                      <Badge className="bg-white/10 text-white hover:bg-white/20 border-0 backdrop-blur-md">
-                        Podcast
-                      </Badge>
-                      {podcast.contentAdvisoryRating === 'Explicit' && (
-                        <Badge variant="destructive" className="border-0">Explicit</Badge>
+                {/* Stats */}
+                <p className="text-sm text-muted-foreground">
+                  {podcast.trackCount > 0 && `${podcast.trackCount} episodes`}
+                </p>
+
+                {/* Description */}
+                <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 md:line-clamp-4 max-w-2xl">
+                  {podcast.description}
+                </p>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-3 pt-2 justify-center md:justify-start">
+                  {/* Follow button */}
+                  {!isPiPodcast && (
+                    <Button
+                      size="lg"
+                      onClick={handleToggleSubscription}
+                      disabled={isTogglingSubscription}
+                      className={cn(
+                        'rounded-full px-8 font-semibold transition-all',
+                        isSubscribed
+                          ? 'bg-secondary text-foreground hover:bg-secondary/80'
+                          : 'bg-primary text-primary-foreground hover:bg-primary/90'
                       )}
-                    </div>
-                    <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-white tracking-tight leading-tight drop-shadow-lg">
-                      {podcast.name}
-                    </h1>
-                    <p className="text-xl md:text-2xl text-slate-200 font-medium tracking-wide">
-                      {podcast.artistName}
-                    </p>
-                  </div>
+                    >
+                      {isTogglingSubscription ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Heart className={cn('h-5 w-5 mr-2', isSubscribed && 'fill-current')} />
+                      )}
+                      {isSubscribed ? 'Saved to Library' : 'Follow Podcast'}
+                    </Button>
+                  )}
 
-                  {/* Metadata Pills */}
-                  <div className="flex flex-wrap justify-center md:justify-start gap-3">
-                    {podcast.trackCount > 0 && (
-                      <div className="px-3 py-1.5 rounded-full bg-slate-800/50 backdrop-blur-md border border-white/10 text-xs font-semibold text-slate-300 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
-                        {podcast.trackCount} episodes
-                      </div>
-                    )}
-                    {podcast.genres?.slice(0, 3).map((genre) => (
-                      <div key={genre} className="px-3 py-1.5 rounded-full bg-slate-800/50 backdrop-blur-md border border-white/10 text-xs font-semibold text-slate-300">
-                        {genre}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Description (Collapsed) */}
-                  <p className="text-slate-300 leading-relaxed text-sm md:text-base border-l-2 border-violet-500/50 pl-4 line-clamp-3 md:line-clamp-4 max-w-2xl">
-                    {podcast.description}
-                  </p>
-
-                  <div className="flex items-center gap-4 pt-2 justify-center md:justify-start">
-                    {/* Subscribe Button */}
-                    {!isPiPodcast && (
-                      <Button
-                        size="lg"
-                        onClick={handleToggleSubscription}
-                        disabled={isTogglingSubscription}
-                        className={cn(
-                          'rounded-full px-8 h-12 font-semibold shadow-xl transition-all hover:scale-105',
-                          isSubscribed
-                            ? 'bg-slate-800 text-white hover:bg-slate-700 border border-slate-700'
-                            : 'bg-white text-slate-900 hover:bg-slate-100'
-                        )}
-                      >
-                        {isTogglingSubscription ? (
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                        ) : (
-                          <Heart className={cn('h-5 w-5 mr-2', isSubscribed && 'fill-rose-500 text-rose-500')} />
-                        )}
-                        {isSubscribed ? 'Saved to Library' : 'Follow Podcast'}
-                      </Button>
-                    )}
-                  </div>
+                  {/* Share button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleShare}
+                    className="rounded-full"
+                    aria-label="Share podcast"
+                  >
+                    <Share2 className="h-5 w-5" />
+                  </Button>
                 </div>
               </div>
             </div>
@@ -454,26 +458,26 @@ export default function PodcastPage({ params }: PageProps) {
             {/* Episodes Section */}
             <div>
               <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
+                <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-3">
                   Latest Episodes
-                  <Badge variant="secondary" className="bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/10 dark:text-slate-400 dark:hover:bg-white/15">
+                  <Badge variant="secondary">
                     {totalCount}
                   </Badge>
                 </h2>
               </div>
 
               {isLoadingEpisodes ? (
-                <div className="space-y-4">
+                <div className="space-y-2">
                   {[...Array(5)].map((_, i) => (
-                    <div key={i} className="bg-white dark:bg-[#1e202e] rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-white/5">
-                      <div className="flex gap-6">
-                        <Skeleton className="w-16 h-16 rounded-xl shrink-0 bg-slate-100 dark:bg-white/10" />
+                    <div key={i} className="rounded-xl p-4 border border-border">
+                      <div className="flex gap-5">
+                        <Skeleton className="w-14 h-14 rounded-xl shrink-0" />
                         <div className="flex-1 space-y-3">
-                          <Skeleton className="h-5 w-2/3 bg-slate-100 dark:bg-white/10" />
-                          <Skeleton className="h-4 w-full bg-slate-100 dark:bg-white/10" />
+                          <Skeleton className="h-5 w-2/3" />
+                          <Skeleton className="h-4 w-full" />
                           <div className="flex gap-2">
-                            <Skeleton className="h-8 w-24 rounded-full bg-slate-100 dark:bg-white/10" />
-                            <Skeleton className="h-8 w-24 rounded-full bg-slate-100 dark:bg-white/10" />
+                            <Skeleton className="h-8 w-24 rounded-full" />
+                            <Skeleton className="h-8 w-24 rounded-full" />
                           </div>
                         </div>
                       </div>
@@ -481,15 +485,15 @@ export default function PodcastPage({ params }: PageProps) {
                   ))}
                 </div>
               ) : episodes.length === 0 ? (
-                <div className="text-center py-20 bg-white dark:bg-[#1e202e] rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm">
-                  <div className="w-16 h-16 bg-slate-50 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <FileText className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+                <div className="text-center py-20 rounded-2xl border border-border">
+                  <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FileText className="h-8 w-8 text-muted-foreground" />
                   </div>
-                  <p className="text-lg font-medium text-slate-900 dark:text-white mb-1">No episodes found</p>
-                  <p className="text-slate-500 dark:text-slate-400">Check back later for new content.</p>
+                  <p className="text-lg font-medium text-foreground mb-1">No episodes found</p>
+                  <p className="text-muted-foreground">Check back later for new content.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-1">
                   {episodes.map((episode) => {
                     const summaryInfo = getEpisodeSummaryInfo(episode);
                     const hasSummary = summaryInfo?.hasQuickSummary || summaryInfo?.hasDeepSummary;
@@ -498,12 +502,12 @@ export default function PodcastPage({ params }: PageProps) {
                     return (
                       <div
                         key={episode.id}
-                        className="group bg-white dark:bg-[#1e202e] rounded-2xl p-5 md:p-6 shadow-[0_2px_8px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgb(0,0,0,0.06)] border border-slate-100 dark:border-white/5 hover:border-violet-100 dark:hover:border-violet-500/20 transition-all duration-300"
+                        className="group py-4 border-b border-border hover:bg-secondary rounded-xl px-4 -mx-4 transition-colors cursor-pointer"
                       >
-                        <div className="flex gap-5 items-start">
+                        <div className="flex gap-4 items-start">
                           {/* Episode Thumbnail */}
                           <div className="shrink-0 hidden sm:block">
-                            <div className="w-16 h-16 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 overflow-hidden relative group-hover:scale-105 transition-transform duration-500">
+                            <div className="w-14 h-14 rounded-lg bg-secondary border border-border overflow-hidden relative">
                               {episode.artworkUrl ? (
                                 <Image
                                   src={episode.artworkUrl.replace('100x100', '200x200')}
@@ -513,52 +517,60 @@ export default function PodcastPage({ params }: PageProps) {
                                   unoptimized
                                 />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                  <FileText className="h-6 w-6" />
+                                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                  <FileText className="h-5 w-5" />
                                 </div>
+                              )}
+                              {/* Summary-ready indicator */}
+                              {hasSummary && (
+                                <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-green-500" />
                               )}
                             </div>
                           </div>
 
                           <div className="flex-1 min-w-0">
                             {/* Meta Row */}
-                            <div className="flex items-center gap-3 text-xs font-semibold tracking-wide text-slate-400 mb-2 uppercase">
-                              <span className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground mb-1.5">
+                              <span className="flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
                                 {formatDate(episode.publishedAt)}
                               </span>
                               {episode.duration > 0 && (
                                 <>
-                                  <span className="w-0.5 h-3 bg-slate-200 dark:bg-white/10" />
-                                  <span className="flex items-center gap-1.5">
+                                  <span className="w-px h-3 bg-border" />
+                                  <span className="flex items-center gap-1">
                                     <Clock className="h-3 w-3" />
                                     {formatDuration(episode.duration)}
                                   </span>
                                 </>
+                              )}
+                              {/* Summary dot on mobile (no thumbnail) */}
+                              {hasSummary && (
+                                <span className="sm:hidden w-2 h-2 rounded-full bg-green-500 shrink-0" />
                               )}
                             </div>
 
                             {/* Title */}
                             {canNavigate ? (
                               <Link href={`/episode/${summaryInfo.episodeId}`}>
-                                <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight mb-2 group-hover:text-violet-700 transition-colors line-clamp-2">
+                                <h3 className="text-base font-semibold text-foreground leading-tight mb-1.5 group-hover:text-primary transition-colors line-clamp-2">
                                   {episode.title}
                                 </h3>
                               </Link>
                             ) : (
-                              <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight mb-2 line-clamp-2">
+                              <h3 className="text-base font-semibold text-foreground leading-tight mb-1.5 line-clamp-2">
                                 {episode.title}
                               </h3>
                             )}
 
                             {/* Description */}
-                            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-2 mb-4 pr-4">
+                            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mb-3">
                               {episode.description}
                             </p>
 
-                            {/* Action Bar — grouped side-by-side */}
+                            {/* Action Bar */}
                             <div className="flex items-center gap-2">
-                              {/* Play — pill shape matching Summarize */}
+                              {/* Play */}
                               {episode.audioUrl && podcast && (
                                 <InlinePlayButton
                                   track={{
@@ -569,11 +581,11 @@ export default function PodcastPage({ params }: PageProps) {
                                     audioUrl: episode.audioUrl,
                                     duration: episode.duration,
                                   }}
-                                  className="shrink-0 px-5 text-sm shadow-lg shadow-primary/20 hover:shadow-primary/40"
+                                  className="shrink-0 px-5 text-sm"
                                 />
                               )}
 
-                              {/* Summarize — pill, auto-width */}
+                              {/* Summarize */}
                               {(() => {
                                 const getInitialStatus = (): any => {
                                   if (hasSummary) return 'ready';
@@ -596,7 +608,7 @@ export default function PodcastPage({ params }: PageProps) {
 
                                 return (
                                   <Button
-                                    className="gap-2 rounded-full px-5 bg-gradient-to-r from-violet-600 to-indigo-600 border-0 text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 hover:scale-105 active:scale-95 transition-all"
+                                    className="gap-2 rounded-full px-5 bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
                                     size="sm"
                                     onClick={() => handleSummarize(episode)}
                                     disabled={importingEpisodeId === episode.id}
@@ -604,9 +616,9 @@ export default function PodcastPage({ params }: PageProps) {
                                     {importingEpisodeId === episode.id ? (
                                       <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : (
-                                      <Sparkles className="h-4 w-4 fill-white/20" />
+                                      <Sparkles className="h-4 w-4" />
                                     )}
-                                    {importingEpisodeId === episode.id ? 'Importing…' : 'Summarize'}
+                                    {importingEpisodeId === episode.id ? 'Importing...' : 'Summarize'}
                                   </Button>
                                 );
                               })()}
@@ -626,7 +638,7 @@ export default function PodcastPage({ params }: PageProps) {
                     onClick={handleLoadMore}
                     disabled={isLoadingMore}
                     variant="outline"
-                    className="rounded-full px-8 h-10 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-white/20 hover:bg-white dark:hover:bg-[#1e202e] shadow-sm"
+                    className="rounded-full px-8 h-10"
                   >
                     {isLoadingMore ? (
                       <>
