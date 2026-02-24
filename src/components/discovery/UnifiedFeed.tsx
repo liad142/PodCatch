@@ -45,18 +45,25 @@ export function UnifiedFeed() {
       offset: String(offset),
     });
 
+    console.log(`[FEED_UI] Fetching: sourceType=${sourceType} offset=${offset} append=${append}`);
+
     try {
-      const res = await fetch(`/api/youtube/channels?action=feed&${params}`);
-      if (!res.ok) return;
+      const res = await fetch(`/api/feed?${params}`);
+      if (!res.ok) {
+        console.error(`[FEED_UI] API error: ${res.status} ${res.statusText}`);
+        return;
+      }
 
       const data = await res.json();
       const newItems: FeedItemRaw[] = data.items || [];
+
+      console.log(`[FEED_UI] Received ${newItems.length} items (hasMore=${data.hasMore})`);
 
       setItems(prev => append ? [...prev, ...newItems] : newItems);
       setHasMore(newItems.length === PAGE_SIZE);
       offsetRef.current = offset + newItems.length;
     } catch (err) {
-      console.error('[UNIFIED_FEED] Error fetching feed:', err);
+      console.error('[FEED_UI] Error fetching feed:', err);
     }
   }, [user]);
 

@@ -29,11 +29,17 @@ export async function GET(request: NextRequest) {
       }
     );
 
+    console.log('[AUTH_CALLBACK] Exchanging code for session…');
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     let redirectUrl = `${origin}/discover`;
 
+    if (error) {
+      console.error('[AUTH_CALLBACK] Session exchange error:', error.message);
+    }
+
     if (!error && data?.user) {
+      console.log(`[AUTH_CALLBACK] User authenticated: ${data.user.email} (${data.user.id.slice(0, 8)}…)`);
       const admin = createAdminClient();
 
       // Store provider tokens for YouTube API access
@@ -66,9 +72,11 @@ export async function GET(request: NextRequest) {
         .eq('id', data.user.id)
         .single();
 
-      redirectUrl = (!profile || !profile.onboarding_completed)
+      const shouldOnboard = !profile || !profile.onboarding_completed;
+      redirectUrl = shouldOnboard
         ? `${origin}/onboarding`
         : `${origin}${next}`;
+      console.log(`[AUTH_CALLBACK] Onboarding=${shouldOnboard ? 'needed' : 'done'} → redirect to ${redirectUrl}`);
     }
 
     const response = NextResponse.redirect(redirectUrl);

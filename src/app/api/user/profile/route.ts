@@ -19,11 +19,13 @@ export async function GET() {
 
     if (error) throw error;
 
+    console.log(`[PROFILE] GET user=${user.id.slice(0, 8)}… genres=${profile?.preferred_genres?.length ?? 0} onboarding=${profile?.onboarding_completed}`);
+
     return NextResponse.json({ profile }, {
       headers: { 'Cache-Control': 'private, no-cache' },
     });
   } catch (error) {
-    console.error('Error fetching profile:', error);
+    console.error('[PROFILE] GET error:', error);
     return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 });
   }
 }
@@ -52,14 +54,21 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
+    console.log(`[PROFILE] PATCH user=${user.id.slice(0, 8)}… fields=${Object.keys(filteredUpdates).join(',')}`);
+
+    // Use upsert to handle race condition where trigger hasn't created the row yet
     const { data: profile, error } = await createAdminClient()
       .from('user_profiles')
-      .update(filteredUpdates)
-      .eq('id', user.id)
+      .upsert(
+        { id: user.id, ...filteredUpdates },
+        { onConflict: 'id' }
+      )
       .select()
       .single();
 
     if (error) throw error;
+
+    console.log(`[PROFILE] Saved: genres=${profile?.preferred_genres?.length ?? 0}, onboarding=${profile?.onboarding_completed}`);
 
     // Invalidate personalized discovery cache when genres or country change
     if ('preferred_genres' in filteredUpdates || 'preferred_country' in filteredUpdates) {

@@ -22,11 +22,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No channels provided' }, { status: 400 });
   }
 
+  console.log(`[YT_IMPORT] Starting import of ${channels.length} channels for user=${user.id.slice(0, 8)}…`);
+
   const imported: string[] = [];
   const errors: string[] = [];
 
   for (const channel of channels) {
     try {
+      console.log(`[YT_IMPORT] Importing: ${channel.title} (${channel.channelId})`);
       // Upsert the channel
       const dbChannel = await upsertYouTubeChannel({
         channelId: channel.channelId,
@@ -41,6 +44,7 @@ export async function POST(request: NextRequest) {
 
       // Fetch recent videos
       const videos = await fetchChannelVideos(channel.channelId, 5);
+      console.log(`[YT_IMPORT] Fetched ${videos.length} videos for ${channel.title}`);
 
       if (videos.length > 0) {
         await upsertFeedItems(
@@ -75,6 +79,8 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('[YT_IMPORT] Failed to update youtube_imported flag:', err);
   }
+
+  console.log(`[YT_IMPORT] Done: ${imported.length} imported, ${errors.length} errors`);
 
   return NextResponse.json({
     imported: imported.length,

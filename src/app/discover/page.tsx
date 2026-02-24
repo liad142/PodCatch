@@ -116,6 +116,8 @@ export default function DiscoverPage() {
     allPodcastsRef.current = [];
     if (user) setIsLoadingPersonalized(true);
 
+    console.log(`[DISCOVER] Loading… user=${user?.id?.slice(0, 8) ?? 'guest'} country=${country}`);
+
     // 1) Daily Mix (independent, pass country for language filtering)
     const dailyMixPromise = fetch(`/api/discover/daily-mix?country=${country.toLowerCase()}`)
       .then(res => res.json())
@@ -128,7 +130,8 @@ export default function DiscoverPage() {
           }))
         );
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[DISCOVER] Daily mix error:', err);
         if (!cancelled) setDailyMixEpisodes([]);
       })
       .finally(() => {
@@ -162,6 +165,7 @@ export default function DiscoverPage() {
           allPodcasts = [...allPodcasts, ...uniqueUs];
         }
 
+        console.log(`[DISCOVER] Top podcasts loaded: ${allPodcasts.length}`);
         setTopPodcasts(allPodcasts);
         setIsLoadingPodcasts(false);
         allPodcastsRef.current = allPodcasts;
@@ -205,8 +209,10 @@ export default function DiscoverPage() {
             const data = await response.json();
             if (!cancelled) {
               if (data.personalized && data.sections) {
+                console.log(`[DISCOVER] Personalized: ${data.sections.length} sections`);
                 setPersonalizedSections(data.sections);
               } else {
+                console.log('[DISCOVER] No personalized sections');
                 setPersonalizedSections([]);
               }
             }

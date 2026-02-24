@@ -21,6 +21,8 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
+    console.log(`[FEED] user=${user.id.slice(0, 8)}… sourceType=${sourceType} mode=${mode} limit=${limit} offset=${offset}`);
+
     const items = await getFeed({
       userId: user.id,
       sourceType,
@@ -30,16 +32,18 @@ export async function GET(request: NextRequest) {
       offset,
     });
 
+    console.log(`[FEED] Returned ${items.length} items (hasMore=${items.length === limit})`);
+
     return NextResponse.json({
       success: true,
       items,
       total: items.length,
       hasMore: items.length === limit,
     }, {
-      headers: { 'Cache-Control': 'private, s-maxage=300, stale-while-revalidate=600' },
+      headers: { 'Cache-Control': 'private, no-cache' },
     });
   } catch (error) {
-    console.error('Get feed error:', error);
+    console.error('[FEED] Error:', error);
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : 'Failed to get feed',

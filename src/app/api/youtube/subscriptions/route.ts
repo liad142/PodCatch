@@ -9,7 +9,9 @@ export async function GET() {
   }
 
   try {
+    console.log(`[YT_SUBS] Fetching subscriptions for user=${user.id.slice(0, 8)}…`);
     const subscriptions = await fetchUserSubscriptions(user.id);
+    console.log(`[YT_SUBS] Found ${subscriptions.length} subscriptions`);
     return NextResponse.json({ subscriptions });
   } catch (err) {
     console.error('[YT_SUBS] Error fetching subscriptions:', err);

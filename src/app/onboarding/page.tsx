@@ -103,13 +103,16 @@ export default function OnboardingPage() {
       setIsImporting(true);
       try {
         const channelsToImport = ytChannels.filter(ch => selectedChannels.has(ch.channelId));
-        await fetch('/api/youtube/subscriptions/import', {
+        console.log(`[ONBOARDING] Importing ${channelsToImport.length} YouTube channels…`);
+        const res = await fetch('/api/youtube/subscriptions/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ channels: channelsToImport }),
         });
+        const data = await res.json();
+        console.log(`[ONBOARDING] YouTube import result:`, data);
       } catch (err) {
-        console.error('Error importing YouTube channels:', err);
+        console.error('[ONBOARDING] Error importing YouTube channels:', err);
       } finally {
         setIsImporting(false);
       }
@@ -127,8 +130,9 @@ export default function OnboardingPage() {
 
   const saveAndFinish = async (genres: string[]) => {
     setIsSaving(true);
+    console.log(`[ONBOARDING] Saving ${genres.length} genres + completing onboarding…`);
     try {
-      await fetch('/api/user/profile', {
+      const res = await fetch('/api/user/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -136,9 +140,11 @@ export default function OnboardingPage() {
           onboarding_completed: true,
         }),
       });
+      const data = await res.json();
+      console.log(`[ONBOARDING] Profile saved:`, data.profile?.preferred_genres);
       setStep('done');
     } catch (error) {
-      console.error('Error saving preferences:', error);
+      console.error('[ONBOARDING] Error saving preferences:', error);
     } finally {
       setIsSaving(false);
     }
