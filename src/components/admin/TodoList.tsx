@@ -252,7 +252,7 @@ export function TodoList() {
         />
         <Button
           type="submit"
-          variant="glass-primary"
+          variant="default"
           size="sm"
           disabled={!newTitle.trim() || adding}
           className="shrink-0"
@@ -332,7 +332,7 @@ export function TodoList() {
                   <Button size="sm" variant="ghost" onClick={cancelEdit}>
                     <X className="h-3.5 w-3.5 mr-1" /> Cancel
                   </Button>
-                  <Button size="sm" variant="glass-primary" onClick={saveEdit} disabled={!editTitle.trim()}>
+                  <Button size="sm" variant="default" onClick={saveEdit} disabled={!editTitle.trim()}>
                     <Check className="h-3.5 w-3.5 mr-1" /> Save
                   </Button>
                 </div>

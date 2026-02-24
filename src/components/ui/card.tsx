@@ -1,19 +1,16 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { elevation } from "@/lib/elevation";
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: 'default' | 'glass' | 'glass-subtle';
+  interactive?: boolean;
 }
 
-const Card = React.forwardRef<HTMLDivElement, CardProps>(({ className, variant = 'default', ...props }, ref) => (
+const Card = React.forwardRef<HTMLDivElement, CardProps>(({ className, interactive = false, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      "rounded-lg text-card-foreground shadow-sm",
-      variant === 'default' && "border bg-card dark:border-white/10",
-      variant === 'glass' && elevation.card,
-      variant === 'glass-subtle' && elevation.card,
+      "rounded-2xl border border-border bg-card text-card-foreground shadow-[var(--shadow-1)]",
+      interactive && "cursor-pointer hover:bg-secondary hover:shadow-[var(--shadow-2)] transition-all duration-150",
       className
     )}
     {...props}

@@ -159,7 +159,7 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
   };
 
   return (
-    <Card variant="glass" className={cn(
+    <Card interactive className={cn(
       'group overflow-hidden transition-all duration-300',
       'hover:shadow-lg hover:-translate-y-1',
       className

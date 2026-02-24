@@ -159,7 +159,7 @@ export default function EpisodePage() {
               </Link>
 
               {/* Episode Info Card */}
-              <Card variant="glass">
+              <Card>
                 <CardHeader>
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -231,7 +231,7 @@ export default function EpisodePage() {
               {/* Summary Panel placeholder for mobile */}
               {showSummaryPanel && (
                 <div className="lg:hidden">
-                  <Card variant="glass">
+                  <Card>
                     <SummaryPanel
                       episodeId={episodeId}
                       episodeTitle={episode.title}

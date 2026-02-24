@@ -18,7 +18,7 @@ export function SignInPrompt({
 
   return (
     <div className="flex items-center justify-center min-h-[50vh]">
-      <Card variant="glass" className="max-w-md w-full p-8 text-center">
+      <Card className="max-w-md w-full p-8 text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
           <LogIn className="h-8 w-8 text-primary" />
         </div>
