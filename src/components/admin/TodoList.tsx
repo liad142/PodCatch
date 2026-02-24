@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Copy, Trash2, Check, X, ListTodo, ChevronRight, ImagePlus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { glass } from '@/lib/glass';
+import { elevation } from '@/lib/elevation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -220,7 +220,7 @@ export function TodoList() {
   const filtered = filter === 'all' ? todos : todos.filter(t => t.status === filter);
 
   return (
-    <div className={cn(glass.card, 'rounded-xl p-5')}>
+    <div className={cn(elevation.card, 'rounded-xl p-5')}>
       {/* Hidden file input shared by all todos */}
       <input
         ref={fileInputRef}
@@ -297,7 +297,7 @@ export function TodoList() {
           <div
             key={todo.id}
             className={cn(
-              glass.cardSubtle,
+              elevation.card,
               'rounded-lg p-3 transition-all',
               todo.status === 'done' && 'opacity-60'
             )}
@@ -322,7 +322,7 @@ export function TodoList() {
                   rows={3}
                   className={cn(
                     'w-full rounded-md px-3 py-2 text-sm resize-none',
-                    glass.input
+                    elevation.input
                   )}
                   onKeyDown={e => {
                     if (e.key === 'Escape') cancelEdit();

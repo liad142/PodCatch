@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { glass } from '@/lib/glass';
+import { elevation } from '@/lib/elevation';
 
 const NAV_ITEMS = [
   { label: 'Overview', href: '/admin/overview', icon: LayoutDashboard },
@@ -142,7 +142,7 @@ export function AdminSidebar() {
           aria-label="Admin navigation menu"
           className={cn(
             'fixed top-0 left-0 bottom-0 w-72 z-[60] transition-transform lg:hidden',
-            glass.sidebar,
+            elevation.sidebar,
             isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
           )}
         >
@@ -161,7 +161,7 @@ export function AdminSidebar() {
       <aside
         className={cn(
           'fixed top-0 left-0 bottom-0 w-64 hidden lg:flex flex-col z-30',
-          glass.sidebar
+          elevation.sidebar
         )}
         aria-label="Admin navigation"
       >

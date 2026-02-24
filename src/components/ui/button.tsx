@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
-import { glass } from "@/lib/glass";
+import { elevation } from "@/lib/elevation";
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
@@ -17,9 +17,9 @@ const buttonVariants = cva(
           "bg-secondary dark:bg-white/10 text-secondary-foreground hover:bg-secondary/80 dark:hover:bg-white/20",
         ghost: "hover:bg-accent dark:hover:bg-white/10 hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        glass: glass.buttonGhost,
-        "glass-outline": glass.buttonOutline,
-        "glass-primary": glass.buttonPrimary,
+        glass: elevation.buttonGhost,
+        "glass-outline": elevation.buttonGhost,
+        "glass-primary": elevation.buttonPrimary,
       },
       size: {
         default: "h-10 px-4 py-2",

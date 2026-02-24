@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Search, Loader2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
-import { glass } from '@/lib/glass';
+import { elevation } from '@/lib/elevation';
 import Image from 'next/image';
 import Link from 'next/link';
 

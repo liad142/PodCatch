@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { glass } from '@/lib/glass';
+import { elevation } from '@/lib/elevation';
 import { SidebarUserSection } from '@/components/auth/SidebarUserSection';
 
 const ROOT_PATHS = ['/', '/discover', '/my-podcasts', '/summaries', '/saved', '/settings', '/onboarding'];

@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InsightCard } from './InsightCard';
-import { glass } from '@/lib/glass';
+import { elevation } from '@/lib/elevation';
 import { useImpressionTracker } from '@/hooks/useImpressionTracker';
 
 interface FeedEpisode {

@@ -3,7 +3,7 @@
 import * as React from "react"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { glass } from "@/lib/glass"
+import { elevation } from "@/lib/elevation"
 
 interface DialogProps {
   open: boolean
@@ -18,7 +18,7 @@ const Dialog = ({ open, onOpenChange, children }: DialogProps) => {
     <div className="fixed inset-0 z-50">
       {/* Backdrop */}
       <div
-        className={cn("fixed inset-0", glass.overlay)}
+        className={cn("fixed inset-0", elevation.overlay)}
         onClick={() => onOpenChange(false)}
       />
       {children}
@@ -35,7 +35,7 @@ const DialogContent = React.forwardRef<
     className={cn(
       "fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%]",
       "rounded-lg",
-      glass.modal,
+      elevation.modal,
       "duration-200 animate-in fade-in-0 zoom-in-95 slide-in-from-left-1/2 slide-in-from-top-[48%]",
       className
     )}

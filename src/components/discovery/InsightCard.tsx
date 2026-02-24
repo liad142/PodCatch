@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Clock, Heart } from 'lucide-react';
-import { glass } from '@/lib/glass';
+import { elevation } from '@/lib/elevation';
 import { DiscoverySummarizeButton } from './DiscoverySummarizeButton';
 import { PlayButton, InlinePlayButton } from '@/components/PlayButton';
 import { useSubscription } from '@/contexts/SubscriptionContext';

@@ -3,7 +3,7 @@
 import * as React from "react"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { glass } from "@/lib/glass"
+import { elevation } from "@/lib/elevation"
 
 interface ToastProps {
   open: boolean
@@ -23,7 +23,7 @@ export function Toast({ open, onOpenChange, children, position = 'bottom' }: Toa
     )}>
       <div className={cn(
         "rounded-lg p-4 shadow-lg border",
-        glass.card,
+        elevation.floating,
         "backdrop-blur-xl"
       )}>
         {children}

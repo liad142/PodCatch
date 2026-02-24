@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { glass } from "@/lib/glass"
+import { elevation } from "@/lib/elevation"
 
 interface DropdownMenuProps {
   children: React.ReactNode
@@ -77,7 +77,7 @@ const DropdownMenuContent = React.forwardRef<HTMLDivElement, DropdownMenuContent
         ref={contentRef}
         className={cn(
           "absolute z-50 min-w-[8rem] overflow-hidden rounded-md p-1 text-popover-foreground",
-          glass.card,
+          elevation.floating,
           "animate-in fade-in-0 zoom-in-95",
           align === "start" && "left-0",
           align === "center" && "left-1/2 -translate-x-1/2",

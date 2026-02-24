@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { glass } from '@/lib/glass';
+import { elevation } from '@/lib/elevation';
 import { 
   Youtube, 
   Radio, 
@@ -107,7 +107,7 @@ export function EmptyState({
   return (
     <div className={cn(
       'flex flex-col items-center justify-center py-12 px-4 text-center rounded-xl',
-      glass.card,
+      elevation.card,
       className
     )}>
       <div className={cn(

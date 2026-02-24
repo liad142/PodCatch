@@ -1,6 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { glass } from "@/lib/glass";
+import { elevation } from "@/lib/elevation";
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: 'default' | 'glass' | 'glass-subtle';
@@ -12,8 +12,8 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({ className, variant =
     className={cn(
       "rounded-lg text-card-foreground shadow-sm",
       variant === 'default' && "border bg-card dark:border-white/10",
-      variant === 'glass' && glass.card,
-      variant === 'glass-subtle' && glass.cardSubtle,
+      variant === 'glass' && elevation.card,
+      variant === 'glass-subtle' && elevation.card,
       className
     )}
     {...props}

@@ -2,7 +2,7 @@
 
 import { type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { glass } from '@/lib/glass';
+import { elevation } from '@/lib/elevation';
 
 interface StatCardProps {
   icon: LucideIcon;
@@ -14,7 +14,7 @@ interface StatCardProps {
 
 export function StatCard({ icon: Icon, label, value, trend, className }: StatCardProps) {
   return (
-    <div className={cn(glass.card, 'rounded-xl p-5', className)}>
+    <div className={cn(elevation.card, 'rounded-xl p-5', className)}>
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm text-muted-foreground">{label}</span>
         <Icon className="h-5 w-5 text-muted-foreground" />

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { glass } from '@/lib/glass';
+import { elevation } from '@/lib/elevation';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 
 interface Column<T> {
@@ -41,7 +41,7 @@ export function DataTable<T extends Record<string, unknown>>({ columns, data, cl
     : data;
 
   return (
-    <div className={cn(glass.card, 'rounded-xl overflow-hidden', className)}>
+    <div className={cn(elevation.card, 'rounded-xl overflow-hidden', className)}>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
