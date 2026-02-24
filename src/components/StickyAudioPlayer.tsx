@@ -37,6 +37,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { useAudioPlayerSafe } from '@/contexts/AudioPlayerContext';
+import { usePlayerAskAI } from '@/contexts/AskAIContext';
 import { AskAIBar } from '@/components/insights/AskAIBar';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
@@ -274,6 +275,9 @@ function ChapterScrubber({
 
 export function StickyAudioPlayer() {
   const player = useAudioPlayerSafe();
+
+  // Auto-activate Ask AI when playing an episode with a transcript
+  usePlayerAskAI(player?.currentTrack?.id ?? null);
 
   // All hooks must be before conditional return
   const VolumeIcon = useMemo(() => {
