@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
             return request.cookies.getAll();
           },
           setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
             cookiesToSet.forEach((cookie) => pendingCookies.push(cookie));
           },
         },
@@ -34,6 +35,31 @@ export async function GET(request: NextRequest) {
 
     if (!error && data?.user) {
       const admin = createAdminClient();
+
+      // Store provider tokens for YouTube API access
+      const providerToken = data.session?.provider_token;
+      const providerRefreshToken = data.session?.provider_refresh_token;
+
+      if (providerToken) {
+        try {
+          await admin
+            .from('user_provider_tokens')
+            .upsert(
+              {
+                user_id: data.user.id,
+                provider: 'google',
+                access_token: providerToken,
+                refresh_token: providerRefreshToken || null,
+                expires_at: new Date(Date.now() + 3600 * 1000).toISOString(), // ~1hr from now
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: 'user_id,provider' }
+            );
+        } catch (err) {
+          console.error('[AUTH_CALLBACK] Failed to store provider tokens:', err);
+        }
+      }
+
       const { data: profile } = await admin
         .from('user_profiles')
         .select('onboarding_completed')

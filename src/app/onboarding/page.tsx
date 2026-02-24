@@ -1,16 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Headphones, Sparkles, ArrowRight, Check } from 'lucide-react';
+import { Headphones, Sparkles, ArrowRight, Check, Youtube, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { GenreCard } from '@/components/onboarding/GenreCard';
+import { YouTubeChannelCard } from '@/components/onboarding/YouTubeChannelCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { APPLE_PODCAST_GENRES } from '@/types/apple-podcasts';
 
-type Step = 'welcome' | 'genres' | 'done';
+type Step = 'welcome' | 'youtube' | 'genres' | 'done';
+
+interface YouTubeChannel {
+  channelId: string;
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+}
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -19,10 +27,44 @@ export default function OnboardingPage() {
   const [selectedGenres, setSelectedGenres] = useState<Set<string>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
 
+  // YouTube state
+  const [ytChannels, setYtChannels] = useState<YouTubeChannel[]>([]);
+  const [selectedChannels, setSelectedChannels] = useState<Set<string>>(new Set());
+  const [isLoadingYt, setIsLoadingYt] = useState(false);
+  const [ytError, setYtError] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+
   const displayName = user?.user_metadata?.display_name
     || user?.user_metadata?.full_name
     || user?.email?.split('@')[0]
     || 'there';
+
+  // Fetch YouTube subscriptions when entering youtube step
+  useEffect(() => {
+    if (step !== 'youtube') return;
+
+    let cancelled = false;
+    setIsLoadingYt(true);
+    setYtError(false);
+
+    fetch('/api/youtube/subscriptions')
+      .then(res => res.json())
+      .then(data => {
+        if (cancelled) return;
+        const subs: YouTubeChannel[] = data.subscriptions || [];
+        setYtChannels(subs);
+        // Pre-select all channels
+        setSelectedChannels(new Set(subs.map(ch => ch.channelId)));
+      })
+      .catch(() => {
+        if (!cancelled) setYtError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingYt(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [step]);
 
   const toggleGenre = (id: string) => {
     setSelectedGenres(prev => {
@@ -34,6 +76,45 @@ export default function OnboardingPage() {
       }
       return next;
     });
+  };
+
+  const toggleChannel = (channelId: string) => {
+    setSelectedChannels(prev => {
+      const next = new Set(prev);
+      if (next.has(channelId)) {
+        next.delete(channelId);
+      } else {
+        next.add(channelId);
+      }
+      return next;
+    });
+  };
+
+  const toggleAllChannels = () => {
+    if (selectedChannels.size === ytChannels.length) {
+      setSelectedChannels(new Set());
+    } else {
+      setSelectedChannels(new Set(ytChannels.map(ch => ch.channelId)));
+    }
+  };
+
+  const handleImportAndContinue = async () => {
+    if (selectedChannels.size > 0) {
+      setIsImporting(true);
+      try {
+        const channelsToImport = ytChannels.filter(ch => selectedChannels.has(ch.channelId));
+        await fetch('/api/youtube/subscriptions/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channels: channelsToImport }),
+        });
+      } catch (err) {
+        console.error('Error importing YouTube channels:', err);
+      } finally {
+        setIsImporting(false);
+      }
+    }
+    setStep('genres');
   };
 
   const handleSkip = async () => {
@@ -67,18 +148,20 @@ export default function OnboardingPage() {
     router.push('/discover');
   };
 
+  const allSteps: Step[] = ['welcome', 'youtube', 'genres', 'done'];
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-2xl">
         {/* Progress indicator */}
         <div className="flex items-center justify-center gap-2 mb-8">
-          {(['welcome', 'genres', 'done'] as Step[]).map((s, i) => (
+          {allSteps.map((s, i) => (
             <div
               key={s}
               className={`h-2 rounded-full transition-all ${
                 s === step
                   ? 'w-8 bg-primary'
-                  : i < ['welcome', 'genres', 'done'].indexOf(step)
+                  : i < allSteps.indexOf(step)
                     ? 'w-8 bg-primary/40'
                     : 'w-8 bg-muted'
               }`}
@@ -110,12 +193,104 @@ export default function OnboardingPage() {
                   Let&apos;s personalize your experience.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <Button onClick={() => setStep('genres')} className="gap-2 min-w-[200px]">
+                  <Button onClick={() => setStep('youtube')} className="gap-2 min-w-[200px]">
                     <Sparkles className="h-4 w-4" />
                     Personalize My Feed
                   </Button>
                   <Button variant="ghost" onClick={handleSkip} disabled={isSaving}>
                     Skip for now
+                  </Button>
+                </div>
+              </Card>
+            </motion.div>
+          )}
+
+          {step === 'youtube' && (
+            <motion.div
+              key="youtube"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Card variant="glass" className="p-8">
+                <div className="text-center mb-6">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 mb-4">
+                    <Youtube className="h-6 w-6 text-red-500" />
+                  </div>
+                  <h2 className="text-2xl font-bold mb-2">Import YouTube Channels</h2>
+                  <p className="text-muted-foreground">
+                    We found your YouTube subscriptions. Select channels to follow.
+                  </p>
+                </div>
+
+                {isLoadingYt ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Loading your subscriptions...</p>
+                  </div>
+                ) : ytError || ytChannels.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground mb-2">
+                      {ytError
+                        ? 'Could not load YouTube subscriptions.'
+                        : 'No YouTube subscriptions found.'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      You can always add YouTube channels later from Discover.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm text-muted-foreground">
+                        {selectedChannels.size} of {ytChannels.length} selected
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={toggleAllChannels}
+                        className="text-xs"
+                      >
+                        {selectedChannels.size === ytChannels.length ? 'Deselect All' : 'Select All'}
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[340px] overflow-y-auto mb-6 pr-1">
+                      {ytChannels.map((channel) => (
+                        <YouTubeChannelCard
+                          key={channel.channelId}
+                          channelId={channel.channelId}
+                          name={channel.title}
+                          thumbnailUrl={channel.thumbnailUrl}
+                          description={channel.description}
+                          selected={selectedChannels.has(channel.channelId)}
+                          onToggle={toggleChannel}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <Button variant="ghost" onClick={() => setStep('genres')}>
+                    Skip
+                  </Button>
+                  <Button
+                    onClick={handleImportAndContinue}
+                    disabled={isImporting}
+                    className="gap-2"
+                  >
+                    {isImporting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        Continue
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
                   </Button>
                 </div>
               </Card>

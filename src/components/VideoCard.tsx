@@ -5,9 +5,10 @@ import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bookmark, Play, Clock, Calendar, ExternalLink } from 'lucide-react';
+import { Bookmark, Play, Clock, Calendar, ExternalLink, Sparkles, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 export interface VideoItem {
   videoId: string;
@@ -20,18 +21,27 @@ export interface VideoItem {
   url: string;
   duration?: number;
   bookmarked?: boolean;
+  channelId?: string;
 }
+
+type SummaryCardStatus = 'none' | 'loading' | 'ready';
 
 interface VideoCardProps {
   video: VideoItem;
   onSave?: (video: VideoItem, saved: boolean) => void;
+  episodeId?: string;
+  summaryStatus?: SummaryCardStatus;
+  onSummarize?: (video: VideoItem) => void;
   className?: string;
 }
 
-export const VideoCard = React.memo(function VideoCard({ video, onSave, className }: VideoCardProps) {
+export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeId, summaryStatus = 'none', onSummarize, className }: VideoCardProps) {
   const { user } = useAuth();
+  const router = useRouter();
   const [isSaved, setIsSaved] = useState(video.bookmarked || false);
   const [isSaving, setIsSaving] = useState(false);
+  const [localSummaryStatus, setLocalSummaryStatus] = useState<SummaryCardStatus>(summaryStatus);
+  const [localEpisodeId, setLocalEpisodeId] = useState<string | undefined>(episodeId);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -91,6 +101,56 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, classNam
       console.error('Failed to save video:', err);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSummarize = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (localEpisodeId && localSummaryStatus === 'ready') {
+      router.push(`/episode/${localEpisodeId}/insights`);
+      return;
+    }
+
+    if (!user || localSummaryStatus === 'loading') return;
+
+    if (onSummarize) {
+      onSummarize(video);
+      return;
+    }
+
+    setLocalSummaryStatus('loading');
+    try {
+      const res = await fetch(`/api/youtube/${video.videoId}/summary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          level: 'quick',
+          title: video.title,
+          description: video.description,
+          channelId: video.channelId || '',
+          channelTitle: video.channelName || '',
+          thumbnailUrl: video.thumbnailUrl,
+          publishedAt: video.publishedAt,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setLocalEpisodeId(data.episodeId);
+        if (data.summary?.status === 'ready') {
+          setLocalSummaryStatus('ready');
+          router.push(`/episode/${data.episodeId}/insights`);
+        } else {
+          setLocalSummaryStatus('ready');
+          router.push(`/episode/${data.episodeId}/insights`);
+        }
+      } else {
+        setLocalSummaryStatus('none');
+      }
+    } catch {
+      setLocalSummaryStatus('none');
     }
   };
 
@@ -186,15 +246,36 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, classNam
             <Calendar className="w-3 h-3" />
             {formatDate(video.publishedAt)}
           </span>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-6 px-2 text-xs"
-            onClick={handleWatch}
-          >
-            <ExternalLink className="w-3 h-3 mr-1" />
-            Watch
-          </Button>
+          <div className="flex items-center gap-1">
+            {user && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className={cn(
+                  'h-6 px-2 text-xs',
+                  localSummaryStatus === 'ready' && 'text-primary'
+                )}
+                onClick={handleSummarize}
+                disabled={localSummaryStatus === 'loading'}
+              >
+                {localSummaryStatus === 'loading' ? (
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3 h-3 mr-1" />
+                )}
+                {localSummaryStatus === 'ready' ? 'Insights' : 'Summarize'}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-xs"
+              onClick={handleWatch}
+            >
+              <ExternalLink className="w-3 h-3 mr-1" />
+              Watch
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

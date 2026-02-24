@@ -9,6 +9,7 @@ import { SemanticSearchBar } from '@/components/discovery/SemanticSearchBar';
 import { DailyMixCarousel } from '@/components/discovery/DailyMixCarousel';
 import { BrandShelf } from '@/components/discovery/BrandShelf';
 import { CuriosityFeed } from '@/components/discovery/CuriosityFeed';
+import { UnifiedFeed } from '@/components/discovery/UnifiedFeed';
 import { ApplePodcast } from '@/components/ApplePodcastCard';
 
 interface DailyMixEpisode {
@@ -285,6 +286,9 @@ export default function DiscoverPage() {
         <main className="max-w-3xl mx-auto px-4 py-8 space-y-12">
           {/* Daily Mix - summarized episodes from DB */}
           <DailyMixCarousel episodes={dailyMixEpisodes} isLoading={isLoadingDailyMix} />
+
+          {/* Unified YouTube + Podcast Feed for authenticated users */}
+          {user && <UnifiedFeed />}
 
           {/* Personalized Sections - for authenticated users with genre preferences */}
           {personalizedSections.length > 0 && personalizedSections.map((section) => (

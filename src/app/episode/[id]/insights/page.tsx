@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase";
 import type { Episode, Podcast } from "@/types/database";
-import { ArrowLeft, Clock, Calendar, BarChart3 } from "lucide-react";
+import { ArrowLeft, Clock, Calendar, BarChart3, ExternalLink } from "lucide-react";
 import { PlayButton } from "@/components/PlayButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
@@ -84,9 +84,14 @@ export default function EpisodeInsightsPage() {
     });
   };
 
+  const isYouTube = episode?.podcast?.rss_feed_url?.startsWith('youtube:channel:');
+
   // Extract Apple podcast ID from rss_feed_url (format: "apple:123456" or actual RSS URL)
   const getBackLink = () => {
     const rssUrl = episode?.podcast?.rss_feed_url;
+    if (rssUrl?.startsWith('youtube:channel:')) {
+      return '/discover';
+    }
     if (rssUrl?.startsWith('apple:')) {
       const appleId = rssUrl.replace('apple:', '');
       return `/browse/podcast/${appleId}`;
@@ -111,12 +116,18 @@ export default function EpisodeInsightsPage() {
     );
   }
 
-  const artworkUrl =
-    episode?.podcast?.image_url &&
-    typeof episode.podcast.image_url === "string" &&
-    episode.podcast.image_url.startsWith("http")
-      ? episode.podcast.image_url
-      : null;
+  // For YouTube videos, derive thumbnail from video URL; otherwise use podcast artwork
+  const youtubeVideoId = isYouTube && episode?.audio_url
+    ? new URL(episode.audio_url).searchParams.get('v')
+    : null;
+
+  const artworkUrl = isYouTube && youtubeVideoId
+    ? `https://i.ytimg.com/vi/${youtubeVideoId}/hqdefault.jpg`
+    : episode?.podcast?.image_url &&
+      typeof episode.podcast.image_url === "string" &&
+      episode.podcast.image_url.startsWith("http")
+        ? episode.podcast.image_url
+        : null;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0f111a] flex flex-col">
@@ -204,7 +215,15 @@ export default function EpisodeInsightsPage() {
 
                   {/* Play CTA + metadata pills — single aligned row */}
                   <div className="flex items-center gap-3">
-                    {episode.audio_url && episode.podcast && (
+                    {isYouTube && episode.audio_url ? (
+                      <Button
+                        onClick={() => window.open(episode.audio_url, '_blank', 'noopener,noreferrer')}
+                        className="h-14 px-6 bg-red-600 hover:bg-red-500 text-white border-0 shadow-lg shadow-red-500/40 hover:shadow-red-500/60 gap-2 shrink-0"
+                      >
+                        <ExternalLink className="h-5 w-5" />
+                        Watch on YouTube
+                      </Button>
+                    ) : episode.audio_url && episode.podcast ? (
                       <PlayButton
                         track={{
                           id: episode.id,
@@ -218,7 +237,7 @@ export default function EpisodeInsightsPage() {
                         variant="primary"
                         className="w-14 h-14 bg-gradient-to-br from-violet-500 to-fuchsia-500 hover:from-violet-400 hover:to-fuchsia-400 border-0 shadow-lg shadow-violet-500/40 hover:shadow-violet-500/60 text-white shrink-0"
                       />
-                    )}
+                    ) : null}
                     {episode.published_at && (
                       <span className="inline-flex items-center gap-1.5 text-xs bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 rounded-full px-3 py-1">
                         <Calendar className="h-3 w-3" />
