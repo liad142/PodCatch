@@ -89,7 +89,7 @@ export const DailyMixCard = React.memo(function DailyMixCard({
 
         {/* Bottom row: play button + duration placeholder */}
         <div className="flex items-center justify-between">
-          <div className="w-8 h-8 rounded-full bg-accent-green flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
             <Play className="h-4 w-4 text-white fill-white ml-0.5" />
           </div>
           <p className="text-caption text-muted-foreground">

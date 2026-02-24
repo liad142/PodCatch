@@ -16,7 +16,7 @@ export function QueuePositionIndicator({ position, className = '' }: QueuePositi
         {[0, 1, 2].map((i) => (
           <motion.div
             key={i}
-            className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-purple-400 to-cyan-400"
+            className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-blue-400 to-cyan-400"
             animate={{
               scale: [1, 1.3, 1],
               opacity: [0.5, 1, 0.5],

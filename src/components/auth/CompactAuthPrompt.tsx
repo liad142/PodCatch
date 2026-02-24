@@ -45,7 +45,7 @@ export function CompactAuthPrompt() {
           </button>
 
           {/* Icon */}
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-xl shadow-indigo-500/30 mb-6">
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-xl shadow-primary/30 mb-6">
             <Sparkles className="h-8 w-8 text-white fill-white/20" />
           </div>
 
@@ -60,7 +60,7 @@ export function CompactAuthPrompt() {
             <Button
               size="lg"
               onClick={handleSignIn}
-              className="w-full gap-2 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 border-0 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all text-base"
+              className="w-full gap-2 rounded-full bg-primary border-0 shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all text-base"
             >
               <LogIn className="h-5 w-5" />
               Sign In

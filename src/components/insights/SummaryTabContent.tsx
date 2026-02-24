@@ -248,14 +248,14 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
       {content.contrarian_views.length > 0 && (
         <div className="space-y-2">
           <h3 className={cn("font-semibold flex items-center gap-2", isRTL && "flex-row-reverse")}>
-            <Sparkles className="h-4 w-4 text-purple-500" />
+            <Sparkles className="h-4 w-4 text-primary" />
             Contrarian Views & Insights
           </h3>
           <div className="space-y-2">
             {content.contrarian_views.map((view, i) => (
               <div key={i} className={cn(
-                "rounded-lg bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800 p-3",
-                isRTL ? "border-r-4 border-r-purple-500" : "border-l-4 border-l-purple-500"
+                "rounded-lg bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/20 p-3",
+                isRTL ? "border-r-4 border-r-primary" : "border-l-4 border-l-primary"
               )}>
                 <p className={cn("text-sm", isRTL && "text-right")}>{view}</p>
               </div>

@@ -142,7 +142,7 @@ export const InsightCard = React.memo(function InsightCard({
         {track && (
           <InlinePlayButton
             track={track}
-            className="shrink-0 h-9 px-4 rounded-full bg-accent-green text-white text-sm font-medium hover:bg-accent-green-hover transition-colors shadow-none"
+            className="shrink-0 h-9 px-4 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shadow-none"
           />
         )}
         <DiscoverySummarizeButton

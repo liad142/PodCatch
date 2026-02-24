@@ -234,7 +234,7 @@ export function TranscriptTabContent({
     return (
       <div className="flex items-center justify-center h-full min-h-[400px] bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
         <div className="text-center max-w-md px-6">
-          <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white mb-6 shadow-lg shadow-indigo-500/30">
+          <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-primary text-primary-foreground mb-6 shadow-lg shadow-primary/30">
             <ScrollText size={40} />
           </div>
           {isTranscribing ? (
@@ -249,7 +249,7 @@ export function TranscriptTabContent({
                 {[0, 150, 300, 450, 600].map((delay) => (
                   <div
                     key={delay}
-                    className="w-1 h-8 bg-gradient-to-t from-indigo-500 to-purple-600 rounded-sm"
+                    className="w-1 h-8 bg-primary rounded-sm"
                     style={{
                       animation: 'wave 1.2s ease-in-out infinite',
                       animationDelay: `${delay}ms`
@@ -293,7 +293,7 @@ export function TranscriptTabContent({
             placeholder="Search conversation..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-12 pr-24 h-12 rounded-full border-2 border-transparent bg-slate-100 dark:bg-slate-800 focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-700 transition-all"
+            className="pl-12 pr-24 h-12 rounded-full border-2 border-transparent bg-slate-100 dark:bg-slate-800 focus:border-primary focus:bg-white dark:focus:bg-slate-700 transition-all"
           />
           {searchQuery && (
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
@@ -308,7 +308,7 @@ export function TranscriptTabContent({
             size="icon"
             onClick={handleCopy}
             title="Copy transcript"
-            className="h-12 w-12 rounded-full border-2 hover:bg-indigo-50 hover:border-indigo-500 dark:hover:bg-indigo-950 transition-all"
+            className="h-12 w-12 rounded-full border-2 hover:bg-primary/5 hover:border-primary dark:hover:bg-primary/5 transition-all"
           >
             {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
           </Button>
@@ -318,7 +318,7 @@ export function TranscriptTabContent({
             size="icon"
             onClick={handleDownload}
             title="Download transcript"
-            className="h-12 w-12 rounded-full border-2 hover:bg-indigo-50 hover:border-indigo-500 dark:hover:bg-indigo-950 transition-all"
+            className="h-12 w-12 rounded-full border-2 hover:bg-primary/5 hover:border-primary dark:hover:bg-primary/5 transition-all"
           >
             <Download size={16} />
           </Button>
@@ -337,8 +337,8 @@ export function TranscriptTabContent({
               onClick={() => setSelectedSpeaker(null)}
               className={`px-4 py-1.5 rounded-full text-sm font-medium border-2 transition-all ${
                 !selectedSpeaker
-                  ? 'bg-indigo-500 text-white border-indigo-500'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-primary/50'
               }`}
             >
               All

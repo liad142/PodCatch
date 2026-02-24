@@ -95,11 +95,11 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
           'flex items-center gap-3 p-2 rounded-xl hover:bg-secondary transition-colors w-full text-left group',
         )}
       >
-        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/50 shrink-0 ring-2 ring-background shadow-sm group-hover:shadow-md transition-all">
+        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 shrink-0 ring-2 ring-background shadow-sm group-hover:shadow-md transition-all">
           {avatarUrl ? (
             <img src={avatarUrl} alt={displayName} className="w-10 h-10 rounded-full object-cover" />
           ) : (
-            <span className="text-base font-semibold text-violet-700 dark:text-violet-400">{initials}</span>
+            <span className="text-base font-semibold text-primary">{initials}</span>
           )}
         </div>
         <div className="flex-1 min-w-0">

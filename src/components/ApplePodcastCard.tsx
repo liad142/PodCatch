@@ -90,7 +90,7 @@ export const ApplePodcastCard = React.memo(function ApplePodcastCard({ podcast, 
           </button>
         </div>
         <div className="p-4 space-y-1.5">
-          <h3 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-2 leading-tight group-hover:text-violet-700 transition-colors">
+          <h3 className="font-bold text-foreground text-sm line-clamp-2 leading-tight group-hover:text-primary transition-colors">
             {podcast.name}
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 font-medium line-clamp-1">

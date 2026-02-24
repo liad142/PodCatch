@@ -143,7 +143,7 @@ export function AskAIChatPopup() {
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
                 <div className="flex items-center gap-2">
-                  <div className="bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full p-1.5">
+                  <div className="bg-primary rounded-full p-1.5">
                     <Sparkles className="h-3.5 w-3.5 text-white" />
                   </div>
                   <span className="font-semibold text-sm">Ask AI</span>

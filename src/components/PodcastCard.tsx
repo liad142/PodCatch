@@ -91,7 +91,7 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
 
           {/* NEW Badge */}
           {hasNewEpisodes && (
-            <div className="absolute top-3 left-3 bg-violet-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm z-10">
+            <div className="absolute top-3 left-3 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm z-10">
               NEW
             </div>
           )}
@@ -115,7 +115,7 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
         </div>
 
         <div className="p-5">
-          <h3 className="font-bold text-base leading-tight tracking-tight text-slate-900 dark:text-white line-clamp-1 mb-1 group-hover:text-violet-700 dark:group-hover:text-violet-400 transition-colors">
+          <h3 className="font-bold text-base leading-tight tracking-tight text-foreground line-clamp-1 mb-1 group-hover:text-primary transition-colors">
             {podcast.title}
           </h3>
 

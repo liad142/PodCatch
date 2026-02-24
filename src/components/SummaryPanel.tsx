@@ -424,10 +424,10 @@ function DeepSummaryView({
 
       {/* Contrarian Views */}
       {summary.contrarian_views && summary.contrarian_views.length > 0 && (
-        <Card className="bg-purple-50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800">
+        <Card className="bg-primary/5 dark:bg-primary/10 border-primary/20 dark:border-primary/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-purple-500" />
+              <Sparkles className="h-4 w-4 text-primary" />
               Contrarian Views & Insights
             </CardTitle>
           </CardHeader>

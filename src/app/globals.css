@@ -51,7 +51,7 @@
   --card-foreground: 0 0% 3.9%;
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 3.9%;
-  --primary: 263 70% 58.4%;
+  --primary: 217 91% 60%;
   --primary-foreground: 0 0% 100%;
   --secondary: 240 4.8% 95.9%;
   --secondary-foreground: 240 5.9% 10%;
@@ -63,7 +63,7 @@
   --destructive-foreground: 0 0% 100%;
   --border: 240 5.9% 90%;
   --input: 240 5.9% 90%;
-  --ring: 263 70% 58.4%;
+  --ring: 217 91% 60%;
   --radius: 0.75rem;
 
   /* Surface tokens */
@@ -77,9 +77,9 @@
   --text-tertiary: 240 5% 64.9%;
 
   /* Accent tokens */
-  --primary-subtle: rgba(124, 58, 237, 0.08);
-  --accent-green: 142 71% 45.3%;
-  --accent-green-hover: 142 76% 36.3%;
+  --primary-subtle: rgba(59, 130, 246, 0.08);
+  --accent-green: 217 91% 60%;
+  --accent-green-hover: 217 91% 50%;
   --accent-amber: 38 92% 50%;
   --accent-amber-subtle: rgba(245, 158, 11, 0.1);
   --destructive-subtle: rgba(220, 38, 38, 0.08);
@@ -101,7 +101,7 @@
   --card-foreground: 0 0% 98%;
   --popover: 240 5.9% 10%;
   --popover-foreground: 0 0% 98%;
-  --primary: 258 90% 66%;
+  --primary: 213 94% 68%;
   --primary-foreground: 0 0% 100%;
   --secondary: 240 3.7% 15.9%;
   --secondary-foreground: 0 0% 98%;
@@ -113,7 +113,7 @@
   --destructive-foreground: 0 0% 100%;
   --border: 240 5% 22%;
   --input: 240 5% 22%;
-  --ring: 258 90% 66%;
+  --ring: 213 94% 68%;
 
   /* Surface tokens */
   --surface-1: 240 5.9% 10%;
@@ -126,9 +126,9 @@
   --text-tertiary: 240 3.8% 46.1%;
 
   /* Accent tokens */
-  --primary-subtle: rgba(139, 92, 246, 0.12);
-  --accent-green: 142 71% 45.3%;
-  --accent-green-hover: 142 76% 36.3%;
+  --primary-subtle: rgba(96, 165, 250, 0.12);
+  --accent-green: 213 94% 68%;
+  --accent-green-hover: 213 94% 58%;
   --accent-amber: 38 92% 50%;
   --accent-amber-subtle: rgba(245, 158, 11, 0.15);
   --destructive-subtle: rgba(239, 68, 68, 0.12);

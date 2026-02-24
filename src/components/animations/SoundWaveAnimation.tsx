@@ -8,7 +8,7 @@ interface SoundWaveAnimationProps {
 
 export function SoundWaveAnimation({ className = '' }: SoundWaveAnimationProps) {
   const barColors = [
-    'from-purple-500 to-purple-400',
+    'from-blue-500 to-blue-400',
     'from-blue-500 to-blue-400',
     'from-cyan-500 to-cyan-400',
     'from-teal-500 to-teal-400',

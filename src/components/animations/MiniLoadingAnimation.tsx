@@ -9,7 +9,7 @@ interface MiniLoadingAnimationProps {
 
 export function MiniLoadingAnimation({ message, className = '' }: MiniLoadingAnimationProps) {
   const barColors = [
-    'from-purple-500 to-purple-400',
+    'from-blue-500 to-blue-400',
     'from-blue-500 to-blue-400',
     'from-cyan-500 to-cyan-400',
   ];

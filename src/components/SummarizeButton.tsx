@@ -157,7 +157,7 @@ export function SummarizeButton({ episodeId, initialStatus = 'not_ready', classN
       disabled={!isInteractive}
       className={cn(
         'rounded-full px-5 transition-all hover:scale-105 active:scale-95',
-        isGradientState && 'bg-gradient-to-r from-violet-600 to-indigo-600 border-0 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40',
+        isGradientState && 'bg-primary border-0 shadow-lg shadow-primary/20 hover:shadow-primary/40',
         className
       )}
     >

@@ -246,7 +246,7 @@ export default function SettingsPage() {
 
               {/* Profile card */}
               <div className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-lg shrink-0 select-none">
+                <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg shrink-0 select-none">
                   {initials}
                 </div>
                 <div className="min-w-0">

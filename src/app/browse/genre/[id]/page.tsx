@@ -119,7 +119,7 @@ export default function GenrePage({ params }: PageProps) {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-semibold text-violet-600 bg-violet-50 dark:text-violet-400 dark:bg-violet-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">Category</span>
+                <span className="text-xs font-semibold text-primary bg-primary-subtle px-2 py-0.5 rounded-full uppercase tracking-wider">Category</span>
               </div>
               <h1 className="text-3xl sm:text-4xl font-black text-foreground tracking-tight">{genreName}</h1>
               <p className="text-muted-foreground mt-2 flex items-center gap-2 font-medium">

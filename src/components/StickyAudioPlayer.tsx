@@ -241,7 +241,7 @@ function ChapterScrubber({
               style={{ flex: `${seg.widthPct} 0 0%` }}
             >
               <div
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary via-primary to-violet-400 rounded-[1px]"
+                className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary via-primary to-blue-400 rounded-[1px]"
                 style={{ width: `${fillPct}%` }}
               />
             </div>
@@ -377,7 +377,7 @@ export function StickyAudioPlayer() {
                 step={0.1}
                 className="h-2"
                 trackClassName="h-2 rounded-sm bg-secondary group-hover:h-2.5 transition-all"
-                rangeClassName="bg-gradient-to-r from-primary via-primary to-violet-400"
+                rangeClassName="bg-gradient-to-r from-primary via-primary to-blue-400"
                 thumbClassName="opacity-0 group-hover:opacity-100 h-3.5 w-3.5 -mt-0.5 border-primary bg-background"
               />
               {/* Glow effect on progress */}
@@ -401,7 +401,7 @@ export function StickyAudioPlayer() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-primary/30 to-violet-600/30 flex items-center justify-center">
+                  <div className="w-full h-full bg-gradient-to-br from-primary/30 to-blue-600/30 flex items-center justify-center">
                     <Volume2 className="w-4 h-4 text-muted-foreground" />
                   </div>
                 )}
@@ -516,7 +516,7 @@ export function StickyAudioPlayer() {
                       step={0.1}
                       className="mb-2"
                       trackClassName="h-2 bg-secondary"
-                      rangeClassName="bg-gradient-to-r from-primary to-violet-400"
+                      rangeClassName="bg-gradient-to-r from-primary to-blue-400"
                       thumbClassName="h-4 w-4 border-2 border-primary"
                     />
                     <div className="flex justify-between text-xs text-muted-foreground font-mono">

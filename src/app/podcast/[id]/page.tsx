@@ -404,7 +404,7 @@ export default function PodcastPage() {
                     unoptimized
                   />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-violet-900 via-slate-900 to-black" />
+                  <div className="w-full h-full bg-gradient-to-br from-blue-900 via-slate-900 to-black" />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
               </div>
@@ -468,7 +468,7 @@ export default function PodcastPage() {
                         href={podcast.rss_feed_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-300 hover:text-violet-200 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-300 hover:text-blue-200 transition-colors"
                       >
                         <Rss className="h-3.5 w-3.5" />
                         RSS Feed
@@ -548,7 +548,7 @@ export default function PodcastPage() {
                             {/* Title */}
                             {canNavigate ? (
                               <Link href={`/episode/${summaryInfo.episodeId}`}>
-                                <h3 className="text-lg font-bold text-foreground leading-tight group-hover:text-violet-700 transition-colors cursor-pointer">
+                                <h3 className="text-lg font-bold text-foreground leading-tight group-hover:text-primary transition-colors cursor-pointer">
                                   {episode.title}
                                 </h3>
                               </Link>
@@ -582,7 +582,7 @@ export default function PodcastPage() {
                                 />
                               ) : (
                                 <Button
-                                  className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-lg shadow-indigo-500/20 border-0 rounded-full h-9 px-5"
+                                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 border-0 rounded-full h-9 px-5"
                                   size="sm"
                                   onClick={() => handleSummarize(episode)}
                                   disabled={importingEpisodeId === episode.id}

@@ -83,7 +83,7 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
       onClick={() => openChat()}
     >
       <div className="flex items-center gap-2.5">
-        <div className="bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-full p-1 shrink-0">
+        <div className="bg-primary rounded-full p-1 shrink-0">
           <Sparkles className="h-3 w-3 text-white" />
         </div>
         <div className="flex-1 text-muted-foreground text-sm truncate">
