@@ -13,7 +13,7 @@ export async function GET() {
   try {
     const { data: profile, error } = await createAdminClient()
       .from('user_profiles')
-      .select('id, display_name, email, preferred_genres, preferred_country, onboarding_completed, created_at')
+      .select('id, display_name, preferred_genres, preferred_country, onboarding_completed, created_at')
       .eq('id', user.id)
       .single();
 

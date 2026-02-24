@@ -93,7 +93,8 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
   useEffect(() => {
     setIsLoading(true);
     fetchData().finally(() => setIsLoading(false));
-  }, [fetchData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [episode.id]);
 
   // Polling while generating
   useEffect(() => {
