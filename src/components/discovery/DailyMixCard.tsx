@@ -82,19 +82,22 @@ export const DailyMixCard = React.memo(function DailyMixCard({
           </div>
         </div>
 
-        {/* Middle: episode title */}
-        <h3 className="text-h4 text-foreground line-clamp-2">
-          {title}
-        </h3>
-
-        {/* Bottom row: play button + duration placeholder */}
-        <div className="flex items-center justify-between">
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-            <Play className="h-4 w-4 text-white fill-white ml-0.5" />
-          </div>
-          <p className="text-caption text-muted-foreground">
-            {description?.slice(0, 50)}
+        {/* Middle: episode title + description */}
+        <div className="flex flex-col gap-1">
+          <h3 className="text-h4 text-foreground line-clamp-2 leading-snug">
+            {title}
+          </h3>
+          <p className="text-caption text-muted-foreground line-clamp-2 leading-relaxed">
+            {description}
           </p>
+        </div>
+
+        {/* Bottom row: play button */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-primary hover:bg-primary/90 transition-colors duration-200 rounded-full px-4 py-2 cursor-pointer">
+            <Play className="h-3.5 w-3.5 text-white fill-white flex-shrink-0" />
+            <span className="text-xs font-semibold text-white tracking-wide">Play</span>
+          </div>
         </div>
       </div>
     </Link>

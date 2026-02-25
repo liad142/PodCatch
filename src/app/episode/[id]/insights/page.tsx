@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase";
 import type { Episode, Podcast } from "@/types/database";
 import { Clock, Calendar, BarChart3, ExternalLink, ChevronRight, Share2 } from "lucide-react";
-import { PlayButton } from "@/components/PlayButton";
+import { InlinePlayButton } from "@/components/PlayButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 interface EpisodeData extends Episode {
@@ -240,7 +240,7 @@ export default function EpisodeInsightsPage() {
                         Watch on YouTube
                       </Button>
                     ) : episode.audio_url && episode.podcast ? (
-                      <PlayButton
+                      <InlinePlayButton
                         track={{
                           id: episode.id,
                           title: episode.title,
@@ -249,9 +249,7 @@ export default function EpisodeInsightsPage() {
                           audioUrl: episode.audio_url,
                           duration: episode.duration_seconds || undefined,
                         }}
-                        size="lg"
-                        variant="primary"
-                        className="h-10 px-5 bg-accent-green hover:bg-accent-green-hover text-white border-0 gap-2 rounded-lg"
+                        className="h-10 px-5 text-sm bg-primary hover:bg-primary/90"
                       />
                     ) : null}
                     <Button
