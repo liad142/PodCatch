@@ -4,7 +4,10 @@ import { createLogger } from '@/lib/logger';
 
 const logWithTime = createLogger('VOXTRAL');
 
-const client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY! });
+const client = new Mistral({
+  apiKey: process.env.MISTRAL_API_KEY!,
+  timeoutMs: 90_000, // 90s — fail fast rather than hang for minutes on rate limits
+});
 
 export const VOXTRAL_SUPPORTED_LANGUAGES = [
   'en', 'zh', 'hi', 'es', 'ar', 'fr', 'pt', 'ru', 'de', 'ja', 'ko', 'it', 'nl',

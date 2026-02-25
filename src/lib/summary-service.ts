@@ -989,6 +989,53 @@ export async function generateSummaryForLevel(
   }
 }
 
+/**
+ * Quick check for existing summary — returns immediately without starting generation.
+ * Used by the API route to return cached/in-progress results without blocking.
+ */
+export async function checkExistingSummary(
+  episodeId: string,
+  level: SummaryLevel,
+  language = 'en'
+): Promise<{ status: SummaryStatus; content?: QuickSummaryContent | DeepSummaryContent } | null> {
+  const { data: existingSummaries } = await supabase
+    .from('summaries')
+    .select('id, status, content_json, updated_at')
+    .eq('episode_id', episodeId)
+    .eq('level', level)
+    .eq('language', language);
+
+  if (!existingSummaries || existingSummaries.length === 0) return null;
+
+  // Find the best summary by status priority
+  let best: any = null;
+  let bestPriority = 0;
+  for (const summary of existingSummaries) {
+    const priority = SUMMARY_STATUS_PRIORITY[summary.status] || 0;
+    if (priority > bestPriority) {
+      bestPriority = priority;
+      best = summary;
+    }
+  }
+
+  if (!best) return null;
+
+  if (best.status === 'ready' && best.content_json) {
+    return { status: 'ready', content: best.content_json };
+  }
+  if (['queued', 'transcribing', 'summarizing'].includes(best.status)) {
+    // Check for stale summaries (stuck > 30 min)
+    const STALE_THRESHOLD_MS = 30 * 60 * 1000;
+    const updatedAt = best.updated_at ? new Date(best.updated_at).getTime() : 0;
+    if (Date.now() - updatedAt > STALE_THRESHOLD_MS) {
+      return null; // Stale — let requestSummary retry
+    }
+    return { status: best.status as SummaryStatus };
+  }
+  // Failed or other — let requestSummary retry
+  return null;
+}
+
 export async function requestSummary(
   episodeId: string,
   level: SummaryLevel,
@@ -1203,13 +1250,17 @@ export async function getSummariesStatus(episodeId: string, language = 'en') {
     }
   };
 
-  // Cache terminal states — only when actual content exists
-  // Don't cache empty/absent results as terminal (a summary may be generated later)
+  // Cache based on state
   const hasAnySummary = !!(quick || deep);
   const quickTerminal = !quick || quick.status === 'ready' || quick.status === 'failed';
   const deepTerminal = !deep || deep.status === 'ready' || deep.status === 'failed';
+
   if (hasAnySummary && quickTerminal && deepTerminal) {
+    // Terminal states: cache for a long time
     await setCached(cacheKey, result, CacheTTL.STATUS_TERMINAL);
+  } else if (hasAnySummary) {
+    // In-progress states: cache for 10 seconds to reduce DB polling pressure
+    await setCached(cacheKey, result, 10);
   }
 
   return result;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requestSummary, getSummariesStatus } from "@/lib/summary-service";
+import { requestSummary, checkExistingSummary, getSummariesStatus } from "@/lib/summary-service";
 import { getAuthUser } from "@/lib/auth-helpers";
 import { resolvePodcastLanguage } from "@/lib/language-utils";
 import type { SummaryLevel } from "@/types/database";
@@ -77,64 +77,77 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ? { podcastTitle: podcastData.title, episodeTitle: episode.title }
       : undefined;
 
-    logWithTime('Episode found, calling requestSummary...', {
+    logWithTime('Episode found, checking existing summary...', {
       audioUrl: episode.audio_url?.substring(0, 50) + '...',
       transcriptUrl: episode.transcript_url ? 'YES (FREE!)' : 'NO',
       hasAppleMetadata: !!metadata,
       language
     });
 
-    // Pass transcript URL for FREE transcription (Priority A) and metadata for Apple (Priority A+)
-    const result = await requestSummary(
+    // Quick check: if summary already exists and is ready/in-progress, return immediately
+    const existing = await checkExistingSummary(id, level, language || 'en');
+    if (existing) {
+      logWithTime('Returning existing summary status', { status: existing.status });
+      return NextResponse.json({ episodeId: id, level, ...existing });
+    }
+
+    // Fire off the heavy generation in the background (non-blocking)
+    // The frontend polls GET /summaries to track progress
+    const userId = user.id;
+    const resolvedLanguage = language || undefined;
+    requestSummary(
       id,
       level,
       episode.audio_url,
-      language || undefined,
+      resolvedLanguage,
       episode.transcript_url || undefined,
       metadata
-    );
+    ).then(async (result) => {
+      // Record user ownership after completion (non-blocking)
+      if (result.status === 'ready') {
+        try {
+          const admin = createAdminClient();
+          const { data: summaryRecord } = await admin
+            .from('summaries')
+            .select('id')
+            .eq('episode_id', id)
+            .eq('level', level)
+            .eq('language', language || 'en')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .single();
 
-    // Record user ownership of this summary
-    if (result.status === 'ready' || result.status === 'transcribing' || result.status === 'summarizing' || result.status === 'queued') {
-      try {
-        const admin = createAdminClient();
-        // Find the summary record to get its ID
-        const { data: summaryRecord } = await admin
-          .from('summaries')
-          .select('id')
-          .eq('episode_id', id)
-          .eq('level', level)
-          .eq('language', language || 'en')
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (summaryRecord) {
-          await admin
-            .from('user_summaries')
-            .upsert({
-              user_id: user.id,
-              summary_id: summaryRecord.id,
-              episode_id: id,
-            }, { onConflict: 'user_id,summary_id', ignoreDuplicates: true });
+          if (summaryRecord) {
+            await admin
+              .from('user_summaries')
+              .upsert({
+                user_id: userId,
+                summary_id: summaryRecord.id,
+                episode_id: id,
+              }, { onConflict: 'user_id,summary_id', ignoreDuplicates: true });
+          }
+        } catch (err) {
+          logWithTime('Failed to record user_summary (non-blocking)', { error: String(err) });
         }
-      } catch (err) {
-        // Non-blocking - don't fail the request if user_summaries insert fails
-        logWithTime('Failed to record user_summary (non-blocking)', { error: String(err) });
       }
-    }
-
-    logWithTime('POST request completed', {
-      episodeId: id,
-      status: result.status,
-      totalDurationMs: Date.now() - startTime,
-      totalDurationSec: ((Date.now() - startTime) / 1000).toFixed(1)
+      logWithTime('Background generation completed', {
+        episodeId: id,
+        level,
+        status: result.status,
+        totalDurationMs: Date.now() - startTime,
+        totalDurationSec: ((Date.now() - startTime) / 1000).toFixed(1)
+      });
+    }).catch((err) => {
+      logWithTime('Background generation FAILED', { episodeId: id, level, error: String(err) });
     });
 
+    // Return immediately — the summary record was created by requestSummary's
+    // initial upsert, so polling will find it with status "transcribing"
+    logWithTime('POST returning immediately (background generation started)', { episodeId: id, level });
     return NextResponse.json({
       episodeId: id,
       level,
-      ...result
+      status: 'transcribing',
     });
   } catch (error) {
     logWithTime('POST request FAILED', {

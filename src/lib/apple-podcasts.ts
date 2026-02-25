@@ -4,6 +4,7 @@
  */
 
 import Parser from 'rss-parser';
+import { Agent } from 'undici';
 import { getCached, setCached, CacheKeys, CacheTTL, checkRateLimit as redisRateLimit } from '@/lib/cache';
 import {
   isPodcastIndexConfigured,
@@ -23,6 +24,10 @@ import {
 const ITUNES_API_BASE = 'https://itunes.apple.com';
 // Rate limiting is handled by Redis via @/lib/cache
 const MAX_FEED_SIZE = 50 * 1024 * 1024; // 50MB limit for XML feeds (large podcasts with 500+ episodes)
+
+// Podcast CDNs (podtrac, etc.) often return oversized response headers.
+// Node's built-in fetch (undici) defaults to 16 KB max header size which is too small.
+const largeFetchDispatcher = new Agent({ maxHeaderSize: 128 * 1024 }); // 128 KB
 
 interface ParsedRSSFeed {
   title: string;
@@ -325,6 +330,8 @@ export async function getPodcastEpisodes(
 
         const response = await fetch(resolvedFeedUrl, {
           headers: { 'User-Agent': 'PodCatch/1.0' },
+          // @ts-expect-error -- dispatcher is a valid undici option accepted by Node's built-in fetch
+          dispatcher: largeFetchDispatcher,
         });
         if (!response.ok) {
           throw new Error(`Feed fetch failed: ${response.status}`);
