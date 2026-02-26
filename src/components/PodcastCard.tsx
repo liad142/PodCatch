@@ -81,7 +81,6 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              unoptimized
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-secondary">

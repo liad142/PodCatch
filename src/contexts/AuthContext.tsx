@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { User, Session } from '@supabase/supabase-js';
+import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
@@ -10,6 +10,7 @@ interface AuthContextType {
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, displayName?: string) => Promise<{ error: string | null; needsConfirmation: boolean }>;
+  signUpOrIn: (email: string, password: string, displayName?: string) => Promise<{ error: string | null; needsConfirmation: boolean }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   showAuthModal: boolean;
@@ -55,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      (event: AuthChangeEvent, session: Session | null) => {
         console.log(`[AUTH] State change: ${event} user=${session?.user?.email ?? 'none'}`);
         setSession(session);
         setUser(session?.user ?? null);
@@ -83,6 +84,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (error) return { error: error.message, needsConfirmation: false };
     // needsConfirmation = true when Supabase requires email verification (session is null until confirmed)
+    const needsConfirmation = !data.session;
+    return { error: null, needsConfirmation };
+  }, []);
+
+  // Tries signUp first; if the user already exists, falls back to signIn automatically
+  const signUpOrIn = useCallback(async (email: string, password: string, displayName?: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { display_name: displayName },
+      },
+    });
+
+    if (error) {
+      // User already exists — try signing them in instead
+      if (error.message.toLowerCase().includes('already registered') || error.message.toLowerCase().includes('already been registered')) {
+        const signInResult = await supabase.auth.signInWithPassword({ email, password });
+        if (signInResult.error) return { error: signInResult.error.message, needsConfirmation: false };
+        setShowAuthModal(false);
+        return { error: null, needsConfirmation: false };
+      }
+      return { error: error.message, needsConfirmation: false };
+    }
+
     const needsConfirmation = !data.session;
     return { error: null, needsConfirmation };
   }, []);
@@ -116,6 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       signIn,
       signUp,
+      signUpOrIn,
       signInWithGoogle,
       signOut,
       showAuthModal: showAuthModalState,

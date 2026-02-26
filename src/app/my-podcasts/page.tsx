@@ -89,7 +89,7 @@ export default function MyPodcastsPage() {
     return (
       <div className="p-6 min-h-screen bg-background">
         <h1 className="text-2xl font-bold mb-6">My Podcasts</h1>
-        <SignInPrompt message="Sign in to see your podcasts" />
+        <SignInPrompt message="Sign up to see your podcasts" />
       </div>
     );
   }

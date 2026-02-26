@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { QuickSummaryContent, DeepSummaryContent, InsightsContent } from "@/types/database";
 
-const MAX_TRANSCRIPT_CHARS = 500_000;
+const MAX_TRANSCRIPT_CHARS = 100_000;
 
 /**
  * Build the full context string for the Ask AI chat.

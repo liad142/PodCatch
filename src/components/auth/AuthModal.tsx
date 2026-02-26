@@ -2,20 +2,15 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, Loader2, Info } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
-import { cn } from '@/lib/utils';
-
-type AuthTab = 'signin' | 'signup';
 
 export function AuthModal() {
-  const { showAuthModal, setShowAuthModal, signIn, signUp, signInWithGoogle, authPromptMessage } = useAuth();
+  const { showAuthModal, setShowAuthModal, signUpOrIn, signInWithGoogle, authPromptMessage } = useAuth();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<AuthTab>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -39,12 +34,6 @@ export function AuthModal() {
     setShowAuthModal(open);
   };
 
-  const handleTabSwitch = (tab: AuthTab) => {
-    setActiveTab(tab);
-    setError(null);
-    setSuccessMessage(null);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -52,22 +41,15 @@ export function AuthModal() {
     setIsLoading(true);
 
     try {
-      if (activeTab === 'signin') {
-        const result = await signIn(email, password);
-        if (result.error) {
-          setError(result.error);
-        }
+      const result = await signUpOrIn(email, password, displayName || undefined);
+      if (result.error) {
+        setError(result.error);
+      } else if (result.needsConfirmation) {
+        setSuccessMessage('Check your email for a confirmation link!');
       } else {
-        const result = await signUp(email, password, displayName || undefined);
-        if (result.error) {
-          setError(result.error);
-        } else if (result.needsConfirmation) {
-          setSuccessMessage('Check your email for a confirmation link!');
-        } else {
-          // Immediately signed in (email confirmation disabled) — go to onboarding
-          setShowAuthModal(false);
-          router.push('/onboarding');
-        }
+        // Signed in (new or existing user)
+        setShowAuthModal(false);
+        router.push('/onboarding');
       }
     } finally {
       setIsLoading(false);
@@ -90,7 +72,7 @@ export function AuthModal() {
         <div className="p-6">
           <DialogHeader className="p-0 mb-6">
             <DialogTitle className="text-xl text-center">
-              {activeTab === 'signin' ? 'Welcome back' : 'Create your account'}
+              Get Started
             </DialogTitle>
           </DialogHeader>
 
@@ -105,34 +87,6 @@ export function AuthModal() {
               </div>
             </div>
           )}
-
-          {/* Tab Toggle */}
-          <div className="flex rounded-lg bg-muted p-1 mb-6">
-            <button
-              type="button"
-              onClick={() => handleTabSwitch('signin')}
-              className={cn(
-                'flex-1 text-sm font-medium py-2 rounded-md transition-colors',
-                activeTab === 'signin'
-                  ? 'bg-background shadow-sm text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTabSwitch('signup')}
-              className={cn(
-                'flex-1 text-sm font-medium py-2 rounded-md transition-colors',
-                activeTab === 'signup'
-                  ? 'bg-background shadow-sm text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              Sign Up
-            </button>
-          </div>
 
           {/* Google OAuth */}
           <Button
@@ -173,77 +127,65 @@ export function AuthModal() {
           </div>
 
           {/* Email Form */}
-          <AnimatePresence mode="wait">
-            <motion.form
-              key={activeTab}
-              initial={{ opacity: 0, x: activeTab === 'signin' ? -10 : 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: activeTab === 'signin' ? 10 : -10 }}
-              transition={{ duration: 0.15 }}
-              onSubmit={handleSubmit}
-              className="space-y-4"
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="relative">
+              <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Display name (optional)"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className="pl-9"
+                autoComplete="name"
+              />
+            </div>
+
+            <div className="relative">
+              <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="pl-9"
+                autoComplete="email"
+              />
+            </div>
+
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                className="pl-9"
+                autoComplete="new-password"
+              />
+            </div>
+
+            {error && (
+              <p className="text-sm text-red-500 text-center">{error}</p>
+            )}
+
+            {successMessage && (
+              <p className="text-sm text-green-600 dark:text-green-400 text-center">{successMessage}</p>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isLoading}
             >
-              {activeTab === 'signup' && (
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Display name (optional)"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    className="pl-9"
-                    autoComplete="name"
-                  />
-                </div>
-              )}
-
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="email"
-                  placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="pl-9"
-                  autoComplete="email"
-                />
-              </div>
-
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  className="pl-9"
-                  autoComplete={activeTab === 'signin' ? 'current-password' : 'new-password'}
-                />
-              </div>
-
-              {error && (
-                <p className="text-sm text-red-500 text-center">{error}</p>
-              )}
-
-              {successMessage && (
-                <p className="text-sm text-green-600 dark:text-green-400 text-center">{successMessage}</p>
-              )}
-
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : null}
-                {activeTab === 'signin' ? 'Sign In' : 'Create Account'}
-              </Button>
-            </motion.form>
-          </AnimatePresence>
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Sign Up
+            </Button>
+          </form>
         </div>
       </DialogContent>
     </Dialog>

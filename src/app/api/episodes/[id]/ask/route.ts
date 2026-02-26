@@ -1,21 +1,8 @@
 import { NextRequest } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { buildEpisodeContext } from "@/lib/ask-ai-service";
-
-// In-memory rate limiting: IP -> timestamps[]
-const rateLimitMap = new Map<string, number[]>();
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX = 30;
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const timestamps = rateLimitMap.get(ip) || [];
-  const recent = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-  if (recent.length >= RATE_LIMIT_MAX) return false;
-  recent.push(now);
-  rateLimitMap.set(ip, recent);
-  return true;
-}
+import { checkRateLimit, checkQuota, isAdminEmail } from "@/lib/cache";
+import { getAuthUser } from "@/lib/auth-helpers";
 
 // Separate Gemini instance for chat (plain text, not JSON)
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
@@ -27,16 +14,34 @@ interface RouteParams {
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    // Rate limit by IP
+    // Rate limit by IP (Redis-based, works across serverless instances)
     const ip =
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       request.headers.get("x-real-ip") ||
       "unknown";
-    if (!checkRateLimit(ip)) {
+    const rlAllowed = await checkRateLimit(`askai:${ip}`, 30, 60);
+    if (!rlAllowed) {
       return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again in a minute." }), {
         status: 429,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    // Per-user daily quota for Ask AI (30/day for free users)
+    const user = await getAuthUser();
+    if (user && !isAdminEmail(user.email)) {
+      const quota = await checkQuota(user.id, 'askai', 30);
+      if (!quota.allowed) {
+        return new Response(JSON.stringify({
+          error: "Daily Ask AI limit reached",
+          limit: quota.limit,
+          used: quota.used,
+          upgrade_url: "/pricing",
+        }), {
+          status: 429,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
     }
 
     const { id: episodeId } = await params;

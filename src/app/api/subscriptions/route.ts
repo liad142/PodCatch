@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { getAuthUser } from '@/lib/auth-helpers';
+import { checkRateLimit } from '@/lib/cache';
 
 // GET: List all subscribed podcasts for a user
 export async function GET(request: NextRequest) {
@@ -74,6 +75,12 @@ export async function POST(request: NextRequest) {
   const user = await getAuthUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Rate limit: 20 req/min per user
+  const rlAllowed = await checkRateLimit(`subscribe:${user.id}`, 20, 60);
+  if (!rlAllowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
   try {

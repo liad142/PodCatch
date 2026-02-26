@@ -20,17 +20,18 @@ export function TranscriptMessage({
 }: TranscriptMessageProps) {
   const isRTL = segment.isRTL || false;
 
-  // Highlight search matches
-  const highlightedText = useMemo(() => {
+  // Highlight search matches using React nodes (safe — no dangerouslySetInnerHTML)
+  const highlightedContent = useMemo(() => {
     if (!searchQuery.trim()) return segment.text;
 
     const regex = new RegExp(
       `(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`,
       'gi'
     );
-    return segment.text.replace(
-      regex,
-      '<mark class="bg-yellow-200 text-yellow-900 dark:bg-yellow-400/30 dark:text-yellow-200 px-1 py-0.5 rounded font-semibold">$1</mark>'
+    return segment.text.split(regex).map((part, i) =>
+      regex.test(part) ? (
+        <mark key={i} className="bg-yellow-200 text-yellow-900 dark:bg-yellow-400/30 dark:text-yellow-200 px-1 py-0.5 rounded font-semibold">{part}</mark>
+      ) : part
     );
   }, [segment.text, searchQuery]);
 
@@ -100,8 +101,9 @@ export function TranscriptMessage({
             direction: isRTL ? 'rtl' : 'ltr',
             textAlign: isRTL ? 'right' : 'left',
           }}
-          dangerouslySetInnerHTML={{ __html: highlightedText }}
-        />
+        >
+          {highlightedContent}
+        </div>
       </div>
     </div>
   );

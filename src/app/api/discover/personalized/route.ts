@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { getAuthUser } from '@/lib/auth-helpers';
-import { getCached, setCached } from '@/lib/cache';
+import { getCached, setCached, checkRateLimit } from '@/lib/cache';
 import { APPLE_PODCAST_GENRES } from '@/types/apple-podcasts';
 
 interface ApplePodcast {
@@ -20,6 +20,13 @@ interface ApplePodcast {
 }
 
 export async function GET(request: NextRequest) {
+  // Rate limit: 10 req/min per IP
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rlAllowed = await checkRateLimit(`personalized:${ip}`, 10, 60);
+  if (!rlAllowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+  }
+
   const ALLOWED_COUNTRIES = new Set([
     'dz','ao','ai','ag','ar','am','au','at','az','bs','bh','bb','be','bz','bm',
     'bo','bw','br','bn','bg','ca','ky','cl','co','cr','hr','cy','cz','dk','dm',

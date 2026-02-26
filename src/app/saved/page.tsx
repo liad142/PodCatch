@@ -107,7 +107,7 @@ export default function SavedPage() {
             </div>
           </div>
         </div>
-        <SignInPrompt message="Sign in to see your saved content" />
+        <SignInPrompt message="Sign up to see your saved content" />
       </div>
     );
   }

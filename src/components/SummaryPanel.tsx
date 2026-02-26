@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useAudioPlayerSafe } from '@/contexts/AudioPlayerContext';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +41,8 @@ export function SummaryPanel({ episodeId, episodeTitle, onClose }: SummaryPanelP
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState<TabType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const player = useAudioPlayerSafe();
+  const hasActivePlayer = !!player?.currentTrack;
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -145,7 +148,7 @@ export function SummaryPanel({ episodeId, episodeTitle, onClose }: SummaryPanelP
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className={`flex-1 overflow-y-auto p-4 ${hasActivePlayer ? 'pb-32' : ''}`}>
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

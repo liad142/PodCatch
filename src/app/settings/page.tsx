@@ -235,10 +235,10 @@ export default function SettingsPage() {
           ) : !user ? (
             <div className="mt-3 rounded-2xl border border-border bg-card p-6 text-center">
               <p className="text-muted-foreground text-sm mb-4">
-                Sign in to manage your account and personalise your experience.
+                Sign up to manage your account and personalise your experience.
               </p>
               <Button onClick={() => setShowAuthModal(true)} className="gap-2">
-                <LogIn className="h-4 w-4" /> Sign In
+                <LogIn className="h-4 w-4" /> Sign Up
               </Button>
             </div>
           ) : (

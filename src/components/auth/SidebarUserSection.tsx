@@ -37,7 +37,7 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
           variant="ghost"
           size="icon"
           onClick={() => setShowAuthModal(true)}
-          aria-label="Sign in"
+          aria-label="Sign up"
         >
           <User className="h-5 w-5" />
         </Button>
@@ -45,21 +45,13 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
     }
 
     return (
-      <div className="space-y-2">
-        <Button
-          className="w-full justify-start gap-2"
-          onClick={() => setShowAuthModal(true)}
-        >
-          <User className="h-4 w-4" />
-          Sign In
-        </Button>
-        <button
-          onClick={() => setShowAuthModal(true)}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors w-full text-left px-1"
-        >
-          New here? Create an account
-        </button>
-      </div>
+      <Button
+        className="w-full justify-start gap-2"
+        onClick={() => setShowAuthModal(true)}
+      >
+        <User className="h-4 w-4" />
+        Sign Up
+      </Button>
     );
   }
 

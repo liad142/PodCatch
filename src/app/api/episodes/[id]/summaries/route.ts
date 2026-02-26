@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requestSummary, checkExistingSummary, getSummariesStatus } from "@/lib/summary-service";
 import { getAuthUser } from "@/lib/auth-helpers";
 import { resolvePodcastLanguage } from "@/lib/language-utils";
+import { checkQuota, isAdminEmail, checkRateLimit } from "@/lib/cache";
 import type { SummaryLevel } from "@/types/database";
 
 interface RouteParams {
@@ -38,6 +39,26 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const user = await getAuthUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Rate limit: 5 requests/min per user
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const rlAllowed = await checkRateLimit(`summary:${user.id || ip}`, 5, 60);
+    if (!rlAllowed) {
+      return NextResponse.json({ error: 'Too many requests. Try again in a minute.' }, { status: 429 });
+    }
+
+    // Per-user daily quota (skip for admins)
+    if (!isAdminEmail(user.email)) {
+      const quota = await checkQuota(user.id, 'summary', 5);
+      if (!quota.allowed) {
+        return NextResponse.json({
+          error: 'Daily summary limit reached',
+          limit: quota.limit,
+          used: quota.used,
+          upgrade_url: '/pricing',
+        }, { status: 429 });
+      }
     }
 
     const { id } = await params;

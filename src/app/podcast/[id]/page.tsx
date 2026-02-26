@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { SafeImage } from "@/components/SafeImage";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -142,7 +143,7 @@ export default function PodcastPage() {
 
       console.log('[PodcastPage] Local episodes loaded:', dbEpisodes?.length);
 
-      const mappedEpisodes: Episode[] = (dbEpisodes || []).map(ep => ({
+      const mappedEpisodes: Episode[] = (dbEpisodes || []).map((ep: any) => ({
         id: ep.id,
         podcastId: ep.podcast_id,
         title: ep.title,
@@ -396,12 +397,11 @@ export default function PodcastPage() {
               {/* Blurred Background Backdrop */}
               <div className="absolute inset-0 z-0">
                 {podcast.image_url ? (
-                  <Image
+                  <SafeImage
                     src={Array.isArray(podcast.image_url) ? podcast.image_url[0] : podcast.image_url}
                     alt=""
                     fill
                     className="object-cover blur-3xl scale-110 opacity-60"
-                    unoptimized
                   />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-blue-900 via-slate-900 to-black" />
@@ -413,13 +413,12 @@ export default function PodcastPage() {
               <div className="relative z-10 p-8 md:p-12 flex flex-col md:flex-row gap-8 items-center md:items-start text-center md:text-left">
                 <div className="w-48 h-48 md:w-56 md:h-56 shrink-0 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/10 rotate-1 md:rotate-0 transition-transform hover:scale-105 duration-500">
                   {podcast.image_url ? (
-                    <Image
+                    <SafeImage
                       src={Array.isArray(podcast.image_url) ? podcast.image_url[0] : podcast.image_url}
                       alt={podcast.title}
                       width={224}
                       height={224}
                       className="w-full h-full object-cover"
-                      unoptimized
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-white/5">
@@ -520,12 +519,11 @@ export default function PodcastPage() {
                           {/* Thumbnail - Hidden if needed or small */}
                           {episode.artworkUrl && (
                             <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-secondary shadow-inner hidden sm:block">
-                              <Image
+                              <SafeImage
                                 src={episode.artworkUrl.replace('100x100', '200x200')}
                                 alt={episode.title}
                                 fill
                                 className="object-cover"
-                                unoptimized
                               />
                             </div>
                           )}

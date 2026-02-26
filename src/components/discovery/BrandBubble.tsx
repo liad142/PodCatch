@@ -20,7 +20,6 @@ export function BrandBubble({ id, name, artworkUrl }: BrandBubbleProps) {
           alt={name}
           fill
           className="object-cover"
-          unoptimized
         />
       </div>
       <span className="text-body-sm text-foreground font-medium line-clamp-1 text-center max-w-[88px]">

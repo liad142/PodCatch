@@ -63,7 +63,6 @@ export const ApplePodcastCard = React.memo(function ApplePodcastCard({ podcast, 
             sizes="(max-width: 640px) 160px, 180px"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             priority={priority}
-            unoptimized={imageUrl.includes('mzstatic.com')}
           />
           {podcast.contentAdvisoryRating === 'Explicit' && (
             <Badge

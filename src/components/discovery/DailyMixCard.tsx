@@ -2,17 +2,15 @@
 
 import React from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
-import { Play } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 
 interface DailyMixCardProps {
-  episodeId: string;
   title: string;
   description: string;
   podcastName: string;
   podcastArtwork: string;
-  podcastId: string;
   publishedAt: Date;
+  onClick: () => void;
 }
 
 function isValidImageUrl(url: string): boolean {
@@ -36,20 +34,22 @@ function formatDate(date: Date): string {
 }
 
 export const DailyMixCard = React.memo(function DailyMixCard({
-  episodeId,
   title,
   description,
   podcastName,
   podcastArtwork,
-  podcastId,
   publishedAt,
+  onClick,
 }: DailyMixCardProps) {
   const artwork = isValidImageUrl(podcastArtwork) ? podcastArtwork : '/placeholder-podcast.png';
 
   return (
-    <Link
-      href={`/episode/${episodeId}/insights`}
-      className="relative w-[340px] h-[200px] rounded-2xl overflow-hidden flex-shrink-0 bg-card border border-border shadow-[var(--shadow-1)] cursor-pointer hover:shadow-[var(--shadow-2)] transition-all duration-150 block"
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+      className="relative w-[340px] h-[200px] rounded-2xl overflow-hidden flex-shrink-0 bg-card border border-border shadow-[var(--shadow-1)] cursor-pointer hover:shadow-[var(--shadow-2)] transition-all duration-150"
     >
       {/* Blurred Background */}
       <div className="absolute inset-0">
@@ -71,7 +71,6 @@ export const DailyMixCard = React.memo(function DailyMixCard({
               src={artwork}
               alt={podcastName}
               fill
-              unoptimized
               className="object-cover"
               sizes="48px"
             />
@@ -92,14 +91,14 @@ export const DailyMixCard = React.memo(function DailyMixCard({
           </p>
         </div>
 
-        {/* Bottom row: play button */}
+        {/* Bottom row: read summary indicator */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 bg-primary hover:bg-primary/90 transition-colors duration-200 rounded-full px-4 py-2 cursor-pointer">
-            <Play className="h-3.5 w-3.5 text-white fill-white flex-shrink-0" />
-            <span className="text-xs font-semibold text-white tracking-wide">Play</span>
+            <BookOpen className="h-3.5 w-3.5 text-white flex-shrink-0" />
+            <span className="text-xs font-semibold text-white tracking-wide">Read Summary</span>
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
 });

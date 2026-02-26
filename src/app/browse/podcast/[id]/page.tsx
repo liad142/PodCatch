@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, use } from 'react';
 import Image from 'next/image';
+import { SafeImage } from '@/components/SafeImage';
 import Link from 'next/link';
 import { ArrowLeft, Clock, Calendar, Loader2, FileText, Heart, Share2, Sparkles } from 'lucide-react';
 import { SummarizeButton } from '@/components/SummarizeButton';
@@ -89,7 +90,7 @@ export default function PodcastPage({ params }: PageProps) {
 
   const handleToggleSubscription = async () => {
     if (!user) {
-      setShowCompactPrompt(true, 'Sign in to save podcasts to your library.');
+      setShowCompactPrompt(true, 'Sign up to save podcasts to your library.');
       return;
     }
     setIsTogglingSubscription(true);
@@ -373,14 +374,13 @@ export default function PodcastPage({ params }: PageProps) {
             <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
               {/* Podcast Artwork */}
               <div className="w-40 h-40 shrink-0 rounded-2xl overflow-hidden shadow-[var(--shadow-3)]">
-                <Image
+                <SafeImage
                   src={imageUrl}
                   alt={podcast.name}
                   width={160}
                   height={160}
                   className="w-full h-full object-cover"
                   priority
-                  unoptimized={imageUrl.includes('mzstatic.com')}
                 />
               </div>
 
@@ -509,12 +509,11 @@ export default function PodcastPage({ params }: PageProps) {
                           <div className="shrink-0 hidden sm:block">
                             <div className="w-14 h-14 rounded-lg bg-secondary border border-border overflow-hidden relative">
                               {episode.artworkUrl ? (
-                                <Image
+                                <SafeImage
                                   src={episode.artworkUrl.replace('100x100', '200x200')}
                                   alt={episode.title}
                                   fill
                                   className="object-cover"
-                                  unoptimized
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-muted-foreground">

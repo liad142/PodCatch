@@ -39,8 +39,19 @@ next-env.d.ts
 
 # Claude Code
 .claude/settings.local.json
+.claude/skills/
+.claude/worktrees/
+
+# Agent skills & config
+.agent/
+.agents/
+.kiro/
+skills-lock.json
 
 # Worktrees
 .worktrees/
+
+# Test screenshots
+test-*.png
 
 .vercel

@@ -1,11 +1,20 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getCached, setCached, CacheTTL } from '@/lib/cache';
 import type { EngagementAnalytics } from '@/types/admin';
+
+const CACHE_KEY = 'admin:engagement-analytics';
 
 export async function GET() {
   const { error } = await requireAdmin();
   if (error) return error;
+
+  // Check Redis cache first (15 min TTL)
+  const cached = await getCached<EngagementAnalytics>(CACHE_KEY);
+  if (cached) {
+    return NextResponse.json(cached);
+  }
 
   const admin = createAdminClient();
 
@@ -90,6 +99,9 @@ export async function GET() {
     topFollowed,
     feedItemsBySource,
   };
+
+  // Cache for 15 minutes
+  await setCached(CACHE_KEY, data, CacheTTL.ANALYTICS);
 
   return NextResponse.json(data);
 }

@@ -135,8 +135,8 @@ export default function SummariesPage() {
             </div>
           </div>
           <SignInPrompt
-            message="Sign in to view your summaries"
-            description="Your AI-generated episode summaries will appear here after you sign in."
+            message="Sign up to view your summaries"
+            description="Your AI-generated episode summaries will appear here after you sign up."
           />
         </div>
       </div>
@@ -239,7 +239,6 @@ export default function SummariesPage() {
                             width={64}
                             height={64}
                             className="w-full h-full object-cover"
-                            unoptimized
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">

@@ -36,7 +36,7 @@ function mapInitialStatus(status: string): QueueItemState {
 export function SummarizeButton({ episodeId, initialStatus = 'not_ready', className = '' }: SummarizeButtonProps) {
   const router = useRouter();
   const { user, setShowCompactPrompt } = useAuth();
-  const { addToQueue, retryEpisode, getQueueItem, getQueuePosition } = useSummarizeQueue();
+  const { addToQueue, resumePolling, retryEpisode, getQueueItem, getQueuePosition } = useSummarizeQueue();
   const resumedRef = useRef(false);
 
   const queueItem = getQueueItem(episodeId);
@@ -45,15 +45,15 @@ export function SummarizeButton({ episodeId, initialStatus = 'not_ready', classN
   // Use queue state if in queue, otherwise map initialStatus from parent
   const state: QueueItemState = queueItem?.state || mapInitialStatus(initialStatus);
 
-  // Auto-resume polling for in-progress summaries detected on page load
+  // Auto-resume polling for in-progress summaries detected on page load (skip POST)
   useEffect(() => {
     const isInProgress = ['transcribing', 'summarizing', 'queued'].includes(initialStatus);
     if (isInProgress && !queueItem && !resumedRef.current) {
       resumedRef.current = true;
-      // Add to queue to start polling - this will pick up the existing backend process
-      addToQueue(episodeId);
+      // Resume polling only — the backend is already processing, no need to POST again
+      resumePolling(episodeId);
     }
-  }, [initialStatus, episodeId, queueItem, addToQueue]);
+  }, [initialStatus, episodeId, queueItem, resumePolling]);
 
   const handleClick = () => {
     switch (state) {

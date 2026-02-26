@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAuthUser } from '@/lib/auth-helpers';
+import { checkRateLimit } from '@/lib/cache';
 import type { QuickSummaryContent, DeepSummaryContent } from '@/types/database';
 
 // Map country codes to primary language codes for filtering podcasts
@@ -133,10 +134,21 @@ function scoreEpisode(
 }
 
 export async function GET(request: NextRequest) {
+  // Rate limit: 10 req/min per IP
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rlAllowed = await checkRateLimit(`dailymix:${ip}`, 10, 60);
+  if (!rlAllowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+  }
+
   const admin = createAdminClient();
   const country = request.nextUrl.searchParams.get('country')?.toLowerCase() || '';
+  const limitParam = parseInt(request.nextUrl.searchParams.get('limit') || '20', 10);
+  const limit = Math.min(Math.max(limitParam, 1), 50); // clamp 1-50
+  const cursor = request.nextUrl.searchParams.get('cursor'); // ISO date string for pagination
 
   // 1. Get episode_ids with ANY ready summary (quick or deep)
+  // Only fetch display fields for scoring — NOT full content_json
   const { data: summaries, error: summariesError } = await admin
     .from('summaries')
     .select('episode_id, level, content_json, updated_at')
@@ -146,17 +158,34 @@ export async function GET(request: NextRequest) {
     .limit(200);
 
   if (summariesError || !summaries?.length) {
-    return NextResponse.json({ episodes: [] });
+    return NextResponse.json({ episodes: [], nextCursor: null });
   }
 
-  // 2. Deduplicate: prefer quick over deep per episode
+  // 2. Deduplicate: keep quick for scoring, extract only lightweight display fields
   const summaryMap = new Map<string, { level: string; content: any }>();
+  const displaySummaryMap = new Map<string, { tags?: string[]; hookHeadline?: string; executiveBrief?: string }>();
   for (const s of summaries) {
     if (!s.content_json) continue;
+    // For scoring: prefer quick over deep
     const existing = summaryMap.get(s.episode_id);
-    // Keep quick if we already have it, otherwise use whatever we find
     if (!existing || (existing.level === 'deep' && s.level === 'quick')) {
       summaryMap.set(s.episode_id, { level: s.level, content: s.content_json });
+    }
+    // Extract lightweight display fields only (no full content_json in response)
+    if (s.level === 'quick') {
+      const q = s.content_json as QuickSummaryContent;
+      displaySummaryMap.set(s.episode_id, {
+        tags: q.tags,
+        hookHeadline: q.hook_headline,
+        executiveBrief: q.executive_brief,
+      });
+    } else if (!displaySummaryMap.has(s.episode_id)) {
+      // Fallback to deep summary display fields if no quick exists
+      const d = s.content_json as DeepSummaryContent;
+      displaySummaryMap.set(s.episode_id, {
+        tags: (d.core_concepts || []).map(c => c.concept),
+        executiveBrief: d.comprehensive_overview?.slice(0, 300),
+      });
     }
   }
 
@@ -165,12 +194,12 @@ export async function GET(request: NextRequest) {
   // 3. Get episodes with podcast info (including language for country filtering)
   const { data: episodes, error: episodesError } = await admin
     .from('episodes')
-    .select('id, title, description, published_at, podcast_id, podcasts(id, title, image_url, language)')
+    .select('id, title, description, published_at, podcast_id, audio_url, duration_seconds, podcasts(id, title, image_url, language)')
     .in('id', episodeIds)
     .order('published_at', { ascending: false });
 
   if (episodesError || !episodes?.length) {
-    return NextResponse.json({ episodes: [] });
+    return NextResponse.json({ episodes: [], nextCursor: null });
   }
 
   // 4. Get user's preferred genres for filtering
@@ -220,6 +249,7 @@ export async function GET(request: NextRequest) {
       ep.description || '',
       genreKeywords,
     );
+    const display = displaySummaryMap.get(ep.id);
 
     return {
       id: ep.id,
@@ -229,6 +259,10 @@ export async function GET(request: NextRequest) {
       podcastId: podcast?.id || ep.podcast_id,
       podcastName: podcast?.title || '',
       podcastArtwork: podcast?.image_url || '',
+      audioUrl: ep.audio_url || '',
+      durationSeconds: ep.duration_seconds || null,
+      // Lightweight summary display fields only — full content fetched on-demand via /insights
+      summaryPreview: display || {},
       _score: score,
       _publishedAt: new Date(ep.published_at || 0).getTime(),
     };
@@ -249,10 +283,24 @@ export async function GET(request: NextRequest) {
     return b._publishedAt - a._publishedAt;
   });
 
-  // 8. Strip internal fields and return
-  const result = filtered.map(({ _score, _publishedAt, ...ep }) => ep);
+  // 8. Apply cursor-based pagination
+  let startIndex = 0;
+  if (cursor) {
+    const cursorTime = new Date(cursor).getTime();
+    startIndex = filtered.findIndex(ep => ep._publishedAt <= cursorTime);
+    if (startIndex === -1) startIndex = filtered.length;
+  }
 
-  return NextResponse.json({ episodes: result }, {
+  const page = filtered.slice(startIndex, startIndex + limit);
+  const hasMore = startIndex + limit < filtered.length;
+  const nextCursor = hasMore && page.length > 0
+    ? new Date(page[page.length - 1]._publishedAt).toISOString()
+    : null;
+
+  // 9. Strip internal fields and return
+  const result = page.map(({ _score, _publishedAt, ...ep }) => ep);
+
+  return NextResponse.json({ episodes: result, nextCursor }, {
     headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
   });
 }

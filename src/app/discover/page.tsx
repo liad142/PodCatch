@@ -20,6 +20,9 @@ interface DailyMixEpisode {
   podcastId: string;
   podcastName: string;
   podcastArtwork: string;
+  audioUrl: string;
+  durationSeconds: number | null;
+  summaries: { quick?: any; deep?: any };
 }
 
 interface FeedEpisode {

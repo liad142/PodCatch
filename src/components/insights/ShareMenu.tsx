@@ -103,8 +103,8 @@ export function ShareMenu({
       setShowAuthModal(
         true,
         scheduled
-          ? "Sign in to get notified when insights are ready"
-          : "Sign in to share via email"
+          ? "Sign up to get notified when insights are ready"
+          : "Sign up to share via email"
       );
       return;
     }
@@ -153,7 +153,7 @@ export function ShareMenu({
 
   const handleTelegramNotify = async () => {
     if (!user) {
-      setShowAuthModal(true, "Sign in to get Telegram notifications");
+      setShowAuthModal(true, "Sign up to get Telegram notifications");
       return;
     }
 

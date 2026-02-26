@@ -1,17 +1,12 @@
 'use client';
 
-import { Sparkles, LogIn, UserPlus, X } from 'lucide-react';
+import { Sparkles, UserPlus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function CompactAuthPrompt() {
   const { showCompactPrompt, setShowCompactPrompt, setShowAuthModal } = useAuth();
-
-  const handleSignIn = () => {
-    setShowCompactPrompt(false);
-    setShowAuthModal(true);
-  };
 
   const handleSignUp = () => {
     setShowCompactPrompt(false);
@@ -52,26 +47,19 @@ export function CompactAuthPrompt() {
           {/* Text */}
           <h3 className="text-xl font-bold mb-2">Unlock AI Summaries</h3>
           <p className="text-sm text-muted-foreground mb-8 max-w-xs mx-auto leading-relaxed">
-            Sign in to generate summaries, key insights, and chapter breakdowns for any podcast episode.
+            Sign up to generate summaries, key insights, and chapter breakdowns for any podcast episode.
           </p>
 
           {/* Actions */}
           <div className="space-y-3">
             <Button
               size="lg"
-              onClick={handleSignIn}
+              onClick={handleSignUp}
               className="w-full gap-2 rounded-full bg-primary border-0 shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all text-base"
             >
-              <LogIn className="h-5 w-5" />
-              Sign In
+              <UserPlus className="h-5 w-5" />
+              Sign Up
             </Button>
-            <button
-              onClick={handleSignUp}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1.5 py-2 w-full"
-            >
-              <UserPlus className="h-4 w-4" />
-              No account? Sign up free
-            </button>
           </div>
         </div>
       </div>

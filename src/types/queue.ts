@@ -26,6 +26,7 @@ export interface SummarizeQueueContextValue {
 
   // Actions
   addToQueue: (episodeId: string) => void;
+  resumePolling: (episodeId: string) => void;
   removeFromQueue: (episodeId: string) => void;
   retryEpisode: (episodeId: string) => void;
 

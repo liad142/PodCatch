@@ -4,6 +4,7 @@ import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DailyMixCard } from './DailyMixCard';
+import { SummaryModal } from './SummaryModal';
 import { cn } from '@/lib/utils';
 import { useImpressionTracker } from '@/hooks/useImpressionTracker';
 
@@ -15,6 +16,10 @@ interface Episode {
   podcastId: string;
   podcastName: string;
   podcastArtwork: string;
+  audioUrl: string;
+  durationSeconds: number | null;
+  summaries?: { quick?: any; deep?: any };
+  summaryPreview?: { tags?: string[]; hookHeadline?: string; executiveBrief?: string };
 }
 
 interface DailyMixCarouselProps {
@@ -26,6 +31,7 @@ export function DailyMixCarousel({ episodes, isLoading = false }: DailyMixCarous
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
   const impressionItems = useMemo(
     () => episodes.map((ep) => ({ id: ep.id, podcastId: ep.podcastId, episodeId: ep.id })),
     [episodes]
@@ -57,6 +63,10 @@ export function DailyMixCarousel({ episodes, isLoading = false }: DailyMixCarous
     const amount = el.clientWidth * 0.8;
     el.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' });
   };
+
+  const selectedEpisode = selectedEpisodeId
+    ? episodes.find(ep => ep.id === selectedEpisodeId) ?? null
+    : null;
 
   return (
     <section>
@@ -106,17 +116,31 @@ export function DailyMixCarousel({ episodes, isLoading = false }: DailyMixCarous
                 ref={(el) => registerElement(ep.id, el)}
               >
                 <DailyMixCard
-                  episodeId={ep.id}
                   title={ep.title}
                   description={ep.description}
                   podcastName={ep.podcastName}
                   podcastArtwork={ep.podcastArtwork}
-                  podcastId={ep.podcastId}
                   publishedAt={ep.publishedAt}
+                  onClick={() => setSelectedEpisodeId(ep.id)}
                 />
               </div>
             ))}
       </div>
+
+      {/* Summary Modal */}
+      {selectedEpisode && (
+        <SummaryModal
+          episodeId={selectedEpisode.id}
+          title={selectedEpisode.title}
+          podcastName={selectedEpisode.podcastName}
+          podcastArtwork={selectedEpisode.podcastArtwork}
+          audioUrl={selectedEpisode.audioUrl}
+          durationSeconds={selectedEpisode.durationSeconds}
+          podcastId={selectedEpisode.podcastId}
+          summaries={selectedEpisode.summaries || {}}
+          onClose={() => setSelectedEpisodeId(null)}
+        />
+      )}
     </section>
   );
 }

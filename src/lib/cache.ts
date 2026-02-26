@@ -235,6 +235,67 @@ export async function checkRateLimit(
 }
 
 /**
+ * Per-user daily quota tracking using Redis
+ * Key pattern: quota:{feature}:{userId}:{YYYY-MM-DD}
+ * Auto-expires at end of day (max 48h TTL to handle timezone edge cases)
+ */
+export async function checkQuota(
+  userId: string,
+  feature: string,
+  maxPerDay: number
+): Promise<{ allowed: boolean; used: number; limit: number }> {
+  try {
+    const client = getRedis();
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const key = `quota:${feature}:${userId}:${today}`;
+
+    // Atomic increment — creates key if it doesn't exist
+    const used = await client.incr(key);
+    // Set TTL on first use (48h to handle timezone edges)
+    if (used === 1) {
+      await client.expire(key, 172800);
+    }
+
+    if (used > maxPerDay) {
+      return { allowed: false, used, limit: maxPerDay };
+    }
+    return { allowed: true, used, limit: maxPerDay };
+  } catch (error) {
+    console.error('[CACHE ERROR] Quota check failed:', feature, userId, error);
+    // Fail open — allow request if Redis is down
+    return { allowed: true, used: 0, limit: maxPerDay };
+  }
+}
+
+/**
+ * Get current quota usage without incrementing
+ */
+export async function getQuotaUsage(
+  userId: string,
+  feature: string
+): Promise<number> {
+  try {
+    const client = getRedis();
+    const today = new Date().toISOString().slice(0, 10);
+    const key = `quota:${feature}:${userId}:${today}`;
+    const count = await client.get<number>(key);
+    return count || 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Admin emails that bypass quotas */
+const ADMIN_EMAILS = [
+  process.env.ADMIN_EMAIL,
+].filter(Boolean) as string[];
+
+export function isAdminEmail(email: string | undefined): boolean {
+  if (!email) return false;
+  return ADMIN_EMAILS.includes(email);
+}
+
+/**
  * Get Redis health info for admin dashboard
  */
 export async function getCacheHealth(): Promise<{
