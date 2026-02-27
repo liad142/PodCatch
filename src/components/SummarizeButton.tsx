@@ -13,6 +13,7 @@ import {
   QueuePositionIndicator
 } from '@/components/animations';
 import { Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
+import posthog from 'posthog-js';
 import type { QueueItemState } from '@/types/queue';
 
 interface SummarizeButtonProps {
@@ -65,6 +66,7 @@ export function SummarizeButton({ episodeId, initialStatus = 'not_ready', classN
         addToQueue(episodeId);
         break;
       case 'ready':
+        posthog.capture('summary_viewed', { episode_id: episodeId });
         router.push(`/episode/${episodeId}/insights?tab=summary`);
         break;
       case 'failed':
@@ -72,6 +74,7 @@ export function SummarizeButton({ episodeId, initialStatus = 'not_ready', classN
           setShowCompactPrompt(true, 'Only registered users can summarize episodes. Please sign in or create an account to continue.');
           return;
         }
+        posthog.capture('summary_retried', { episode_id: episodeId });
         retryEpisode(episodeId);
         break;
       default:

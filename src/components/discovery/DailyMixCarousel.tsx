@@ -1,12 +1,12 @@
 'use client';
 
-import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
+import posthog from 'posthog-js';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DailyMixCard } from './DailyMixCard';
 import { SummaryModal } from './SummaryModal';
 import { cn } from '@/lib/utils';
-import { useImpressionTracker } from '@/hooks/useImpressionTracker';
 
 interface Episode {
   id: string;
@@ -32,11 +32,6 @@ export function DailyMixCarousel({ episodes, isLoading = false }: DailyMixCarous
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
-  const impressionItems = useMemo(
-    () => episodes.map((ep) => ({ id: ep.id, podcastId: ep.podcastId, episodeId: ep.id })),
-    [episodes]
-  );
-  const { registerElement } = useImpressionTracker('discover_daily_mix', impressionItems);
 
   const checkScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -109,19 +104,14 @@ export function DailyMixCarousel({ episodes, isLoading = false }: DailyMixCarous
               <Skeleton key={i} className="w-[340px] h-[200px] rounded-2xl flex-shrink-0" />
             ))
           : episodes.map((ep) => (
-              <div
-                key={ep.id}
-                className="snap-start"
-                data-impression-id={ep.id}
-                ref={(el) => registerElement(ep.id, el)}
-              >
+              <div key={ep.id} className="snap-start">
                 <DailyMixCard
                   title={ep.title}
                   description={ep.description}
                   podcastName={ep.podcastName}
                   podcastArtwork={ep.podcastArtwork}
                   publishedAt={ep.publishedAt}
-                  onClick={() => setSelectedEpisodeId(ep.id)}
+                  onClick={() => { posthog.capture('summary_modal_opened', { episode_id: ep.id, podcast_name: ep.podcastName }); setSelectedEpisodeId(ep.id); }}
                 />
               </div>
             ))}

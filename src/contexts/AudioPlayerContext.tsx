@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import posthog from 'posthog-js';
 
 interface Track {
   id: string;
@@ -192,6 +193,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     if (track) {
       loadTrack(track);
+      posthog.capture('episode_played', { episode_id: track.id, podcast_name: track.artist });
       const onCanPlay = () => {
         audio.removeEventListener('canplay', onCanPlay);
         audio.play().catch(() => {});

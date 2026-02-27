@@ -14,9 +14,8 @@ import { supabase } from "@/lib/supabase";
 import { useSummarizeQueue } from "@/contexts/SummarizeQueueContext";
 import { SummarizeButton } from "@/components/SummarizeButton";
 import { InlinePlayButton } from "@/components/PlayButton";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
 import type { Podcast } from "@/types/database";
-import { ArrowLeft, Mic2, Calendar, Globe, Rss, Clock, FileText, Loader2, BarChart3 } from "lucide-react";
+import { ArrowLeft, Mic2, Calendar, Globe, Rss, Clock, FileText, Loader2 } from "lucide-react";
 
 interface Episode {
   id: string;
@@ -58,7 +57,6 @@ export default function PodcastPage() {
   const [importingEpisodeId, setImportingEpisodeId] = useState<string | null>(null);
 
   const { addToQueue } = useSummarizeQueue();
-  const isAdmin = useIsAdmin();
 
   // Load podcast AND episodes together to avoid timing issues
   useEffect(() => {
@@ -357,22 +355,14 @@ export default function PodcastPage() {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-8">
-        {/* Back Button + Admin Analytics Link */}
-        <div className="flex items-center justify-between mb-6">
+        {/* Back Button */}
+        <div className="mb-6">
           <Link href="/my-podcasts">
             <Button variant="ghost" className="-ml-2">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to My Podcasts
             </Button>
           </Link>
-          {isAdmin && (
-            <Link href={`/admin/podcasts/${podcastId}/analytics`}>
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <BarChart3 className="h-4 w-4" />
-                Analytics
-              </Button>
-            </Link>
-          )}
         </div>
 
         {isLoading ? (

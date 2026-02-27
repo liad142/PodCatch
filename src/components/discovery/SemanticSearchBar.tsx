@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import posthog from 'posthog-js';
 import { useRouter } from 'next/navigation';
 import { Search, Loader2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -76,6 +77,7 @@ export function SemanticSearchBar() {
 
       const data = await res.json();
       setResults(data.podcasts || []);
+      posthog.capture('search_performed', { query: term });
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       console.error('Search error:', err);

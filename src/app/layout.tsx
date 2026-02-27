@@ -7,6 +7,7 @@ import { SummarizeQueueProvider } from "@/contexts/SummarizeQueueContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { PostHogProvider } from "@/components/PostHogProvider";
 import { AppShell } from "@/components/AppShell";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -35,18 +36,20 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${plusJakarta.variable}`}>
         <AuthProvider>
-          <ThemeProvider>
-            <CountryProvider>
-              <SummarizeQueueProvider>
-                <SubscriptionProvider>
-                  <AudioPlayerProvider>
-                    <AppShell>{children}</AppShell>
-                    <SpeedInsights />
-                  </AudioPlayerProvider>
-                </SubscriptionProvider>
-              </SummarizeQueueProvider>
-            </CountryProvider>
-          </ThemeProvider>
+          <PostHogProvider>
+            <ThemeProvider>
+              <CountryProvider>
+                <SummarizeQueueProvider>
+                  <SubscriptionProvider>
+                    <AudioPlayerProvider>
+                      <AppShell>{children}</AppShell>
+                      <SpeedInsights />
+                    </AudioPlayerProvider>
+                  </SubscriptionProvider>
+                </SummarizeQueueProvider>
+              </CountryProvider>
+            </ThemeProvider>
+          </PostHogProvider>
         </AuthProvider>
       </body>
     </html>

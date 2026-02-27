@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getCached, setCached, CacheTTL } from '@/lib/cache';
+import { getCached, setCached } from '@/lib/cache';
 import type { AiAnalytics } from '@/types/admin';
 
 const CACHE_KEY = 'admin:ai-analytics';
@@ -121,7 +121,7 @@ export async function GET() {
   };
 
   // Cache for 15 minutes
-  await setCached(CACHE_KEY, data, CacheTTL.ANALYTICS);
+  await setCached(CACHE_KEY, data, 900);
 
   return NextResponse.json(data);
 }

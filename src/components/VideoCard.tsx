@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import posthog from 'posthog-js';
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -95,6 +96,7 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
       if (response.ok) {
         const data = await response.json();
         setIsSaved(data.bookmarked);
+        posthog.capture(data.bookmarked ? 'video_bookmarked' : 'video_unbookmarked', { video_id: video.videoId, title: video.title });
         onSave?.(video, data.bookmarked);
       }
     } catch (err) {

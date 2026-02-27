@@ -11,7 +11,6 @@ const AuthModal = dynamic(() => import('@/components/auth/AuthModal').then(m => 
 const CompactAuthPrompt = dynamic(() => import('@/components/auth/CompactAuthPrompt').then(m => ({ default: m.CompactAuthPrompt })), { ssr: false });
 const QueueToast = dynamic(() => import('@/components/QueueToast').then(m => ({ default: m.QueueToast })), { ssr: false });
 const AskAIChatPopup = dynamic(() => import('@/components/insights/AskAIChatPopup').then(m => ({ default: m.AskAIChatPopup })), { ssr: false });
-const AnalyticsTracker = dynamic(() => import('@/components/AnalyticsTracker').then(m => ({ default: m.AnalyticsTracker })), { ssr: false });
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -38,7 +37,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Audio player z-40: above mobile bottom nav (z-30), below modals */}
       <StickyAudioPlayer />
       <AskAIChatPopup />
-      <AnalyticsTracker />
     </AskAIProvider>
   );
 }

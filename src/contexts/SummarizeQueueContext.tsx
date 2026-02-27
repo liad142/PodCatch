@@ -2,6 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import posthog from 'posthog-js';
 import type { QueueItem, QueueItemState, SummarizeQueueContextValue } from '@/types/queue';
 
 const SummarizeQueueContext = createContext<SummarizeQueueContextValue | null>(null);
@@ -308,6 +309,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
       return [...filtered, newItem];
     });
     setStats(prev => ({ ...prev, total: prev.total + 1 }));
+    posthog.capture('summary_requested', { level: 'deep', episode_id: episodeId });
   }, []);
 
   const removeFromQueue = useCallback((episodeId: string) => {

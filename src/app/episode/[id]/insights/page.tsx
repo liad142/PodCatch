@@ -2,15 +2,15 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import posthog from "posthog-js";
 import { Header } from "@/components/Header";
 import { EpisodeSmartFeed } from "@/components/insights/EpisodeSmartFeed";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase";
 import type { Episode, Podcast } from "@/types/database";
-import { Clock, Calendar, BarChart3, ExternalLink, ChevronRight, Share2 } from "lucide-react";
+import { Clock, Calendar, ExternalLink, ChevronRight, Share2 } from "lucide-react";
 import { InlinePlayButton } from "@/components/PlayButton";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 interface EpisodeData extends Episode {
   podcast?: Podcast;
@@ -24,7 +24,6 @@ export default function EpisodeInsightsPage() {
   const [episode, setEpisode] = useState<EpisodeData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const isAdmin = useIsAdmin();
 
   const fetchEpisode = useCallback(async () => {
     try {
@@ -51,6 +50,7 @@ export default function EpisodeInsightsPage() {
         ...episodeData,
         podcast: podcastData || undefined,
       });
+      posthog.capture('insights_viewed', { episode_id: episodeId, podcast_name: podcastData?.title });
     } catch (err) {
       console.error("Error fetching episode:", err);
       setError("Failed to load episode");
@@ -174,18 +174,6 @@ export default function EpisodeInsightsPage() {
                 </button>
                 <ChevronRight className="h-3.5 w-3.5" />
                 <span className="text-foreground truncate max-w-[200px]">Insights</span>
-                {isAdmin && (
-                  <>
-                    <span className="mx-1">|</span>
-                    <button
-                      onClick={() => router.push(`/admin/episodes/${episodeId}/analytics`)}
-                      className="flex items-center gap-1 hover:text-foreground transition-colors"
-                    >
-                      <BarChart3 className="h-3 w-3" />
-                      Analytics
-                    </button>
-                  </>
-                )}
               </nav>
 
               {/* Art + Info */}

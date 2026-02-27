@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import posthog from 'posthog-js';
 import Image from 'next/image';
 import Link from 'next/link';
 import { X, Play, Clock, Lightbulb, Loader2, Target, Tag, Headphones, ArrowRight } from 'lucide-react';
@@ -121,6 +122,7 @@ export function SummaryModal({
   }, [episodeId, title, podcastName, artwork, audioUrl, durationSeconds, podcastId, deepSummary]);
 
   const handlePlay = useCallback(() => {
+    posthog.capture('summary_modal_play_clicked', { episode_id: episodeId, podcast_name: podcastName });
     player.play(track);
     if (!user) {
       // Close modal and show auth prompt for AI player

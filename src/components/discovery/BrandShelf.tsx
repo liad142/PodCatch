@@ -1,10 +1,9 @@
 'use client';
 
-import { useRef, useMemo } from 'react';
+import { useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BrandBubble } from './BrandBubble';
 import { ApplePodcast } from '@/components/ApplePodcastCard';
-import { useImpressionTracker } from '@/hooks/useImpressionTracker';
 
 interface BrandShelfProps {
   podcasts: ApplePodcast[];
@@ -14,11 +13,6 @@ interface BrandShelfProps {
 
 export function BrandShelf({ podcasts, isLoading = false, title = 'Top Podcasts' }: BrandShelfProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const impressionItems = useMemo(
-    () => podcasts.map((p) => ({ id: p.id, podcastId: p.id })),
-    [podcasts]
-  );
-  const { registerElement } = useImpressionTracker('discover_top', impressionItems);
 
   return (
     <section>
@@ -41,11 +35,7 @@ export function BrandShelf({ podcasts, isLoading = false, title = 'Top Podcasts'
             </div>
           ))
           : podcasts.map((podcast) => (
-            <div
-              key={podcast.id}
-              data-impression-id={podcast.id}
-              ref={(el) => registerElement(podcast.id, el)}
-            >
+            <div key={podcast.id}>
               <BrandBubble
                 id={podcast.id}
                 name={podcast.name}

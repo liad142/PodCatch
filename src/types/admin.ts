@@ -82,26 +82,6 @@ export interface AiAnalytics {
   }[];
 }
 
-export interface EngagementAnalytics {
-  totalSubscriptions: number;
-  totalFollows: number;
-  totalBookmarks: number;
-  subscriptionsOverTime: TimeSeriesPoint[];
-  followsOverTime: TimeSeriesPoint[];
-  topSubscribed: {
-    id: string;
-    title: string;
-    subscriber_count: number;
-    image_url: string | null;
-  }[];
-  topFollowed: {
-    id: string;
-    title: string;
-    follower_count: number;
-  }[];
-  feedItemsBySource: LabeledCount[];
-}
-
 export type TodoStatus = 'idea' | 'planned' | 'in_progress' | 'done';
 export type TodoPriority = 'low' | 'medium' | 'high';
 

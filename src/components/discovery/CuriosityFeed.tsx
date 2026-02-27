@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InsightCard } from './InsightCard';
-import { useImpressionTracker } from '@/hooks/useImpressionTracker';
 
 interface FeedEpisode {
   id: string;
@@ -35,12 +34,6 @@ export function CuriosityFeed({
 }: CuriosityFeedProps) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const isLoadingMore = useRef(false);
-
-  const impressionItems = useMemo(
-    () => episodes.map((ep) => ({ id: ep.id, podcastId: ep.podcastId, episodeId: ep.id })),
-    [episodes]
-  );
-  const { registerElement } = useImpressionTracker('discover_feed', impressionItems);
 
   const handleIntersect = useCallback(
     (entries: IntersectionObserverEntry[]) => {
@@ -104,11 +97,7 @@ export function CuriosityFeed({
             </div>
           ))
           : episodes.map((episode) => (
-            <div
-              key={`${episode.podcastId}-${episode.id}`}
-              data-impression-id={episode.id}
-              ref={(el) => registerElement(episode.id, el)}
-            >
+            <div key={`${episode.podcastId}-${episode.id}`}>
               <InsightCard
                 episodeId={episode.id}
                 title={episode.title}

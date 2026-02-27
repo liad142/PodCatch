@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import posthog from 'posthog-js';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface SubscriptionContextType {
@@ -99,6 +100,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       // Update internal state
       setSubscribedPodcastIds(prev => new Set(prev).add(podcastId));
       setAppleToInternalMap(prev => new Map(prev).set(appleId, podcastId));
+      posthog.capture('podcast_subscribed', { apple_id: appleId, podcast_id: podcastId });
     } catch (error) {
       // Revert on error
       setSubscribedAppleIds(prev => {
@@ -149,6 +151,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         next.delete(podcastId);
         return next;
       });
+      posthog.capture('podcast_unsubscribed', { apple_id: appleId, podcast_id: podcastId });
     } catch (error) {
       // Revert on error
       setSubscribedAppleIds(prev => new Set(prev).add(appleId));

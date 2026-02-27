@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import posthog from 'posthog-js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Headphones, Sparkles, ArrowRight, Check, Youtube, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -190,6 +191,7 @@ export default function OnboardingPage() {
       const data = await res.json();
       console.log(`[ONBOARDING] Profile saved:`, data.profile?.preferred_genres);
       setStep('done');
+      posthog.capture('onboarding_completed');
     } catch (error) {
       console.error('[ONBOARDING] Error saving preferences:', error);
     } finally {
