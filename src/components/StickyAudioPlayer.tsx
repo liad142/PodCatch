@@ -35,8 +35,10 @@ import {
   Loader2,
   X,
   Clock,
+  Sparkles,
 } from 'lucide-react';
 import { useAudioPlayerSafe } from '@/contexts/AudioPlayerContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { usePlayerAskAI } from '@/contexts/AskAIContext';
 import { AskAIBar } from '@/components/insights/AskAIBar';
 import { Slider } from '@/components/ui/slider';
@@ -275,6 +277,8 @@ function ChapterScrubber({
 
 export function StickyAudioPlayer() {
   const player = useAudioPlayerSafe();
+  const { user, setShowAuthModal } = useAuth();
+  const [upsellDismissed, setUpsellDismissed] = useState(false);
 
   // Stable ref for chapter injection to avoid re-triggering usePlayerAskAI effect
   const playerRef = useRef(player);
@@ -368,8 +372,25 @@ export function StickyAudioPlayer() {
       >
         {/* Unified Floating Card */}
         <div className="relative w-full max-w-3xl rounded-2xl overflow-hidden bg-card/95 backdrop-blur-xl border border-border shadow-[var(--shadow-floating)]">
-          {/* 1. Integrated Ask AI Bar */}
-          <AskAIBar mode="integrated" />
+          {/* 1. Integrated Ask AI Bar / Guest Upsell */}
+          {!user ? (
+            <button
+              onClick={() => setShowAuthModal(true, 'Sign up to unlock smart chapters, Ask AI, speed controls, and more.')}
+              className="w-full px-4 py-2 border-b border-border hover:bg-secondary/50 transition-colors cursor-pointer group"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="bg-gradient-to-r from-primary to-blue-500 rounded-full p-1 shrink-0">
+                  <Sparkles className="h-3 w-3 text-white" />
+                </div>
+                <span className="flex-1 text-sm text-muted-foreground group-hover:text-foreground transition-colors text-left truncate">
+                  Unlock AI chapters, Ask AI & more
+                </span>
+                <span className="text-xs text-primary font-medium shrink-0">Sign up</span>
+              </div>
+            </button>
+          ) : (
+            <AskAIBar mode="integrated" />
+          )}
 
           {/* 2. Progress Bar / Chapter Scrubber — padded hit area so taps don't bleed into AskAI */}
           {currentTrack.chapters && currentTrack.chapters.length > 0 ? (
@@ -578,14 +599,36 @@ export function StickyAudioPlayer() {
                     </span>
                   </div>
 
-                  {/* Chapters */}
-                  {currentTrack.chapters && currentTrack.chapters.length > 0 && (
+                  {/* Chapters (authenticated) or upsell (guest) */}
+                  {currentTrack.chapters && currentTrack.chapters.length > 0 ? (
                     <PlayerChapters
                       chapters={currentTrack.chapters}
                       currentTime={currentTime}
                       onSeek={seek}
                     />
-                  )}
+                  ) : !user && !upsellDismissed ? (
+                    <div className="mt-4 pt-4 border-t border-border/30">
+                      <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary/5 border border-primary/15">
+                        <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                        <p className="text-xs text-muted-foreground flex-1">
+                          <button
+                            onClick={() => setShowAuthModal(true, 'Sign up to unlock smart chapters, speed controls, and more.')}
+                            className="text-primary font-medium hover:underline cursor-pointer"
+                          >
+                            Sign up
+                          </button>
+                          {' '}to unlock AI chapters & full insights
+                        </p>
+                        <button
+                          onClick={() => setUpsellDismissed(true)}
+                          className="p-1 rounded-full text-muted-foreground/40 hover:text-muted-foreground transition-colors cursor-pointer"
+                          aria-label="Dismiss"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </motion.div>
             )}

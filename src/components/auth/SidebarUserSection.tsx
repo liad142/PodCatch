@@ -1,12 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import { User, LogOut, Settings, ChevronDown } from 'lucide-react';
+import { User, LogOut, Settings, ChevronDown, Headphones, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+
+// Inline YouTube icon (Lucide doesn't include brand icons)
+function YouTubeIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+    </svg>
+  );
+}
 
 interface SidebarUserSectionProps {
   compact?: boolean;
@@ -45,13 +54,27 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
     }
 
     return (
-      <Button
-        className="w-full justify-start gap-2"
-        onClick={() => setShowAuthModal(true)}
-      >
-        <User className="h-4 w-4" />
-        Sign Up
-      </Button>
+      <div className="space-y-2.5">
+        <Button
+          className="w-full justify-start gap-2"
+          onClick={() => setShowAuthModal(true)}
+        >
+          <User className="h-4 w-4" />
+          Sign Up
+        </Button>
+        <div className="flex items-center gap-2 px-1">
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <Headphones className="h-3 w-3" />
+            <span className="text-[11px]">Podcasts</span>
+          </div>
+          <span className="text-muted-foreground/30 text-[11px]">+</span>
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <YouTubeIcon className="h-3 w-3 text-red-500" />
+            <span className="text-[11px]">YouTube</span>
+          </div>
+          <span className="text-muted-foreground/30 text-[11px]">AI summaries</span>
+        </div>
+      </div>
     );
   }
 

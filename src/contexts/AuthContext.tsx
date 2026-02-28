@@ -47,10 +47,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Get initial session
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setUser(session?.user ?? null);
+      } catch {
+        // Session fetch failed (network, expired token, etc.) — treat as logged out
+        setSession(null);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
     };
     getSession();
 

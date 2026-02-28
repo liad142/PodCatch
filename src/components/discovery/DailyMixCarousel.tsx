@@ -14,6 +14,7 @@ interface Episode {
   description: string;
   publishedAt: Date;
   podcastId: string;
+  podcastAppleId?: string | null;
   podcastName: string;
   podcastArtwork: string;
   audioUrl: string;
@@ -111,6 +112,8 @@ export function DailyMixCarousel({ episodes, isLoading = false }: DailyMixCarous
                   podcastName={ep.podcastName}
                   podcastArtwork={ep.podcastArtwork}
                   publishedAt={ep.publishedAt}
+                  podcastId={ep.podcastId}
+                  podcastAppleId={ep.podcastAppleId}
                   onClick={() => { posthog.capture('summary_modal_opened', { episode_id: ep.id, podcast_name: ep.podcastName }); setSelectedEpisodeId(ep.id); }}
                 />
               </div>

@@ -2,9 +2,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, X, Send, Loader2, AlertCircle, Trash2 } from "lucide-react";
+import { Sparkles, X, Send, Loader2, AlertCircle, Trash2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAskAI } from "@/contexts/AskAIContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useAudioPlayerSafe } from "@/contexts/AudioPlayerContext";
 import { useAskAIChat } from "@/hooks/useAskAIChat";
 
@@ -88,10 +89,11 @@ function formatInline(text: string): React.ReactNode {
 
 export function AskAIChatPopup() {
   const { chatOpen, closeChat, episodeId } = useAskAI();
+  const { user, setShowAuthModal } = useAuth();
   const player = useAudioPlayerSafe();
   const playerActive = !!(player && player.currentTrack);
   const { messages, isStreaming, error, sendMessage, clearChat } = useAskAIChat(
-    chatOpen ? episodeId : null
+    chatOpen && user ? episodeId : null
   );
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -102,12 +104,12 @@ export function AskAIChatPopup() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Focus input when chat opens
+  // Focus input when chat opens (only for authenticated users)
   useEffect(() => {
-    if (chatOpen) {
+    if (chatOpen && user) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [chatOpen]);
+  }, [chatOpen, user]);
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -149,7 +151,7 @@ export function AskAIChatPopup() {
                   <span className="font-semibold text-sm">Ask AI</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  {messages.length > 0 && (
+                  {user && messages.length > 0 && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -171,91 +173,128 @@ export function AskAIChatPopup() {
                 </div>
               </div>
 
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[100px]">
-                {messages.length === 0 && !error && (
-                  <div className="flex flex-col items-center justify-center py-6 gap-3">
+              {/* Guest gated view */}
+              {!user ? (
+                <div className="px-4 py-6 space-y-5">
+                  <div className="flex flex-col items-center text-center gap-2">
                     <p className="text-sm text-muted-foreground">Ask anything about this episode</p>
+                    {/* Show suggested questions as visual preview (non-functional) */}
                     <div className="flex flex-wrap gap-2 justify-center">
                       {SUGGESTED_QUESTIONS.map((q) => (
-                        <button
+                        <span
                           key={q}
-                          onClick={() => handleSuggestion(q)}
-                          className="px-3 py-1.5 text-xs rounded-full border border-border bg-muted/50 hover:bg-muted text-foreground transition-colors"
+                          className="px-3 py-1.5 text-xs rounded-full border border-border bg-muted/50 text-muted-foreground"
                         >
                           {q}
-                        </button>
+                        </span>
                       ))}
                     </div>
                   </div>
-                )}
 
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-sm ${
-                        msg.role === "user"
-                          ? "bg-primary text-primary-foreground rounded-br-md"
-                          : "bg-muted/70 text-foreground rounded-bl-md"
-                      }`}
+                  {/* Sign up CTA */}
+                  <div className="flex flex-col items-center gap-3 pt-2">
+                    <div className="w-full h-px bg-border" />
+                    <p className="text-xs text-muted-foreground">
+                      Get AI-powered answers about any episode
+                    </p>
+                    <button
+                      onClick={() => { closeChat(); setShowAuthModal(true, 'Sign up to ask AI about any podcast or YouTube video.'); }}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-medium shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
                     >
-                      {msg.role === "assistant" ? (
-                        <div className="prose-sm prose-p:my-0.5 prose-li:my-0">
-                          {msg.text ? renderMarkdown(msg.text) : (
-                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                          )}
-                          {msg.isStreaming && msg.text && (
-                            <span className="inline-block w-1.5 h-4 bg-foreground/60 animate-pulse ml-0.5 align-text-bottom" />
+                      <Lock className="h-3.5 w-3.5" />
+                      Sign up to use Ask AI
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[100px]">
+                    {messages.length === 0 && !error && (
+                      <div className="flex flex-col items-center justify-center py-6 gap-3">
+                        <p className="text-sm text-muted-foreground">Ask anything about this episode</p>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          {SUGGESTED_QUESTIONS.map((q) => (
+                            <button
+                              key={q}
+                              onClick={() => handleSuggestion(q)}
+                              className="px-3 py-1.5 text-xs rounded-full border border-border bg-muted/50 hover:bg-muted text-foreground transition-colors cursor-pointer"
+                            >
+                              {q}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {messages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-sm ${
+                            msg.role === "user"
+                              ? "bg-primary text-primary-foreground rounded-br-md"
+                              : "bg-muted/70 text-foreground rounded-bl-md"
+                          }`}
+                        >
+                          {msg.role === "assistant" ? (
+                            <div className="prose-sm prose-p:my-0.5 prose-li:my-0">
+                              {msg.text ? renderMarkdown(msg.text) : (
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                              )}
+                              {msg.isStreaming && msg.text && (
+                                <span className="inline-block w-1.5 h-4 bg-foreground/60 animate-pulse ml-0.5 align-text-bottom" />
+                              )}
+                            </div>
+                          ) : (
+                            msg.text
                           )}
                         </div>
+                      </div>
+                    ))}
+
+                    {error && (
+                      <div className="flex items-center gap-2 text-destructive text-xs px-3 py-2 bg-destructive/10 rounded-lg">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                        {error}
+                      </div>
+                    )}
+
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Input */}
+                  <form
+                    onSubmit={handleSubmit}
+                    className="flex items-center gap-2 px-3 py-2.5 border-t border-border/50"
+                  >
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder="Ask a question..."
+                      disabled={isStreaming}
+                      className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 disabled:opacity-50"
+                      maxLength={2000}
+                    />
+                    <Button
+                      type="submit"
+                      size="icon"
+                      className="rounded-full w-8 h-8 shrink-0"
+                      disabled={!input.trim() || isStreaming}
+                    >
+                      {isStreaming ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
-                        msg.text
+                        <Send className="h-3.5 w-3.5" />
                       )}
-                    </div>
-                  </div>
-                ))}
-
-                {error && (
-                  <div className="flex items-center gap-2 text-destructive text-xs px-3 py-2 bg-destructive/10 rounded-lg">
-                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                    {error}
-                  </div>
-                )}
-
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Input */}
-              <form
-                onSubmit={handleSubmit}
-                className="flex items-center gap-2 px-3 py-2.5 border-t border-border/50"
-              >
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask a question..."
-                  disabled={isStreaming}
-                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 disabled:opacity-50"
-                  maxLength={2000}
-                />
-                <Button
-                  type="submit"
-                  size="icon"
-                  className="rounded-full w-8 h-8 shrink-0"
-                  disabled={!input.trim() || isStreaming}
-                >
-                  {isStreaming ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Send className="h-3.5 w-3.5" />
-                  )}
-                </Button>
-              </form>
+                    </Button>
+                  </form>
+                </>
+              )}
             </div>
           </div>
         </motion.div>

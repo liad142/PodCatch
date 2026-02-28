@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import posthog from 'posthog-js';
 import Image from 'next/image';
 import Link from 'next/link';
-import { X, Play, Clock, Lightbulb, Loader2, Target, Tag, Headphones, ArrowRight } from 'lucide-react';
+import { X, Play, Clock, Lightbulb, Loader2, Target, Tag, Headphones, ArrowRight, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
@@ -93,19 +93,21 @@ export function SummaryModal({
     return () => { document.body.style.overflow = ''; };
   }, []);
 
-  // Build track with chapters
+  // Build track with chapters (only for authenticated users)
   const track = useMemo(() => {
-    const sections = deepSummary?.chronological_breakdown;
     let chapters: { title: string; timestamp: string; timestamp_seconds: number }[] | undefined;
 
-    if (sections && hasRealTimestamps(sections)) {
-      chapters = sections
-        .filter(s => (s.timestamp_seconds ?? 0) >= 0 && s.timestamp)
-        .map(s => ({
-          title: s.title || 'Untitled',
-          timestamp: s.timestamp!,
-          timestamp_seconds: s.timestamp_seconds!,
-        }));
+    if (user) {
+      const sections = deepSummary?.chronological_breakdown;
+      if (sections && hasRealTimestamps(sections)) {
+        chapters = sections
+          .filter(s => (s.timestamp_seconds ?? 0) >= 0 && s.timestamp)
+          .map(s => ({
+            title: s.title || 'Untitled',
+            timestamp: s.timestamp!,
+            timestamp_seconds: s.timestamp_seconds!,
+          }));
+      }
     }
 
     return {
@@ -119,17 +121,12 @@ export function SummaryModal({
       podcastId,
       source: 'daily_mix_modal',
     };
-  }, [episodeId, title, podcastName, artwork, audioUrl, durationSeconds, podcastId, deepSummary]);
+  }, [episodeId, title, podcastName, artwork, audioUrl, durationSeconds, podcastId, deepSummary, user]);
 
   const handlePlay = useCallback(() => {
     posthog.capture('summary_modal_play_clicked', { episode_id: episodeId, podcast_name: podcastName });
     player.play(track);
-    if (!user) {
-      // Close modal and show auth prompt for AI player
-      onClose();
-      setShowAuthModal(true, 'Sign up to unlock the AI Player with smart chapters, speed controls, and more.');
-    }
-  }, [player, track, user, onClose, setShowAuthModal]);
+  }, [player, track, episodeId, podcastName]);
 
   const isCurrentlyPlaying = player.currentTrack?.id === episodeId && player.isPlaying;
 
@@ -265,47 +262,87 @@ export function SummaryModal({
                           {quickSummary.hook_headline}
                         </h3>
                         <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-                          {quickSummary.executive_brief}
+                          {!user
+                            ? quickSummary.executive_brief?.slice(0, 300) + (quickSummary.executive_brief?.length > 300 ? '...' : '')
+                            : quickSummary.executive_brief}
                         </p>
                       </div>
 
-                      {/* Golden Nugget */}
-                      {quickSummary.golden_nugget && (
-                        <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 p-4">
-                          <div className="flex items-start gap-2.5">
-                            <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                            <div>
-                              <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide mb-1">Golden Nugget</p>
-                              <p className="text-sm text-amber-900 dark:text-amber-100 leading-relaxed">
-                                {quickSummary.golden_nugget}
-                              </p>
+                      {/* Full summary content — only for signed-in users */}
+                      {user ? (
+                        <>
+                          {/* Golden Nugget */}
+                          {quickSummary.golden_nugget && (
+                            <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 p-4">
+                              <div className="flex items-start gap-2.5">
+                                <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide mb-1">Golden Nugget</p>
+                                  <p className="text-sm text-amber-900 dark:text-amber-100 leading-relaxed">
+                                    {quickSummary.golden_nugget}
+                                  </p>
+                                </div>
+                              </div>
                             </div>
+                          )}
+
+                          {/* Perfect For + Tags */}
+                          <div className="flex flex-wrap gap-3">
+                            {quickSummary.perfect_for && (
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <Target className="h-3.5 w-3.5" />
+                                <span>{quickSummary.perfect_for}</span>
+                              </div>
+                            )}
+                            {quickSummary.tags?.length > 0 && (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                                {quickSummary.tags.slice(0, 5).map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="inline-block px-2 py-0.5 rounded-full bg-secondary text-xs text-muted-foreground"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        /* Guest sign-up CTA to unlock full summary */
+                        <div className="relative">
+                          {/* Blurred preview of remaining content */}
+                          <div className="select-none pointer-events-none blur-[6px] opacity-50 space-y-4" aria-hidden>
+                            {quickSummary.golden_nugget && (
+                              <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 p-4">
+                                <p className="text-sm">
+                                  {quickSummary.golden_nugget.slice(0, 80)}...
+                                </p>
+                              </div>
+                            )}
+                            {quickSummary.tags?.length > 0 && (
+                              <div className="flex gap-1.5 flex-wrap">
+                                {quickSummary.tags.slice(0, 3).map((tag) => (
+                                  <span key={tag} className="inline-block px-2 py-0.5 rounded-full bg-secondary text-xs">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          {/* Overlay CTA */}
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <button
+                              onClick={() => { onClose(); setShowAuthModal(true, 'Sign up to read full AI summaries for podcasts and YouTube.'); }}
+                              className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-medium shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                            >
+                              <Lock className="h-3.5 w-3.5" />
+                              Sign up to read full summary
+                            </button>
                           </div>
                         </div>
                       )}
-
-                      {/* Perfect For + Tags */}
-                      <div className="flex flex-wrap gap-3">
-                        {quickSummary.perfect_for && (
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Target className="h-3.5 w-3.5" />
-                            <span>{quickSummary.perfect_for}</span>
-                          </div>
-                        )}
-                        {quickSummary.tags?.length > 0 && (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-                            {quickSummary.tags.slice(0, 5).map((tag) => (
-                              <span
-                                key={tag}
-                                className="inline-block px-2 py-0.5 rounded-full bg-secondary text-xs text-muted-foreground"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
                     </>
                   ) : deepSummary ? (
                     <>
@@ -313,71 +350,138 @@ export function SummaryModal({
                       {deepSummary.comprehensive_overview && (
                         <div>
                           <p className="text-sm text-muted-foreground leading-relaxed line-clamp-4">
-                            {deepSummary.comprehensive_overview.replace(/<<(.*?)>>/g, '$1')}
+                            {!user
+                              ? deepSummary.comprehensive_overview.replace(/<<(.*?)>>/g, '$1').slice(0, 300) + '...'
+                              : deepSummary.comprehensive_overview.replace(/<<(.*?)>>/g, '$1')}
                           </p>
                         </div>
                       )}
 
-                      {/* Top 3 takeaways */}
-                      {deepSummary.actionable_takeaways && deepSummary.actionable_takeaways.length > 0 && (
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <Lightbulb className="h-4 w-4 text-green-500" />
-                            <h4 className="text-sm font-semibold text-foreground">Key Takeaways</h4>
-                          </div>
-                          <ul className="space-y-1.5">
-                            {deepSummary.actionable_takeaways.slice(0, 3).map((item, i) => (
-                              <li key={i} className="flex gap-2 text-sm text-muted-foreground leading-relaxed">
-                                <span className="text-green-500 flex-shrink-0 mt-0.5">&#8226;</span>
-                                <span className="line-clamp-2">{typeof item === 'string' ? item : item.text}</span>
-                              </li>
-                            ))}
-                          </ul>
-                          {deepSummary.actionable_takeaways.length > 3 && (
-                            <p className="text-xs text-muted-foreground mt-1.5 ml-4">
-                              +{deepSummary.actionable_takeaways.length - 3} more
-                            </p>
+                      {user ? (
+                        <>
+                          {/* Top 3 takeaways */}
+                          {deepSummary.actionable_takeaways && deepSummary.actionable_takeaways.length > 0 && (
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <Lightbulb className="h-4 w-4 text-green-500" />
+                                <h4 className="text-sm font-semibold text-foreground">Key Takeaways</h4>
+                              </div>
+                              <ul className="space-y-1.5">
+                                {deepSummary.actionable_takeaways.slice(0, 3).map((item, i) => (
+                                  <li key={i} className="flex gap-2 text-sm text-muted-foreground leading-relaxed">
+                                    <span className="text-green-500 flex-shrink-0 mt-0.5">&#8226;</span>
+                                    <span className="line-clamp-2">{typeof item === 'string' ? item : item.text}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                              {deepSummary.actionable_takeaways.length > 3 && (
+                                <p className="text-xs text-muted-foreground mt-1.5 ml-4">
+                                  +{deepSummary.actionable_takeaways.length - 3} more
+                                </p>
+                              )}
+                            </div>
                           )}
-                        </div>
-                      )}
 
-                      {/* Core concepts as tags */}
-                      {deepSummary.core_concepts && deepSummary.core_concepts.length > 0 && (
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-                          {deepSummary.core_concepts.slice(0, 5).map((concept, i) => (
-                            <span
-                              key={i}
-                              className="inline-block px-2 py-0.5 rounded-full bg-secondary text-xs text-muted-foreground"
+                          {/* Core concepts as tags */}
+                          {deepSummary.core_concepts && deepSummary.core_concepts.length > 0 && (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                              {deepSummary.core_concepts.slice(0, 5).map((concept, i) => (
+                                <span
+                                  key={i}
+                                  className="inline-block px-2 py-0.5 rounded-full bg-secondary text-xs text-muted-foreground"
+                                >
+                                  {concept.concept}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        /* Guest sign-up CTA to unlock full summary — show real content blurred */
+                        <div className="relative">
+                          <div className="select-none pointer-events-none blur-[4px] opacity-50 space-y-4" aria-hidden>
+                            {/* Real takeaways blurred */}
+                            {deepSummary.actionable_takeaways && deepSummary.actionable_takeaways.length > 0 && (
+                              <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Lightbulb className="h-4 w-4 text-green-500" />
+                                  <span className="text-sm font-semibold text-foreground">Key Takeaways</span>
+                                </div>
+                                <ul className="space-y-1.5">
+                                  {deepSummary.actionable_takeaways.slice(0, 3).map((item, i) => (
+                                    <li key={i} className="flex gap-2 text-sm text-muted-foreground leading-relaxed">
+                                      <span className="text-green-500 flex-shrink-0">&#8226;</span>
+                                      <span className="line-clamp-2">{typeof item === 'string' ? item : item.text}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {/* Real concepts as tags blurred */}
+                            {deepSummary.core_concepts && deepSummary.core_concepts.length > 0 && (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                                {deepSummary.core_concepts.slice(0, 4).map((concept, i) => (
+                                  <span
+                                    key={i}
+                                    className="inline-block px-2 py-0.5 rounded-full bg-secondary text-xs text-muted-foreground"
+                                  >
+                                    {concept.concept}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <button
+                              onClick={() => { onClose(); setShowAuthModal(true, 'Sign up to read full AI summaries for podcasts and YouTube.'); }}
+                              className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-medium shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
                             >
-                              {concept.concept}
-                            </span>
-                          ))}
+                              <Lock className="h-3.5 w-3.5" />
+                              Sign up to read full summary
+                            </button>
+                          </div>
                         </div>
                       )}
                     </>
                   ) : null}
 
-                  {/* CTA to full insights with deep summary stats */}
+                  {/* CTA to full insights — auth-gated */}
                   <div className="pt-2 border-t border-border">
-                    <Link
-                      href={`/episode/${episodeId}/insights`}
-                      onClick={onClose}
-                      className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/20 transition-colors group cursor-pointer"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">Explore Full Insights</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {[
-                            chapters.length > 0 && `${chapters.length} chapters`,
-                            deepSummary?.core_concepts?.length && `${deepSummary.core_concepts.length} key concepts`,
-                            deepSummary?.actionable_takeaways?.length && 'action items',
-                            'transcript',
-                          ].filter(Boolean).join(' · ')}
-                        </p>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-primary group-hover:translate-x-0.5 transition-transform" />
-                    </Link>
+                    {user ? (
+                      <Link
+                        href={`/episode/${episodeId}/insights`}
+                        onClick={onClose}
+                        className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/20 transition-colors group cursor-pointer"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">Explore Full Insights</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {[
+                              chapters.length > 0 && `${chapters.length} chapters`,
+                              deepSummary?.core_concepts?.length && `${deepSummary.core_concepts.length} key concepts`,
+                              deepSummary?.actionable_takeaways?.length && 'action items',
+                              'transcript',
+                            ].filter(Boolean).join(' · ')}
+                          </p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-primary group-hover:translate-x-0.5 transition-transform" />
+                      </Link>
+                    ) : (
+                      <button
+                        onClick={() => { onClose(); setShowAuthModal(true, 'Sign up to explore full insights, chapters, and YouTube summaries.'); }}
+                        className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/20 transition-colors group cursor-pointer"
+                      >
+                        <div className="text-left">
+                          <p className="text-sm font-semibold text-foreground">Explore Full Insights</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Chapters, key concepts, action items, transcript
+                          </p>
+                        </div>
+                        <Lock className="h-4 w-4 text-primary" />
+                      </button>
+                    )}
                   </div>
                 </>
               )}

@@ -150,16 +150,18 @@ export default function OnboardingPage() {
     try {
       if (selectedChannels.size > 0) {
         const channelsToImport = ytChannels.filter(ch => selectedChannels.has(ch.channelId));
-        console.log(`[ONBOARDING] Importing ${channelsToImport.length} YouTube channels…`);
-        const res = await fetch('/api/youtube/subscriptions/import', {
+        console.log(`[ONBOARDING] Importing ${channelsToImport.length} YouTube channels (background)…`);
+        // Fire and forget — import runs on the server while user continues onboarding
+        fetch('/api/youtube/subscriptions/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ channels: channelsToImport }),
-        });
-        const data = await res.json();
-        console.log(`[ONBOARDING] YouTube import result:`, data);
+        })
+          .then(res => res.json())
+          .then(data => console.log(`[ONBOARDING] YouTube import completed:`, data))
+          .catch(err => console.error('[ONBOARDING] YouTube import error (background):', err));
       }
-      // Save genres and mark onboarding complete
+      // Save genres and mark onboarding complete — don't wait for import
       await saveAndFinish(Array.from(selectedGenres));
     } catch (err) {
       console.error('[ONBOARDING] Error:', err);

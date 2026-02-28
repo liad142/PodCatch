@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AskAIContextType {
   active: boolean;
@@ -111,10 +112,14 @@ export function usePlayerAskAI(
   onChaptersLoaded?: (chapters: { title: string; timestamp: string; timestamp_seconds: number }[]) => void
 ) {
   const { activateFromPlayer, deactivateFromPlayer } = useContext(AskAIContext);
+  const { user } = useAuth();
   const checkedRef = useRef<string | null>(null);
   // Use refs for callbacks to avoid re-triggering the effect
   const chaptersCallbackRef = useRef(onChaptersLoaded);
   chaptersCallbackRef.current = onChaptersLoaded;
+  // Track auth state in a ref to avoid re-triggering the effect
+  const userRef = useRef(user);
+  userRef.current = user;
 
   useEffect(() => {
     if (!episodeId) {
@@ -150,7 +155,8 @@ export function usePlayerAskAI(
         }
 
         // Extract chapters from deep summary's chronological_breakdown
-        if (chaptersCallbackRef.current && data?.summaries?.deep?.status === "ready") {
+        // Only load chapters for authenticated users
+        if (userRef.current && chaptersCallbackRef.current && data?.summaries?.deep?.status === "ready") {
           const deepContent = data.summaries.deep.content;
           const sections = deepContent?.chronological_breakdown;
           if (sections && Array.isArray(sections)) {

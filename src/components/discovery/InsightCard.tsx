@@ -8,6 +8,7 @@ import { Heart } from 'lucide-react';
 import { DiscoverySummarizeButton } from './DiscoverySummarizeButton';
 import { PlayButton, InlinePlayButton } from '@/components/PlayButton';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useState, useMemo } from 'react';
 
 interface InsightCardProps {
@@ -47,6 +48,7 @@ export const InsightCard = React.memo(function InsightCard({
   podcastArtwork,
   podcastFeedUrl,
 }: InsightCardProps) {
+  const { user, setShowAuthModal } = useAuth();
   const { isSubscribed, subscribe, unsubscribe } = useSubscription();
   const [isLoading, setIsLoading] = useState(false);
   const subscribed = isSubscribed(podcastId);
@@ -68,6 +70,10 @@ export const InsightCard = React.memo(function InsightCard({
   const handleSubscribe = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!user) {
+      setShowAuthModal(true, 'Sign up to follow your favourite podcasts and never miss an episode.');
+      return;
+    }
     if (isLoading) return;
     setIsLoading(true);
     try {

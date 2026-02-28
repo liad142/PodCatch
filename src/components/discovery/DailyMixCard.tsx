@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { BookOpen } from 'lucide-react';
 
 interface DailyMixCardProps {
@@ -10,6 +11,8 @@ interface DailyMixCardProps {
   podcastName: string;
   podcastArtwork: string;
   publishedAt: Date;
+  podcastId: string;
+  podcastAppleId?: string | null;
   onClick: () => void;
 }
 
@@ -39,9 +42,12 @@ export const DailyMixCard = React.memo(function DailyMixCard({
   podcastName,
   podcastArtwork,
   publishedAt,
+  podcastId,
+  podcastAppleId,
   onClick,
 }: DailyMixCardProps) {
   const artwork = isValidImageUrl(podcastArtwork) ? podcastArtwork : '/placeholder-podcast.png';
+  const podcastHref = podcastAppleId ? `/browse/podcast/${podcastAppleId}` : `/browse/podcast/${podcastId}`;
 
   return (
     <div
@@ -66,7 +72,12 @@ export const DailyMixCard = React.memo(function DailyMixCard({
       <div className="absolute inset-0 p-5 flex flex-col justify-between">
         {/* Top row: avatar, podcast name, date */}
         <div className="flex items-center gap-3">
-          <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-border flex-shrink-0">
+          <Link
+            href={podcastHref}
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-border flex-shrink-0 hover:opacity-80 transition-opacity"
+            aria-label={`Go to ${podcastName}`}
+          >
             <Image
               src={artwork}
               alt={podcastName}
@@ -74,9 +85,15 @@ export const DailyMixCard = React.memo(function DailyMixCard({
               className="object-cover"
               sizes="48px"
             />
-          </div>
+          </Link>
           <div className="flex-1 min-w-0">
-            <p className="text-body-sm text-muted-foreground truncate">{podcastName}</p>
+            <Link
+              href={podcastHref}
+              onClick={(e) => e.stopPropagation()}
+              className="text-body-sm text-muted-foreground truncate block hover:text-foreground transition-colors"
+            >
+              {podcastName}
+            </Link>
             <p className="text-caption text-muted-foreground">{formatDate(publishedAt)}</p>
           </div>
         </div>

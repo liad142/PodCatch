@@ -24,7 +24,9 @@ import {
   Target,
   FileText,
   Link as LinkIcon,
+  Lock,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SummaryPanelProps {
   episodeId: string;
@@ -36,6 +38,7 @@ interface SummaryPanelProps {
 type TabType = 'quick' | 'deep';
 
 export function SummaryPanel({ episodeId, episodeTitle, onClose }: SummaryPanelProps) {
+  const { user, setShowAuthModal } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('quick');
   const [data, setData] = useState<EpisodeSummariesResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -161,6 +164,8 @@ export function SummaryPanel({ episodeId, episodeTitle, onClose }: SummaryPanelP
               Retry
             </Button>
           </div>
+        ) : !user ? (
+          <GuestSummaryGate onSignUp={() => setShowAuthModal(true, 'Sign up to read full AI summaries and insights.')} />
         ) : activeTab === 'quick' ? (
           <QuickSummaryView
             summary={quickSummary?.content as QuickSummaryContent | undefined}
@@ -177,6 +182,25 @@ export function SummaryPanel({ episodeId, episodeTitle, onClose }: SummaryPanelP
           />
         )}
       </div>
+    </div>
+  );
+}
+
+// Guest Summary Gate Component
+function GuestSummaryGate({ onSignUp }: { onSignUp: () => void }) {
+  return (
+    <div className="text-center py-12 space-y-4">
+      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+        <Lock className="h-8 w-8 text-primary" />
+      </div>
+      <h3 className="text-lg font-semibold">Summaries for Members</h3>
+      <p className="text-muted-foreground text-sm max-w-xs mx-auto">
+        Sign up to access AI-generated summaries, key insights, and deep analysis for any episode.
+      </p>
+      <Button onClick={onSignUp} className="gap-2">
+        <Lock className="h-4 w-4" />
+        Sign up to unlock
+      </Button>
     </div>
   );
 }

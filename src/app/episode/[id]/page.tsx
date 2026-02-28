@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { SummarizeButton } from "@/components/SummarizeButton";
 import { InlinePlayButton } from "@/components/PlayButton";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface EpisodeData extends Episode {
   podcast?: Podcast;
@@ -34,6 +35,7 @@ interface SummariesData {
 export default function EpisodePage() {
   const params = useParams();
   const episodeId = params.id as string;
+  const { user, setShowAuthModal } = useAuth();
 
   const [episode, setEpisode] = useState<EpisodeData | null>(null);
   const [summaries, setSummaries] = useState<SummariesData | null>(null);
@@ -215,12 +217,22 @@ export default function EpisodePage() {
                         }}
                       />
                     )}
-                    <Link href={`/episode/${episodeId}/insights`}>
-                      <Button size="sm">
+                    {user ? (
+                      <Link href={`/episode/${episodeId}/insights`}>
+                        <Button size="sm">
+                          <Brain className="mr-2 h-4 w-4" />
+                          View Insights
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => setShowAuthModal(true, 'Sign up to explore AI-powered insights, chapters, and transcripts.')}
+                      >
                         <Brain className="mr-2 h-4 w-4" />
                         View Insights
                       </Button>
-                    </Link>
+                    )}
                     <SummarizeButton
                       episodeId={episodeId}
                     />

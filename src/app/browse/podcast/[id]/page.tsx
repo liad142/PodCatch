@@ -78,7 +78,7 @@ function formatDate(dateString: string): string {
 export default function PodcastPage({ params }: PageProps) {
   const { id: podcastId } = use(params);
   const { country } = useCountry();
-  const { user, setShowCompactPrompt } = useAuth();
+  const { user, setShowAuthModal } = useAuth();
   const { subscribedAppleIds, subscribe, unsubscribe } = useSubscription();
 
   // Detect if this is a Podcastindex-only podcast (pi:{feedId} format)
@@ -90,7 +90,7 @@ export default function PodcastPage({ params }: PageProps) {
 
   const handleToggleSubscription = async () => {
     if (!user) {
-      setShowCompactPrompt(true, 'Sign up to save podcasts to your library.');
+      setShowAuthModal(true, 'Sign up to follow your favourite podcasts and never miss an episode.');
       return;
     }
     setIsTogglingSubscription(true);

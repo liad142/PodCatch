@@ -7,6 +7,7 @@ import { Heart } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 export interface ApplePodcast {
@@ -28,6 +29,7 @@ interface ApplePodcastCardProps {
 }
 
 export const ApplePodcastCard = React.memo(function ApplePodcastCard({ podcast, priority = false, className }: ApplePodcastCardProps) {
+  const { user, setShowAuthModal } = useAuth();
   const { isSubscribed, subscribe, unsubscribe } = useSubscription();
   const [isLoading, setIsLoading] = useState(false);
   const imageUrl = podcast.artworkUrl?.replace('100x100', '400x400') || '/placeholder-podcast.png';
@@ -38,6 +40,10 @@ export const ApplePodcastCard = React.memo(function ApplePodcastCard({ podcast, 
     e.preventDefault();
     e.stopPropagation();
 
+    if (!user) {
+      setShowAuthModal(true, 'Sign up to follow your favourite podcasts and never miss an episode.');
+      return;
+    }
     if (isLoading) return;
     setIsLoading(true);
 

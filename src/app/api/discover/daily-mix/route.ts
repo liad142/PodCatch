@@ -194,7 +194,7 @@ export async function GET(request: NextRequest) {
   // 3. Get episodes with podcast info (including language for country filtering)
   const { data: episodes, error: episodesError } = await admin
     .from('episodes')
-    .select('id, title, description, published_at, podcast_id, audio_url, duration_seconds, podcasts(id, title, image_url, language)')
+    .select('id, title, description, published_at, podcast_id, audio_url, duration_seconds, podcasts(id, title, image_url, language, rss_feed_url)')
     .in('id', episodeIds)
     .order('published_at', { ascending: false });
 
@@ -251,12 +251,16 @@ export async function GET(request: NextRequest) {
     );
     const display = displaySummaryMap.get(ep.id);
 
+    const rssUrl: string = podcast?.rss_feed_url || '';
+    const podcastAppleId = rssUrl.startsWith('apple:') ? rssUrl.replace('apple:', '') : null;
+
     return {
       id: ep.id,
       title: ep.title,
       description: getDisplayDescription(summaryInfo?.content, summaryInfo?.level || 'quick', ep.description || ''),
       publishedAt: ep.published_at,
       podcastId: podcast?.id || ep.podcast_id,
+      podcastAppleId,
       podcastName: podcast?.title || '',
       podcastArtwork: podcast?.image_url || '',
       audioUrl: ep.audio_url || '',

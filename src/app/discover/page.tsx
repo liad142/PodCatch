@@ -18,6 +18,7 @@ interface DailyMixEpisode {
   description: string;
   publishedAt: Date;
   podcastId: string;
+  podcastAppleId?: string | null;
   podcastName: string;
   podcastArtwork: string;
   audioUrl: string;

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
-import { Loader2, Sparkles, FileText, Lightbulb, ListMusic, Scale, Play, ChevronDown, ChevronsUpDown, ChevronsDownUp, Quote } from "lucide-react";
+import { Loader2, Sparkles, FileText, Lightbulb, ListMusic, Scale, Play, ChevronDown, ChevronsUpDown, ChevronsDownUp, Quote, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TranscriptAccordion } from "./TranscriptAccordion";
@@ -22,29 +23,34 @@ interface EpisodeSmartFeedProps {
 }
 
 export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
+  const { user, setShowCompactPrompt, setShowAuthModal } = useAuth();
   const [data, setData] = useState<EpisodeInsightsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Build track with chapters from deep summary (when available)
+  // Build track with chapters from deep summary (only for authenticated users)
   const track = useMemo(() => {
     if (!episode.audio_url) return undefined;
-    const deepContent = data?.summaries?.deep?.content as DeepSummaryContent | undefined;
-    const sections = deepContent?.chronological_breakdown;
     let chapters: { title: string; timestamp: string; timestamp_seconds: number }[] | undefined;
-    if (sections) {
-      const normalized = normalizeChronologicalSections(sections);
-      if (hasRealTimestamps(normalized)) {
-        chapters = normalized
-          .filter((s) => (s.timestamp_seconds ?? 0) >= 0 && s.timestamp)
-          .map((s) => ({
-            title: s.title || s.timestamp_description || 'Untitled',
-            timestamp: s.timestamp!,
-            timestamp_seconds: s.timestamp_seconds!,
-          }));
+
+    if (user) {
+      const deepContent = data?.summaries?.deep?.content as DeepSummaryContent | undefined;
+      const sections = deepContent?.chronological_breakdown;
+      if (sections) {
+        const normalized = normalizeChronologicalSections(sections);
+        if (hasRealTimestamps(normalized)) {
+          chapters = normalized
+            .filter((s) => (s.timestamp_seconds ?? 0) >= 0 && s.timestamp)
+            .map((s) => ({
+              title: s.title || s.timestamp_description || 'Untitled',
+              timestamp: s.timestamp!,
+              timestamp_seconds: s.timestamp_seconds!,
+            }));
+        }
       }
     }
+
     return {
       id: episode.id,
       title: episode.title,
@@ -54,7 +60,7 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
       duration: episode.duration_seconds ?? undefined,
       chapters,
     };
-  }, [episode, data?.summaries?.deep]);
+  }, [episode, data?.summaries?.deep, user]);
 
   // Signal to the global AskAI context that we're on an insights page
   useActivateAskAI(episode.id);
@@ -207,10 +213,21 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
               Get AI-powered summaries, key quotes, mindmaps, and a searchable transcript.
             </p>
           </div>
-          <Button onClick={handleGenerate} size="lg" className="gap-2">
-            <Sparkles className="h-5 w-5" />
-            Generate Insights
-          </Button>
+          {user ? (
+            <Button onClick={handleGenerate} size="lg" className="gap-2">
+              <Sparkles className="h-5 w-5" />
+              Generate Insights
+            </Button>
+          ) : (
+            <Button
+              onClick={() => setShowCompactPrompt(true, 'Sign up to generate AI insights, summaries, and transcripts for any episode.')}
+              size="lg"
+              className="gap-2"
+            >
+              <Lock className="h-5 w-5" />
+              Sign up to Generate Insights
+            </Button>
+          )}
           <p className="text-xs text-muted-foreground">
             This may take a few minutes depending on episode length
           </p>
@@ -252,80 +269,184 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
             transition={{ duration: 0.4 }}
             dir={isRTL ? "rtl" : "ltr"}
           >
-            <TeaserCard content={quickContent!} isRTL={isRTL} />
+            {user ? (
+              <TeaserCard content={quickContent!} isRTL={isRTL} />
+            ) : (
+              <GuestTeaserCard content={quickContent!} isRTL={isRTL} />
+            )}
           </motion.section>
         )}
 
-        {/* ─── Section 2: Comprehensive Overview ─── */}
-        {isDeepReady && deepContent!.comprehensive_overview && (
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.05 }}
-            dir={isRTL ? "rtl" : "ltr"}
-          >
-            <ComprehensiveOverview text={deepContent!.comprehensive_overview} isRTL={isRTL} />
-          </motion.section>
-        )}
+        {/* ─── Sections 2-7: Auth-gated with real content preview for guests ─── */}
+        {!user && hasAnyContent ? (
+          <>
+            {/* CTA card — scrolls naturally, visible at the top then gone */}
+            <motion.section
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.05 }}
+            >
+              <div className="bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl shadow-black/20 p-6 text-center space-y-4 max-w-sm mx-auto">
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                  <Lock className="h-7 w-7 text-primary" />
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-lg font-bold text-foreground">Unlock Full Insights</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Sign up to read the full analysis, chapters, key concepts, transcript, and Ask AI.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAuthModal(true, 'Sign up to explore full insights, chapters, and AI-powered episode analysis.')}
+                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-primary-foreground text-sm font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer mx-auto"
+                >
+                  <Lock className="h-4 w-4" />
+                  Sign up for free
+                </button>
+              </div>
+            </motion.section>
 
-        {/* ─── Section 3: Core Concepts ─── */}
-        {isDeepReady && deepContent!.core_concepts?.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            dir={isRTL ? "rtl" : "ltr"}
-          >
-            <CoreConcepts concepts={deepContent!.core_concepts} isRTL={isRTL} />
-          </motion.section>
-        )}
+            {/* Blurred real content — tap anywhere to open auth modal */}
+            <motion.section
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+            >
+              <div className="relative overflow-hidden">
+                {/* Real content rendered behind a blur */}
+                <div className="select-none blur-[4px] opacity-60 space-y-10" aria-hidden>
+                  {isDeepReady && deepContent!.comprehensive_overview && (
+                    <div dir={isRTL ? "rtl" : "ltr"}>
+                      <ComprehensiveOverview text={deepContent!.comprehensive_overview} isRTL={isRTL} />
+                    </div>
+                  )}
 
-        {/* ─── Section 4: Episode Chapters ─── */}
-        {isDeepReady && deepContent!.chronological_breakdown?.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.15 }}
-            dir={isRTL ? "rtl" : "ltr"}
-          >
-            <EpisodeChapters
-              sections={deepContent!.chronological_breakdown}
-              isRTL={isRTL}
-              episode={episode}
-            />
-          </motion.section>
-        )}
+                  {isDeepReady && deepContent!.core_concepts?.length > 0 && (
+                    <div dir={isRTL ? "rtl" : "ltr"}>
+                      <CoreConcepts concepts={deepContent!.core_concepts} isRTL={isRTL} />
+                    </div>
+                  )}
 
-        {/* ─── Section 5: Contrarian Views ─── */}
-        {isDeepReady && deepContent!.contrarian_views?.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            dir={isRTL ? "rtl" : "ltr"}
-          >
-            <ContrarianViews views={deepContent!.contrarian_views} isRTL={isRTL} />
-          </motion.section>
-        )}
+                  {isDeepReady && deepContent!.chronological_breakdown?.length > 0 && (
+                    <div dir={isRTL ? "rtl" : "ltr"}>
+                      <EpisodeChapters
+                        sections={deepContent!.chronological_breakdown}
+                        isRTL={isRTL}
+                        episode={episode}
+                      />
+                    </div>
+                  )}
 
-        {/* ─── Section 6: Transcript ─── */}
-        <section>
-          <TranscriptAccordion
-            transcript={data?.transcript_text}
-            transcriptStatus={data?.transcript_status || "not_started"}
-            isGenerating={isGenerating}
-            onGenerate={handleGenerate}
-          />
-        </section>
+                  {isDeepReady && deepContent!.contrarian_views?.length > 0 && (
+                    <div dir={isRTL ? "rtl" : "ltr"}>
+                      <ContrarianViews views={deepContent!.contrarian_views} isRTL={isRTL} />
+                    </div>
+                  )}
 
-        {/* ─── Section 7: Action Items ─── */}
-        <section>
-          <ActionFooter
-            episode={episode}
-            actionPrompts={deepContent?.actionable_takeaways}
-            summaryReady={data?.summaries?.quick?.status === 'ready' || data?.summaries?.deep?.status === 'ready'}
-          />
-        </section>
+                  <div>
+                    <TranscriptAccordion
+                      transcript={data?.transcript_text}
+                      transcriptStatus={data?.transcript_status || "not_started"}
+                      isGenerating={false}
+                      onGenerate={() => {}}
+                    />
+                  </div>
+
+                  <div>
+                    <ActionFooter
+                      episode={episode}
+                      actionPrompts={deepContent?.actionable_takeaways}
+                      summaryReady={data?.summaries?.quick?.status === 'ready' || data?.summaries?.deep?.status === 'ready'}
+                    />
+                  </div>
+                </div>
+
+                {/* Clickable overlay — tap anywhere on blurred content to sign up */}
+                <div
+                  className="absolute inset-0 z-10 cursor-pointer"
+                  onClick={() => setShowAuthModal(true, 'Sign up to explore full insights, chapters, and AI-powered episode analysis.')}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowAuthModal(true, 'Sign up to explore full insights, chapters, and AI-powered episode analysis.'); }}
+                  aria-label="Sign up to unlock full insights"
+                />
+              </div>
+            </motion.section>
+          </>
+        ) : user ? (
+          <>
+            {/* ─── Section 2: Comprehensive Overview ─── */}
+            {isDeepReady && deepContent!.comprehensive_overview && (
+              <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.05 }}
+                dir={isRTL ? "rtl" : "ltr"}
+              >
+                <ComprehensiveOverview text={deepContent!.comprehensive_overview} isRTL={isRTL} />
+              </motion.section>
+            )}
+
+            {/* ─── Section 3: Core Concepts ─── */}
+            {isDeepReady && deepContent!.core_concepts?.length > 0 && (
+              <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.1 }}
+                dir={isRTL ? "rtl" : "ltr"}
+              >
+                <CoreConcepts concepts={deepContent!.core_concepts} isRTL={isRTL} />
+              </motion.section>
+            )}
+
+            {/* ─── Section 4: Episode Chapters ─── */}
+            {isDeepReady && deepContent!.chronological_breakdown?.length > 0 && (
+              <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.15 }}
+                dir={isRTL ? "rtl" : "ltr"}
+              >
+                <EpisodeChapters
+                  sections={deepContent!.chronological_breakdown}
+                  isRTL={isRTL}
+                  episode={episode}
+                />
+              </motion.section>
+            )}
+
+            {/* ─── Section 5: Contrarian Views ─── */}
+            {isDeepReady && deepContent!.contrarian_views?.length > 0 && (
+              <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.2 }}
+                dir={isRTL ? "rtl" : "ltr"}
+              >
+                <ContrarianViews views={deepContent!.contrarian_views} isRTL={isRTL} />
+              </motion.section>
+            )}
+
+            {/* ─── Section 6: Transcript ─── */}
+            <section>
+              <TranscriptAccordion
+                transcript={data?.transcript_text}
+                transcriptStatus={data?.transcript_status || "not_started"}
+                isGenerating={isGenerating}
+                onGenerate={handleGenerate}
+              />
+            </section>
+
+            {/* ─── Section 7: Action Items ─── */}
+            <section>
+              <ActionFooter
+                episode={episode}
+                actionPrompts={deepContent?.actionable_takeaways}
+                summaryReady={data?.summaries?.quick?.status === 'ready' || data?.summaries?.deep?.status === 'ready'}
+              />
+            </section>
+          </>
+        ) : null}
 
         {/* Subscription */}
         <section>
@@ -336,8 +457,8 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
         </section>
       </div>
 
-      {/* Standalone Ask AI Bar */}
-      <AskAIBar mode="standalone" track={track} />
+      {/* Standalone Ask AI Bar — only for authenticated users */}
+      {user && <AskAIBar mode="standalone" track={track} />}
     </div>
   );
 }
@@ -436,6 +557,83 @@ function TeaserCard({ content, isRTL }: { content: QuickSummaryContent; isRTL: b
   );
 }
 
+/* ─── 1b. Guest Teaser Card (truncated for unauthenticated users) ─── */
+function GuestTeaserCard({ content, isRTL }: { content: QuickSummaryContent; isRTL: boolean }) {
+  const { setShowAuthModal } = useAuth();
+
+  return (
+    <div className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-6 lg:p-8 space-y-5">
+      {/* Headline — fully visible */}
+      {content.hook_headline && (
+        <h2 className={cn(
+          "text-display text-foreground",
+          isRTL && "text-right"
+        )}>
+          {content.hook_headline}
+        </h2>
+      )}
+
+      {/* Truncated Executive Brief — first 300 chars visible */}
+      {content.executive_brief && (
+        <p className={cn(
+          "text-body text-muted-foreground prose-width",
+          isRTL && "text-right"
+        )}>
+          {content.executive_brief.slice(0, 300)}{content.executive_brief.length > 300 ? '...' : ''}
+        </p>
+      )}
+
+      {/* Golden Nugget — visible but with sign-up prompt */}
+      {content.golden_nugget && (
+        <div className={cn(
+          "bg-[var(--accent-amber-subtle)] rounded-r-xl p-4 relative overflow-hidden",
+          isRTL
+            ? "border-r-4 border-[hsl(var(--accent-amber))]"
+            : "border-l-4 border-[hsl(var(--accent-amber))]"
+        )}>
+          <div className={cn("flex items-center gap-2 mb-2", isRTL && "flex-row-reverse")}>
+            <Quote className="h-5 w-5 text-amber-500" />
+            <span className="text-caption font-bold text-[hsl(var(--accent-amber))] uppercase tracking-wider">Golden Nugget</span>
+          </div>
+          <p className={cn("text-body italic text-foreground font-medium", isRTL && "text-right")}>
+            &ldquo;{content.golden_nugget.slice(0, 120)}{content.golden_nugget.length > 120 ? '...' : ''}&rdquo;
+          </p>
+        </div>
+      )}
+
+      {/* Tags + Perfect For — visible */}
+      {(content.perfect_for || (content.tags && content.tags.length > 0)) && (
+        <div className={cn("flex flex-wrap items-center gap-2", isRTL && "flex-row-reverse")}>
+          {content.perfect_for && (
+            <Badge variant="secondary">
+              {content.perfect_for}
+            </Badge>
+          )}
+          {content.tags?.slice(0, 4).map((tag, i) => (
+            <Badge key={i} variant="secondary">
+              {tag}
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {/* CTA divider */}
+      <div className="border-t border-border pt-4">
+        <button
+          onClick={() => setShowAuthModal(true, 'Sign up to read full AI summaries for podcasts and YouTube.')}
+          className={cn(
+            "flex items-center gap-2 text-sm text-primary font-medium hover:underline cursor-pointer",
+            isRTL && "flex-row-reverse"
+          )}
+        >
+          <Lock className="h-3.5 w-3.5" />
+          Sign up to read the full summary
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ─── 2. Comprehensive Overview ─── */
 function ComprehensiveOverview({ text, isRTL }: { text: string; isRTL: boolean }) {
   return (
@@ -514,14 +712,16 @@ function EpisodeChapters({ sections, isRTL, episode }: {
   isRTL: boolean;
   episode: Episode & { podcast?: Podcast };
 }) {
+  const { user } = useAuth();
   const normalized = useMemo(() => normalizeChronologicalSections(sections), [sections]);
   const showTimestamps = useMemo(() => hasRealTimestamps(normalized), [normalized]);
   const [expandedIndex, setExpandedIndex] = useState<number>(0);
   const [allExpanded, setAllExpanded] = useState(false);
   const player = useAudioPlayerSafe();
 
+  // Only build chapters for authenticated users
   const chapters = useMemo(() => {
-    if (!showTimestamps) return undefined;
+    if (!user || !showTimestamps) return undefined;
     return normalized
       .filter((s) => (s.timestamp_seconds ?? 0) >= 0 && s.timestamp)
       .map((s) => ({
@@ -529,7 +729,7 @@ function EpisodeChapters({ sections, isRTL, episode }: {
         timestamp: s.timestamp!,
         timestamp_seconds: s.timestamp_seconds!,
       }));
-  }, [normalized, showTimestamps]);
+  }, [normalized, showTimestamps, user]);
 
   const chapterTrack = useMemo(() => {
     if (!episode.audio_url) return null;
