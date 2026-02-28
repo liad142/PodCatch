@@ -253,7 +253,7 @@ export default function PodcastPage({ params }: PageProps) {
 
     // Check authentication
     if (!user) {
-      setShowCompactPrompt(true, 'Only registered users can summarize episodes. Please sign in or create an account to continue.');
+      setShowAuthModal(true, 'Sign up to generate AI summaries and insights for any episode.');
       return;
     }
 
