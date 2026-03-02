@@ -150,6 +150,7 @@ export default function OnboardingPage() {
     try {
       if (selectedChannels.size > 0) {
         const channelsToImport = ytChannels.filter(ch => selectedChannels.has(ch.channelId));
+        posthog.capture('onboarding_step_completed', { step: 'youtube', channels_imported: channelsToImport.length, channels_available: ytChannels.length });
         console.log(`[ONBOARDING] Importing ${channelsToImport.length} YouTube channels (background)…`);
         // Fire and forget — import runs on the server while user continues onboarding
         fetch('/api/youtube/subscriptions/import', {
@@ -171,10 +172,12 @@ export default function OnboardingPage() {
   };
 
   const handleSkip = async () => {
+    posthog.capture('onboarding_skipped', { from_step: step });
     await saveAndFinish([]);
   };
 
   const handleFinishGenres = () => {
+    posthog.capture('onboarding_step_completed', { step: 'genres', genre_count: selectedGenres.size });
     setStep('youtube');
   };
 
@@ -257,7 +260,7 @@ export default function OnboardingPage() {
                   Let&apos;s personalize your experience.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <Button onClick={() => setStep('genres')} className="gap-2 min-w-[200px]">
+                  <Button onClick={() => { setStep('genres'); posthog.capture('onboarding_step_completed', { step: 'welcome' }); }} className="gap-2 min-w-[200px]">
                     <Sparkles className="h-4 w-4" />
                     Personalize My Feed
                   </Button>

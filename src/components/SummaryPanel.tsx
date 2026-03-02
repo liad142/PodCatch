@@ -31,13 +31,14 @@ import { useAuth } from "@/contexts/AuthContext";
 interface SummaryPanelProps {
   episodeId: string;
   episodeTitle?: string;
-  audioUrl?: string;
   onClose?: () => void;
+  onChapterClick?: (seconds: number) => void;
+  currentVideoTime?: number;
 }
 
 type TabType = 'quick' | 'deep';
 
-export function SummaryPanel({ episodeId, episodeTitle, onClose }: SummaryPanelProps) {
+export function SummaryPanel({ episodeId, episodeTitle, onClose, onChapterClick, currentVideoTime }: SummaryPanelProps) {
   const { user, setShowAuthModal } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('quick');
   const [data, setData] = useState<EpisodeSummariesResponse | null>(null);
@@ -179,6 +180,8 @@ export function SummaryPanel({ episodeId, episodeTitle, onClose }: SummaryPanelP
             status={deepSummary?.status || 'not_ready'}
             isGenerating={isGenerating === 'deep'}
             onGenerate={() => handleGenerate('deep')}
+            onChapterClick={onChapterClick}
+            currentVideoTime={currentVideoTime}
           />
         )}
       </div>
@@ -333,12 +336,16 @@ function DeepSummaryView({
   summary,
   status,
   isGenerating,
-  onGenerate
+  onGenerate,
+  onChapterClick,
+  currentVideoTime
 }: {
   summary?: DeepSummaryContent;
   status: SummaryStatus;
   isGenerating: boolean;
   onGenerate: () => void;
+  onChapterClick?: (seconds: number) => void;
+  currentVideoTime?: number;
 }) {
   if (['queued', 'transcribing', 'summarizing'].includes(status)) {
     return (
@@ -436,16 +443,42 @@ function DeepSummaryView({
             <BookOpen className="h-4 w-4" />
             Episode Flow
           </h3>
-          {summary.chronological_breakdown.map((section, i) => (
-            <Card key={i}>
-              <CardContent className="pt-4 space-y-2">
-                <Badge variant="outline" className="text-xs">
-                  {section.title || section.timestamp_description}
-                </Badge>
-                <p className="text-sm">{section.content}</p>
-              </CardContent>
-            </Card>
-          ))}
+          {summary.chronological_breakdown.map((section, i) => {
+            const isActive = currentVideoTime !== undefined &&
+              section.timestamp_seconds !== undefined &&
+              section.timestamp_seconds !== null &&
+              currentVideoTime >= section.timestamp_seconds &&
+              (i === summary.chronological_breakdown!.length - 1 ||
+                currentVideoTime < (summary.chronological_breakdown![i + 1]?.timestamp_seconds ?? Infinity));
+
+            return (
+              <Card key={i} className={isActive ? "border-primary bg-primary/5" : undefined}>
+                <CardContent className="pt-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    {onChapterClick && section.timestamp_seconds !== undefined && section.timestamp_seconds !== null ? (
+                      <button
+                        onClick={() => onChapterClick(section.timestamp_seconds!)}
+                        className="text-xs bg-secondary hover:bg-secondary/80 px-2 py-1 rounded-md font-mono transition-colors cursor-pointer"
+                        aria-label={`Seek to ${section.timestamp_description || section.title}`}
+                      >
+                        {section.timestamp_description || section.title}
+                      </button>
+                    ) : (
+                      <Badge variant="outline" className="text-xs">
+                        {section.title || section.timestamp_description}
+                      </Badge>
+                    )}
+                    {isActive && (
+                      <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-medium">
+                        Now Playing
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm">{section.content}</p>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 

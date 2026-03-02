@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Search as SearchIcon } from 'lucide-react';
 import Link from 'next/link';
+import posthog from 'posthog-js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -120,7 +121,7 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ display_name: nameInput.trim() }),
       });
-      if (res.ok) { const d = await res.json(); setProfile(d.profile); setEditingName(false); }
+      if (res.ok) { const d = await res.json(); setProfile(d.profile); setEditingName(false); posthog.capture('profile_updated', { field: 'display_name' }); }
     } finally { setIsSavingName(false); }
   };
 
@@ -132,7 +133,7 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ preferred_genres: Array.from(selectedGenres) }),
       });
-      if (res.ok) { const d = await res.json(); setProfile(d.profile); setGenresDirty(false); }
+      if (res.ok) { const d = await res.json(); setProfile(d.profile); setGenresDirty(false); posthog.capture('profile_updated', { field: 'genres', genre_count: selectedGenres.size }); }
     } finally { setIsSavingGenres(false); }
   };
 
@@ -158,6 +159,7 @@ export default function SettingsPage() {
         const d = await res.json();
         setProfile(d.profile);
         setCountry(code.toUpperCase());
+        posthog.capture('profile_updated', { field: 'country', country_code: code });
       }
     } catch {}
   };
@@ -194,7 +196,7 @@ export default function SettingsPage() {
             {themeOptions.map(({ value, label, icon: Icon }) => (
               <button
                 key={value}
-                onClick={() => setTheme(value)}
+                onClick={() => { setTheme(value); posthog.capture('theme_changed', { theme: value }); }}
                 className={cn(
                   'relative flex flex-col items-center gap-2.5 p-4 rounded-2xl border-2 transition-all duration-200',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',

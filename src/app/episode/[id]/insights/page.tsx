@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import posthog from "posthog-js";
 import { Header } from "@/components/Header";
 import { EpisodeSmartFeed } from "@/components/insights/EpisodeSmartFeed";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
 import type { Episode, Podcast } from "@/types/database";
-import { Clock, Calendar, ExternalLink, ChevronRight, Share2 } from "lucide-react";
+import { Clock, Calendar, ChevronRight, Share2, Youtube } from "lucide-react";
 import { InlinePlayButton } from "@/components/PlayButton";
+import { YouTubeEmbed, type YouTubeEmbedRef } from "@/components/YouTubeEmbed";
+import { isYouTubeContent, extractYouTubeVideoId, getYouTubeThumbnail } from "@/lib/youtube/utils";
 
 interface EpisodeData extends Episode {
   podcast?: Podcast;
@@ -24,6 +27,9 @@ export default function EpisodeInsightsPage() {
   const [episode, setEpisode] = useState<EpisodeData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const youtubePlayerRef = useRef<YouTubeEmbedRef>(null);
+  const [videoCurrentTime, setVideoCurrentTime] = useState(0);
 
   const fetchEpisode = useCallback(async () => {
     try {
@@ -84,7 +90,7 @@ export default function EpisodeInsightsPage() {
     });
   };
 
-  const isYouTube = episode?.podcast?.rss_feed_url?.startsWith('youtube:channel:');
+  const isYouTube = isYouTubeContent(episode?.podcast);
 
   // Extract Apple podcast ID from rss_feed_url (format: "apple:123456" or actual RSS URL)
   const getBackLink = () => {
@@ -117,12 +123,10 @@ export default function EpisodeInsightsPage() {
   }
 
   // For YouTube videos, derive thumbnail from video URL; otherwise use podcast artwork
-  const youtubeVideoId = isYouTube && episode?.audio_url
-    ? new URL(episode.audio_url).searchParams.get('v')
-    : null;
+  const youtubeVideoId = isYouTube ? extractYouTubeVideoId(episode?.audio_url) : null;
 
   const artworkUrl = isYouTube && youtubeVideoId
-    ? `https://i.ytimg.com/vi/${youtubeVideoId}/hqdefault.jpg`
+    ? getYouTubeThumbnail(youtubeVideoId)
     : episode?.podcast?.image_url &&
       typeof episode.podcast.image_url === "string" &&
       episode.podcast.image_url.startsWith("http")
@@ -176,9 +180,21 @@ export default function EpisodeInsightsPage() {
                 <span className="text-foreground truncate max-w-[200px]">Insights</span>
               </nav>
 
+              {/* YouTube Embed (shown above art+info for YouTube episodes) */}
+              {isYouTube && youtubeVideoId ? (
+                <div className="w-full mb-4">
+                  <YouTubeEmbed
+                    ref={youtubePlayerRef}
+                    videoId={youtubeVideoId}
+                    title={episode.title}
+                    onTimeUpdate={setVideoCurrentTime}
+                  />
+                </div>
+              ) : null}
+
               {/* Art + Info */}
               <div className="flex gap-5 items-start">
-                {artworkUrl && (
+                {!isYouTube && artworkUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={artworkUrl}
@@ -215,19 +231,17 @@ export default function EpisodeInsightsPage() {
                         {formatDuration(episode.duration_seconds)}
                       </span>
                     )}
+                    {isYouTube && (
+                      <Badge className="bg-red-600 text-white border-0 flex items-center gap-1 text-body-sm">
+                        <Youtube className="h-3.5 w-3.5" />
+                        YouTube
+                      </Badge>
+                    )}
                   </div>
 
                   {/* Action buttons */}
                   <div className="flex items-center gap-2 pt-1">
-                    {isYouTube && episode.audio_url ? (
-                      <Button
-                        onClick={() => window.open(episode.audio_url, '_blank', 'noopener,noreferrer')}
-                        className="h-10 px-5 bg-red-600 hover:bg-red-500 text-white border-0 gap-2"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        Watch on YouTube
-                      </Button>
-                    ) : episode.audio_url && episode.podcast ? (
+                    {!isYouTube && episode.audio_url && episode.podcast ? (
                       <InlinePlayButton
                         track={{
                           id: episode.id,
@@ -245,7 +259,9 @@ export default function EpisodeInsightsPage() {
                       size="sm"
                       className="h-10 px-4 gap-2 text-muted-foreground"
                       onClick={() => {
-                        if (navigator.share) {
+                        const canShare = 'share' in navigator;
+                        posthog.capture('episode_shared', { episode_id: episodeId, title: episode.title, method: canShare ? 'native' : 'clipboard', page: 'insights' });
+                        if (canShare) {
                           navigator.share({ title: episode.title, url: window.location.href });
                         } else {
                           navigator.clipboard.writeText(window.location.href);
@@ -265,7 +281,13 @@ export default function EpisodeInsightsPage() {
 
       {/* Smart Feed */}
       <div className="flex-1">
-        {episode && <EpisodeSmartFeed episode={episode} />}
+        {episode && (
+          <EpisodeSmartFeed
+            episode={episode}
+            youtubePlayerRef={isYouTube ? youtubePlayerRef : undefined}
+            videoCurrentTime={isYouTube ? videoCurrentTime : undefined}
+          />
+        )}
       </div>
     </div>
   );

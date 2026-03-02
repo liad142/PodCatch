@@ -35,27 +35,6 @@ export interface Transcript {
   created_at: string;
 }
 
-/** @deprecated Legacy summary shape - used by SummaryView. Use SummaryRecord for new code. */
-export interface Summary {
-  id: string;
-  transcript_id: string;
-  summary_text: string;
-  key_points: string[] | null;
-  resources: {
-    github_repos?: string[];
-    books?: string[];
-    tools?: string[];
-    links?: string[];
-  } | null;
-  created_at: string;
-}
-
-export interface EpisodeWithSummary extends Episode {
-  transcript?: Transcript;
-  summary?: Summary;
-  summaryStatus?: SummaryStatus;
-}
-
 // Status types for the new summary system
 export type TranscriptStatus = 'queued' | 'transcribing' | 'ready' | 'failed';
 export type SummaryStatus = 'not_ready' | 'queued' | 'transcribing' | 'summarizing' | 'ready' | 'failed';
@@ -68,25 +47,6 @@ export interface QuickSummaryContent {
   golden_nugget: string;   // The "Wow" factor
   perfect_for: string;     // More specific target audience
   tags: string[];
-}
-
-// Deep summary content structure
-export interface DeepSummarySection {
-  title: string;
-  summary: string;
-  key_points: string[];
-}
-
-export interface DeepSummaryResource {
-  type: 'book' | 'tool' | 'website' | 'github' | 'paper' | 'other' | 'repo' | 'link' | 'person';
-  label: string;
-  url?: string;
-  notes?: string;
-}
-
-export interface DeepSummaryActionPrompt {
-  title: string;
-  details: string;
 }
 
 // Structured action item with resource names (no AI-generated URLs)
@@ -214,6 +174,15 @@ export interface InsightsContent {
 // Insight status (reuses SummaryStatus values)
 export type InsightStatus = SummaryStatus;
 
+// YouTube metadata for insights page
+export interface YouTubeMetadataResponse {
+  description_links: { url: string; text: string }[];
+  chapters: { title: string; startSeconds: number }[];
+  pinned_comment: { author: string; text: string; likeCount: string } | null;
+  storyboard_spec: string | null;
+  keywords: string[];
+}
+
 // API response for episode insights page
 export interface EpisodeInsightsResponse {
   episode_id: string;
@@ -228,6 +197,7 @@ export interface EpisodeInsightsResponse {
     quick?: SummaryData;
     deep?: SummaryData;
   };
+  youtube_metadata?: YouTubeMetadataResponse;
 }
 
 // Podcast Subscription Types

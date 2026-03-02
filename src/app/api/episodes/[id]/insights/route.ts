@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requestInsights, getInsightsStatus } from "@/lib/insights-service";
 import { resolvePodcastLanguage } from "@/lib/language-utils";
+import { deleteCached, CacheKeys } from "@/lib/cache";
 
 // GET /api/episodes/[id]/insights - Get insights status and content
 export async function GET(
@@ -33,6 +34,9 @@ export async function POST(
 ) {
   try {
     const { id: episodeId } = await context.params;
+
+    // Invalidate stale insights cache so polling picks up the new state
+    await deleteCached(CacheKeys.insightsStatus(episodeId, 'en')).catch(() => {});
 
     // Fetch episode with podcast info - language comes from RSS feed
     const { data: episode, error: episodeError } = await supabase

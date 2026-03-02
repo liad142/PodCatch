@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai";
 import { createAdminClient } from "@/lib/supabase/admin";
 const supabase = createAdminClient();
 import { ensureTranscript } from "./summary-service";
@@ -8,20 +8,65 @@ import type {
   KeywordItem,
   HighlightItem,
   ShownotesSection,
-  MindmapNode
+  MindmapNode,
+  YouTubeMetadataResponse
 } from "@/types/database";
 import { triggerPendingNotifications } from "@/lib/notifications/trigger";
 import { createLogger } from "@/lib/logger";
+import { extractYouTubeVideoId } from "@/lib/youtube/utils";
 
 const logWithTime = createLogger('INSIGHTS-SERVICE');
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
-const model = genAI.getGenerativeModel({ 
-  model: "gemini-3-flash-preview",
-  generationConfig: {
-    responseMimeType: "application/json"
+
+const INSIGHTS_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash'] as const;
+const insightsModelCache = new Map<string, GenerativeModel>();
+
+function getInsightsModel(modelId: string): GenerativeModel {
+  let model = insightsModelCache.get(modelId);
+  if (!model) {
+    model = genAI.getGenerativeModel({
+      model: modelId,
+      generationConfig: { responseMimeType: "application/json" }
+    });
+    insightsModelCache.set(modelId, model);
   }
-});
+  return model;
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms: ${label}`)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
+async function generateInsightsWithFallback(prompt: string): Promise<{ text: string; modelUsed: string }> {
+  const TIMEOUT_MS = 30_000;
+  let lastError: Error | null = null;
+  for (const modelId of INSIGHTS_MODELS) {
+    try {
+      logWithTime(`Trying model ${modelId}...`);
+      const model = getInsightsModel(modelId);
+      const result = await withTimeout(model.generateContent(prompt), TIMEOUT_MS, `insights ${modelId}`);
+      return { text: result.response.text(), modelUsed: modelId };
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      const isRetryable = lastError.message.includes('503') ||
+        lastError.message.includes('429') ||
+        lastError.message.includes('500') ||
+        lastError.message.includes('overloaded') ||
+        lastError.message.includes('high demand') ||
+        lastError.message.includes('Timeout');
+      logWithTime(`Model ${modelId} failed: ${lastError.message.substring(0, 120)}`);
+      if (!isRetryable) throw lastError;
+    }
+  }
+  throw lastError || new Error('All insights models failed');
+}
 
 // Prompt for generating all insights at once
 const INSIGHTS_PROMPT = `Analyze this podcast transcript and generate comprehensive insights in JSON format.
@@ -95,10 +140,9 @@ export async function generateInsights(
   try {
     const systemPrompt = "You are a JSON-only response bot. Respond with ONLY valid JSON. CRITICAL: Detect the language of the transcript and respond in THE SAME LANGUAGE - whether Hebrew, Spanish, French, Japanese, Arabic, or any other language. Match exactly.";
     const fullPrompt = systemPrompt + "\n\n" + INSIGHTS_PROMPT + transcriptText.substring(0, 100000);
-    
-    const result = await model.generateContent(fullPrompt);
-    const response = result.response;
-    const text = response.text();
+
+    const { text, modelUsed } = await generateInsightsWithFallback(fullPrompt);
+    logWithTime('Insights generated', { modelUsed });
 
     // Parse and validate the response
     const rawContent = JSON.parse(text);
@@ -139,6 +183,12 @@ export async function generateInsights(
       .eq('episode_id', episodeId)
       .eq('level', 'insights')
       .eq('language', language);
+
+    // Invalidate stale caches so polling sees the failure
+    try {
+      const { deleteCached, CacheKeys } = await import('@/lib/cache');
+      await deleteCached(CacheKeys.insightsStatus(episodeId, language));
+    } catch {}
 
     return { status: 'failed', error: errorMsg };
   }
@@ -295,8 +345,8 @@ export async function getInsightsStatus(episodeId: string, language = 'en') {
     transcriptText = fullTranscript?.full_text;
   }
 
-  // Fetch insights and summaries in parallel (both depend only on actualLanguage)
-  const [{ data: insights }, { data: summaries }] = await Promise.all([
+  // Fetch insights, summaries, and YouTube metadata in parallel
+  const [{ data: insights }, { data: summaries }, { data: ytMetadata }, { data: episodeRow }] = await Promise.all([
     supabase
       .from('summaries')
       .select('id, episode_id, level, status, language, content_json, updated_at')
@@ -310,10 +360,41 @@ export async function getInsightsStatus(episodeId: string, language = 'en') {
       .eq('episode_id', episodeId)
       .eq('language', actualLanguage)
       .in('level', ['quick', 'deep']),
+    supabase
+      .from('youtube_metadata')
+      .select('description_links, chapters, pinned_comment, storyboard_spec, keywords')
+      .eq('episode_id', episodeId)
+      .single(),
+    supabase
+      .from('episodes')
+      .select('audio_url')
+      .eq('id', episodeId)
+      .single(),
   ]);
 
   const quick = summaries?.find(s => s.level === 'quick');
   const deep = summaries?.find(s => s.level === 'deep');
+
+  // Build YouTube metadata response if available
+  let youtube_metadata: YouTubeMetadataResponse | undefined;
+  if (ytMetadata) {
+    youtube_metadata = {
+      description_links: (ytMetadata.description_links as { url: string; text: string }[]) || [],
+      chapters: (ytMetadata.chapters as { title: string; startSeconds: number }[]) || [],
+      pinned_comment: ytMetadata.pinned_comment as { author: string; text: string; likeCount: string } | null,
+      storyboard_spec: ytMetadata.storyboard_spec,
+      keywords: (ytMetadata.keywords as string[]) || [],
+    };
+  } else if (episodeRow?.audio_url) {
+    // If no metadata yet but this is a YouTube episode, trigger async fetch
+    const videoId = extractYouTubeVideoId(episodeRow.audio_url);
+    if (videoId) {
+      // Fire-and-forget: fetch metadata in background for next request
+      import('@/lib/youtube/metadata').then(({ ensureYouTubeMetadata }) => {
+        ensureYouTubeMetadata(episodeId, videoId).catch(() => {});
+      });
+    }
+  }
 
   const result = {
     episodeId,
@@ -336,17 +417,24 @@ export async function getInsightsStatus(episodeId: string, language = 'en') {
         content: deep.status === 'ready' ? deep.content_json : undefined,
         updated_at: deep.updated_at
       } : undefined
-    }
+    },
+    youtube_metadata,
   };
 
-  // Cache terminal states — only when actual content exists
-  // Don't cache empty/absent results as terminal (a summary may be generated later)
-  const hasAnySummary = !!(insights || quick || deep);
-  const insightsTerminal = !insights || insights.status === 'ready' || insights.status === 'failed';
-  const quickTerminal = !quick || quick.status === 'ready' || quick.status === 'failed';
-  const deepTerminal = !deep || deep.status === 'ready' || deep.status === 'failed';
-  if (hasAnySummary && insightsTerminal && quickTerminal && deepTerminal) {
-    await setCached(cacheKey, result, CacheTTL.STATUS_TERMINAL);
+  // Cache only when EVERY existing summary is in a terminal state (ready/failed)
+  // and nothing is absent that might be generated later.
+  const isTerminal = (s: { status: string } | null | undefined) =>
+    s && (s.status === 'ready' || s.status === 'failed');
+  const isInProgress = (s: { status: string } | null | undefined) =>
+    s && ['queued', 'transcribing', 'summarizing'].includes(s.status);
+
+  // Never cache while anything is in progress
+  if (!isInProgress(insights) && !isInProgress(quick) && !isInProgress(deep)) {
+    // Only cache when at least quick+deep both exist as terminal
+    const hasEnough = isTerminal(quick) && isTerminal(deep);
+    if (hasEnough) {
+      await setCached(cacheKey, result, CacheTTL.STATUS_TERMINAL);
+    }
   }
 
   return result;

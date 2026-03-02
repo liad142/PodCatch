@@ -4,6 +4,10 @@ const supabase = createAdminClient();
 import { transcribeFromUrl, formatTranscriptWithTimestamps, formatTranscriptWithSpeakerNames } from "./deepgram";
 import { isVoxtralSupported, transcribeWithVoxtral } from "./voxtral";
 import { getAppleTranscript } from "./apple-transcripts";
+import { extractYouTubeVideoId } from "@/lib/youtube/utils";
+import { fetchYouTubeTranscript } from "@/lib/youtube/transcripts";
+import type { YouTubeMetadata } from "@/lib/youtube/transcripts";
+import { ensureYouTubeMetadata } from "@/lib/youtube/metadata";
 import type { DiarizedTranscript } from "@/types/deepgram";
 import type {
   SummaryLevel,
@@ -15,41 +19,83 @@ import type {
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
 
-// Cached model instances (Fix 2: avoid re-creating on every call)
-let flashModel: GenerativeModel | null = null;
-let proModel: GenerativeModel | null = null;
+// Model fallback chains: primary → fallback(s)
+const DEEP_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash'] as const;
+const QUICK_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash'] as const;
 
-function getFlashModel(): GenerativeModel {
-  if (!flashModel) {
-    flashModel = genAI.getGenerativeModel({
-      model: "gemini-3-flash-preview",
+// Cached model instances
+const modelCache = new Map<string, GenerativeModel>();
+
+function getModel(modelId: string): GenerativeModel {
+  let model = modelCache.get(modelId);
+  if (!model) {
+    model = genAI.getGenerativeModel({
+      model: modelId,
       generationConfig: {
         responseMimeType: "application/json"
       }
     });
+    modelCache.set(modelId, model);
   }
-  return flashModel;
+  return model;
 }
 
-function getProModel(): GenerativeModel {
-  if (!proModel) {
-    proModel = genAI.getGenerativeModel({
-      model: "gemini-3.1-pro-preview",
-      generationConfig: {
-        responseMimeType: "application/json"
+/** Get ordered fallback chain for a summary level */
+function getModelChain(level: SummaryLevel): readonly string[] {
+  return level === 'deep' ? DEEP_MODELS : QUICK_MODELS;
+}
+
+/** Race a promise against a timeout */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms: ${label}`)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
+/** Generate content with automatic model fallback on 503/429/500/timeout errors */
+async function generateWithFallback(
+  level: SummaryLevel,
+  prompt: string,
+  logPrefix: string
+): Promise<{ text: string; modelUsed: string }> {
+  const chain = getModelChain(level);
+  const TIMEOUT_MS = 30_000; // 30s per model attempt
+  let lastError: Error | null = null;
+
+  for (const modelId of chain) {
+    try {
+      console.log(`[GEMINI_FALLBACK] ${logPrefix} trying ${modelId}...`);
+      const model = getModel(modelId);
+      const result = await withTimeout(
+        model.generateContent(prompt),
+        TIMEOUT_MS,
+        `${logPrefix} ${modelId}`
+      );
+      const text = result.response.text();
+      return { text, modelUsed: modelId };
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      const isRetryable = lastError.message.includes('503') ||
+        lastError.message.includes('429') ||
+        lastError.message.includes('500') ||
+        lastError.message.includes('overloaded') ||
+        lastError.message.includes('high demand') ||
+        lastError.message.includes('Timeout');
+
+      console.log(`[GEMINI_FALLBACK] ${logPrefix} ${modelId} failed: ${lastError.message.substring(0, 120)}`);
+
+      if (!isRetryable) {
+        throw lastError; // Non-retryable error (e.g. bad request), don't try fallbacks
       }
-    });
+      // Continue to next model in chain
+    }
   }
-  return proModel;
-}
 
-// Model selection: Flash for Quick, Pro for Deep analysis
-function getModelForLevel(level: SummaryLevel) {
-  if (level === 'deep') {
-    return getProModel();
-  } else {
-    return getFlashModel();
-  }
+  throw lastError || new Error('All models in fallback chain failed');
 }
 
 // Pre-compiled regex patterns for transcript parsing (Fix 3: avoid recompilation in loops)
@@ -200,8 +246,8 @@ export async function identifySpeakers(transcript: DiarizedTranscript): Promise<
     const systemPrompt = "You are a JSON-only response bot. Return ONLY valid JSON.";
     const fullPrompt = systemPrompt + "\n\n" + SPEAKER_ID_PROMPT + formattedSample;
     
-    // Use cached Flash model for speaker identification (fast, cheap task)
-    const speakerModel = getFlashModel();
+    // Use Flash model for speaker identification (fast, cheap task)
+    const speakerModel = getModel('gemini-3-flash-preview');
 
     const result = await speakerModel.generateContent(fullPrompt);
     const response = result.response;
@@ -619,6 +665,36 @@ export async function ensureTranscript(
     let pendingSpeakerIdentification = false;
 
     // ============================================
+    // PRIORITY 0: YouTube captions (FREE, fast)
+    // YouTube watch URLs are HTML pages, not audio — audio transcription will always fail.
+    // Instead, fetch captions directly via youtube-transcript-plus package.
+    // ============================================
+    const youtubeVideoId = extractYouTubeVideoId(audioUrl);
+    if (!transcriptText && youtubeVideoId) {
+      logWithTime('PRIORITY 0: YouTube URL detected, fetching captions...', { youtubeVideoId });
+      try {
+        const ytResult = await fetchYouTubeTranscript(youtubeVideoId);
+        if (ytResult) {
+          transcriptText = ytResult.text;
+          provider = 'youtube-captions';
+          diarizedTranscript = {
+            utterances: [{ start: 0, end: 0, speaker: 0, text: transcriptText, confidence: 1.0 }],
+            fullText: transcriptText,
+            duration: 0,
+            speakerCount: 1,
+            detectedLanguage: language,
+          };
+          logWithTime('SUCCESS: Got YouTube captions!', { textLength: transcriptText.length });
+        } else {
+          logWithTime('PRIORITY 0 FAILED: No YouTube captions available');
+        }
+      } catch (ytError) {
+        const errorMsg = ytError instanceof Error ? ytError.message : String(ytError);
+        logWithTime('PRIORITY 0 ERROR: YouTube caption fetch failed', { error: errorMsg });
+      }
+    }
+
+    // ============================================
     // PRIORITY A+: Try Apple Podcasts transcript (FREE, instant!)
     // Apple has 125M+ episodes already transcribed
     // ============================================
@@ -708,8 +784,9 @@ export async function ensureTranscript(
 
     // ============================================
     // PRIORITY B1: Use Voxtral if language is supported (cheaper, built-in diarization)
+    // Skip for YouTube URLs — they return HTML, not audio
     // ============================================
-    if (!transcriptText && isVoxtralSupported(language)) {
+    if (!transcriptText && !youtubeVideoId && isVoxtralSupported(language)) {
       logWithTime('PRIORITY B1: Language supported by Voxtral, attempting Voxtral transcription...', { language });
       try {
         const voxtralStart = Date.now();
@@ -741,14 +818,15 @@ export async function ensureTranscript(
         diarizedTranscript = null;
         provider = 'deepgram';
       }
-    } else if (!transcriptText) {
+    } else if (!transcriptText && !youtubeVideoId) {
       logWithTime('PRIORITY B1: Language not supported by Voxtral, skipping to Deepgram', { language });
     }
 
     // ============================================
     // PRIORITY B2: Use Deepgram with explicit language (fallback)
+    // Skip for YouTube URLs — they return HTML, not audio
     // ============================================
-    if (!transcriptText) {
+    if (!transcriptText && !youtubeVideoId) {
       logWithTime('PRIORITY B: Starting transcription via Deepgram with explicit language...');
       const transcribeStart = Date.now();
       
@@ -791,6 +869,20 @@ export async function ensureTranscript(
       transcriptText = formatTranscriptWithSpeakerNames(diarizedTranscript);
     }
 
+    // If we still have no transcript at this point, fail gracefully
+    if (!transcriptText) {
+      const errorMsg = youtubeVideoId
+        ? 'YouTube captions not available for this video'
+        : 'All transcription methods failed';
+      logWithTime('No transcript obtained', { errorMsg });
+      await supabase
+        .from('transcripts')
+        .update({ status: 'failed', error_message: errorMsg })
+        .eq('episode_id', episodeId)
+        .eq('language', language);
+      return { status: 'failed', error: errorMsg };
+    }
+
     // Save transcript to DB (language is known from RSS feed)
     logWithTime('Saving transcript to DB...', { provider, language });
     const saveStart = Date.now();
@@ -831,7 +923,8 @@ export async function generateSummaryForLevel(
   level: SummaryLevel,
   transcriptText: string,
   language = 'en',
-  diarizedTranscript?: DiarizedTranscript
+  diarizedTranscript?: DiarizedTranscript,
+  youtubeContext?: { description: string; chapters: { title: string; startSeconds: number }[]; descriptionLinks: { url: string; text: string }[] }
 ): Promise<{ status: SummaryStatus; content?: QuickSummaryContent | DeepSummaryContent; error?: string }> {
   const startTime = Date.now();
   logWithTime('generateSummaryForLevel started', { episodeId, level, language, transcriptLength: transcriptText.length });
@@ -846,10 +939,6 @@ export async function generateSummaryForLevel(
     .eq('language', language);
 
   try {
-    // Get the appropriate model based on level
-    // Deep uses Pro (more capable), Quick uses Flash (faster, cheaper)
-    const selectedModel = getModelForLevel(level);
-    const modelName = level === 'deep' ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview';
     const prompt = level === 'quick' ? QUICK_PROMPT : DEEP_PROMPT;
 
     // Use up to 150k characters of transcript (leaves room for prompt and response)
@@ -869,13 +958,39 @@ export async function generateSummaryForLevel(
       }
     }
 
-    const truncatedTranscript = inputTranscript.length > maxTranscriptChars
+    let truncatedTranscript = inputTranscript.length > maxTranscriptChars
       ? inputTranscript.substring(0, maxTranscriptChars) + '\n\n[... transcript truncated for length ...]'
       : inputTranscript;
 
+    // Append YouTube context to give the AI real data about links, chapters, and description
+    if (youtubeContext) {
+      const contextParts: string[] = ['\n\n--- VIDEO DESCRIPTION ---', youtubeContext.description.substring(0, 3000)];
+
+      if (youtubeContext.chapters.length > 0) {
+        contextParts.push('\n--- CREATOR CHAPTERS ---');
+        contextParts.push(youtubeContext.chapters.map(ch => {
+          const mins = Math.floor(ch.startSeconds / 60);
+          const secs = ch.startSeconds % 60;
+          return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')} - ${ch.title}`;
+        }).join('\n'));
+      }
+
+      if (youtubeContext.descriptionLinks.length > 0) {
+        contextParts.push('\n--- DESCRIPTION LINKS ---');
+        contextParts.push(youtubeContext.descriptionLinks.slice(0, 20).map(l => l.url).join('\n'));
+      }
+
+      truncatedTranscript += contextParts.join('\n');
+      logWithTime('Appended YouTube context to prompt', {
+        descriptionLength: youtubeContext.description.length,
+        chapterCount: youtubeContext.chapters.length,
+        linkCount: youtubeContext.descriptionLinks.length,
+      });
+    }
+
     const inputLength = (prompt + truncatedTranscript).length;
     logWithTime(`Generating ${level.toUpperCase()} Summary via Gemini...`, {
-      model: modelName,
+      models: getModelChain(level),
       level,
       inputLength,
       transcriptTruncated: inputTranscript.length > maxTranscriptChars,
@@ -884,13 +999,11 @@ export async function generateSummaryForLevel(
 
     const apiStart = Date.now();
     const fullPrompt = SYSTEM_MESSAGE + "\n\n" + prompt + truncatedTranscript;
-    
-    const result = await selectedModel.generateContent(fullPrompt);
-    const response = result.response;
-    const text = response.text();
-    
+
+    const { text, modelUsed } = await generateWithFallback(level, fullPrompt, `${level.toUpperCase()} Summary`);
+
     logWithTime(`Gemini API completed for ${level.toUpperCase()} Summary`, {
-      model: modelName,
+      model: modelUsed,
       durationMs: Date.now() - apiStart,
       durationSec: ((Date.now() - apiStart) / 1000).toFixed(1)
     });
@@ -984,6 +1097,15 @@ export async function generateSummaryForLevel(
       .eq('episode_id', episodeId)
       .eq('level', level)
       .eq('language', language);
+
+    // Invalidate stale caches so polling sees the failure
+    try {
+      const { deleteCached, CacheKeys } = await import('@/lib/cache');
+      await Promise.all([
+        deleteCached(CacheKeys.insightsStatus(episodeId, language)),
+        deleteCached(CacheKeys.summaryStatus(episodeId, language)),
+      ]);
+    } catch {}
 
     return { status: 'failed', error: errorMsg };
   }
@@ -1146,13 +1268,35 @@ export async function requestSummary(
     return { status: summaryStatus };
   }
 
+  // Fetch YouTube metadata context if this is a YouTube episode
+  let youtubeContext: { description: string; chapters: { title: string; startSeconds: number }[]; descriptionLinks: { url: string; text: string }[] } | undefined;
+  const ytVideoId = extractYouTubeVideoId(audioUrl);
+  if (ytVideoId) {
+    try {
+      const ytMeta = await ensureYouTubeMetadata(episodeId, ytVideoId);
+      if (ytMeta) {
+        youtubeContext = {
+          description: ytMeta.description,
+          chapters: ytMeta.chapters,
+          descriptionLinks: ytMeta.description_links,
+        };
+        logWithTime('YouTube metadata context loaded for summary generation', {
+          chapters: ytMeta.chapters.length,
+          links: ytMeta.description_links.length,
+        });
+      }
+    } catch (err) {
+      logWithTime('YouTube metadata fetch failed (non-blocking)', { error: String(err) });
+    }
+  }
+
   // Generate the summary (language is known from RSS feed)
   // If speaker identification is pending (Apple multi-speaker), run it in parallel
   // with summary generation to save ~20s
   if (transcriptResult.pendingSpeakerIdentification && transcriptResult.transcript) {
     logWithTime('Running identifySpeakers in PARALLEL with generateSummaryForLevel...', { language });
     const [result, speakers] = await Promise.all([
-      generateSummaryForLevel(episodeId, level, transcriptResult.text, language, transcriptResult.transcript),
+      generateSummaryForLevel(episodeId, level, transcriptResult.text, language, transcriptResult.transcript, youtubeContext),
       identifySpeakers(transcriptResult.transcript),
     ]);
 
@@ -1193,7 +1337,8 @@ export async function requestSummary(
     level,
     transcriptResult.text,
     language,
-    transcriptResult.transcript
+    transcriptResult.transcript,
+    youtubeContext
   );
   logWithTime('=== requestSummary ENDED ===', {
     status: result.status,

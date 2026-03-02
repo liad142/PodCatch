@@ -172,7 +172,7 @@ export function SemanticSearchBar() {
                   <Link
                     key={podcast.id}
                     href={getPodcastHref(podcast)}
-                    onClick={() => setShowResults(false)}
+                    onClick={() => { posthog.capture('search_result_clicked', { query, podcast_id: podcast.id, podcast_title: podcast.title, result_index: index }); setShowResults(false); }}
                     className={`flex items-center gap-3 px-4 py-3 transition-colors ${index === selectedIndex
                       ? 'bg-secondary'
                       : 'hover:bg-secondary/60'

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, RefObject } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
 import { Loader2, Sparkles, FileText, Lightbulb, ListMusic, Scale, Play, ChevronDown, ChevronsUpDown, ChevronsDownUp, Quote, Lock } from "lucide-react";
@@ -16,22 +16,30 @@ import { normalizeChronologicalSections, hasRealTimestamps, parseHighlightMarker
 import { cn } from "@/lib/utils";
 import { isRTLText } from "@/lib/rtl";
 import { AnimatePresence } from "framer-motion";
-import type { Episode, Podcast, EpisodeInsightsResponse, DeepSummaryContent, QuickSummaryContent, ChronologicalSection } from "@/types/database";
+import type { Episode, Podcast, EpisodeInsightsResponse, DeepSummaryContent, QuickSummaryContent, ChronologicalSection, YouTubeMetadataResponse } from "@/types/database";
+import type { YouTubeEmbedRef } from "@/components/YouTubeEmbed";
+import { isYouTubeContent } from "@/lib/youtube/utils";
+import { DescriptionLinks } from "./DescriptionLinks";
+import { PinnedComment } from "./PinnedComment";
+import { parseStoryboardSpec, getFrameUrlForTimestamp } from "@/lib/youtube/storyboards";
 
 interface EpisodeSmartFeedProps {
   episode: Episode & { podcast?: Podcast };
+  youtubePlayerRef?: RefObject<YouTubeEmbedRef | null>;
+  videoCurrentTime?: number;
 }
 
-export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
+export function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime }: EpisodeSmartFeedProps) {
   const { user, setShowCompactPrompt, setShowAuthModal } = useAuth();
   const [data, setData] = useState<EpisodeInsightsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isYouTube = isYouTubeContent(episode.podcast);
 
   // Build track with chapters from deep summary (only for authenticated users)
   const track = useMemo(() => {
-    if (!episode.audio_url) return undefined;
+    if (!episode.audio_url || isYouTube) return undefined;
     let chapters: { title: string; timestamp: string; timestamp_seconds: number }[] | undefined;
 
     if (user) {
@@ -60,7 +68,7 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
       duration: episode.duration_seconds ?? undefined,
       chapters,
     };
-  }, [episode, data?.summaries?.deep, user]);
+  }, [episode, data?.summaries?.deep, user, isYouTube]);
 
   // Signal to the global AskAI context that we're on an insights page
   useActivateAskAI(episode.id);
@@ -102,30 +110,41 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [episode.id]);
 
-  // Polling while generating
+  // Poll while deep/insights are still generating (triggered server-side by YouTube summary flow)
+  useEffect(() => {
+    if (!data) return;
+    const deepPending = data.summaries?.deep?.status && ['queued', 'transcribing', 'summarizing'].includes(data.summaries.deep.status);
+    const insightsPending = data.insights?.status && ['queued', 'transcribing', 'summarizing'].includes(data.insights.status);
+    if (deepPending || insightsPending) {
+      setIsGenerating(true);
+    }
+  }, [data]);
+
+  // Polling while generating (max 3 minutes)
   useEffect(() => {
     if (!isGenerating) return;
 
-    let delay = 2000;
-    let attempts = 0;
+    let delay = 3000;
     let timeoutId: ReturnType<typeof setTimeout>;
+    const deadline = Date.now() + 180_000; // 3 minute max
 
     const poll = () => {
-      if (attempts >= 60) {
+      if (Date.now() > deadline) {
         setIsGenerating(false);
-        setError("Generation timed out. Please try again.");
-        return;
+        return; // Silently stop — whatever loaded is shown
       }
-      attempts++;
       fetchData().then((json) => {
         if (json) {
-          const status = json.insights?.status;
-          if (!["queued", "transcribing", "summarizing"].includes(status)) {
+          const insightsStatus = json.insights?.status;
+          const deepStatus = json.summaries?.deep?.status;
+          const inProgress = (s: string | undefined) =>
+            s && ["queued", "transcribing", "summarizing"].includes(s);
+          if (!inProgress(insightsStatus) && !inProgress(deepStatus)) {
             setIsGenerating(false);
             return;
           }
         }
-        delay = Math.min(delay * 1.5, 15000);
+        delay = Math.min(delay * 1.3, 10000);
         timeoutId = setTimeout(poll, delay);
       });
     };
@@ -159,7 +178,7 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ level: "deep" }),
         }),
-      ]);
+      ]).catch(() => {});
 
       await fetchData();
     } catch (err) {
@@ -175,6 +194,7 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
   const isQuickReady = data?.summaries?.quick?.status === "ready" && quickContent;
   const isDeepReady = data?.summaries?.deep?.status === "ready" && deepContent;
   const hasAnyContent = data?.insights || data?.transcript_text || data?.summaries?.quick || data?.summaries?.deep;
+  const ytMeta = data?.youtube_metadata as YouTubeMetadataResponse | undefined;
 
   // RTL detection
   const isRTL = useMemo(() => {
@@ -333,6 +353,10 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
                         sections={deepContent!.chronological_breakdown}
                         isRTL={isRTL}
                         episode={episode}
+                        youtubePlayerRef={youtubePlayerRef}
+                        videoCurrentTime={videoCurrentTime}
+                        creatorChapters={ytMeta?.chapters}
+                        storyboardSpec={ytMeta?.storyboard_spec ?? undefined}
                       />
                     </div>
                   )}
@@ -375,6 +399,17 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
           </>
         ) : user ? (
           <>
+            {/* ─── Section 1.5: Description Links (YouTube only) ─── */}
+            {isYouTube && ytMeta && ytMeta.description_links.length > 0 && (
+              <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.03 }}
+              >
+                <DescriptionLinks links={ytMeta.description_links} isRTL={isRTL} />
+              </motion.section>
+            )}
+
             {/* ─── Section 2: Comprehensive Overview ─── */}
             {isDeepReady && deepContent!.comprehensive_overview && (
               <motion.section
@@ -411,7 +446,22 @@ export function EpisodeSmartFeed({ episode }: EpisodeSmartFeedProps) {
                   sections={deepContent!.chronological_breakdown}
                   isRTL={isRTL}
                   episode={episode}
+                  youtubePlayerRef={youtubePlayerRef}
+                  videoCurrentTime={videoCurrentTime}
+                  creatorChapters={ytMeta?.chapters}
+                  storyboardSpec={ytMeta?.storyboard_spec ?? undefined}
                 />
+              </motion.section>
+            )}
+
+            {/* ─── Section 4.5: Pinned Comment (YouTube only) ─── */}
+            {isYouTube && ytMeta?.pinned_comment && (
+              <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.17 }}
+              >
+                <PinnedComment comment={ytMeta.pinned_comment} isRTL={isRTL} />
               </motion.section>
             )}
 
@@ -707,13 +757,37 @@ function CoreConcepts({ concepts, isRTL }: {
 }
 
 /* ─── 4. Episode Chapters ─── */
-function EpisodeChapters({ sections, isRTL, episode }: {
+function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurrentTime, creatorChapters, storyboardSpec }: {
   sections: ChronologicalSection[];
   isRTL: boolean;
   episode: Episode & { podcast?: Podcast };
+  youtubePlayerRef?: RefObject<YouTubeEmbedRef | null>;
+  videoCurrentTime?: number;
+  creatorChapters?: { title: string; startSeconds: number }[];
+  storyboardSpec?: string;
 }) {
   const { user } = useAuth();
-  const normalized = useMemo(() => normalizeChronologicalSections(sections), [sections]);
+
+  // If creator chapters are available, convert them to ChronologicalSection format
+  const effectiveSections = useMemo(() => {
+    if (creatorChapters && creatorChapters.length >= 3) {
+      return creatorChapters.map((ch) => ({
+        timestamp: `${String(Math.floor(ch.startSeconds / 60)).padStart(2, '0')}:${String(ch.startSeconds % 60).padStart(2, '0')}`,
+        timestamp_seconds: ch.startSeconds,
+        title: ch.title,
+        content: '', // Creator chapters don't have AI-generated content
+      } as ChronologicalSection));
+    }
+    return sections;
+  }, [creatorChapters, sections]);
+
+  // Parse storyboard spec for thumbnails
+  const storyboardLevels = useMemo(() => {
+    if (!storyboardSpec) return [];
+    return parseStoryboardSpec(storyboardSpec);
+  }, [storyboardSpec]);
+
+  const normalized = useMemo(() => normalizeChronologicalSections(effectiveSections), [effectiveSections]);
   const showTimestamps = useMemo(() => hasRealTimestamps(normalized), [normalized]);
   const [expandedIndex, setExpandedIndex] = useState<number>(0);
   const [allExpanded, setAllExpanded] = useState(false);
@@ -745,18 +819,25 @@ function EpisodeChapters({ sections, isRTL, episode }: {
   }, [episode, chapters]);
 
   const activeIndex = useMemo(() => {
-    if (!player || !showTimestamps) return -1;
-    const time = player.currentTime;
+    const isYT = !!youtubePlayerRef;
+    const time = isYT ? (videoCurrentTime ?? 0) : player?.currentTime ?? 0;
+    if ((!player && !isYT) || !showTimestamps) return -1;
     let active = -1;
     for (let i = 0; i < normalized.length; i++) {
       const sec = normalized[i].timestamp_seconds ?? 0;
       if (sec <= time) active = i;
     }
     return active;
-  }, [player?.currentTime, normalized, showTimestamps, player]);
+  }, [player?.currentTime, normalized, showTimestamps, player, youtubePlayerRef, videoCurrentTime]);
 
   const handleSeekTo = (seconds: number) => {
-    if (seconds < 0 || !player) return;
+    if (seconds < 0) return;
+    // Use YouTube player if available
+    if (youtubePlayerRef?.current) {
+      youtubePlayerRef.current.seekTo(seconds);
+      return;
+    }
+    if (!player) return;
     const isTrackLoaded = player.currentTrack?.audioUrl === chapterTrack?.audioUrl;
     if (isTrackLoaded) {
       player.seek(seconds);
@@ -823,6 +904,27 @@ function EpisodeChapters({ sections, isRTL, episode }: {
                 )}
               >
                 <div className={cn("flex items-center gap-2 flex-wrap", isRTL && "flex-row-reverse")}>
+                  {/* Storyboard thumbnail */}
+                  {storyboardLevels.length > 0 && hasTimestamp && (() => {
+                    const frame = getFrameUrlForTimestamp(storyboardLevels, section.timestamp_seconds ?? 0);
+                    if (!frame) return null;
+                    // The best level is the one getFrameUrlForTimestamp picked (largest width)
+                    const bestLevel = storyboardLevels.reduce((b, l) => l.width > b.width ? l : b, storyboardLevels[0]);
+                    const sheetW = bestLevel.width * bestLevel.cols;
+                    const sheetH = bestLevel.height * bestLevel.rows;
+                    // Scale to fit 64px wide thumbnail
+                    const scale = 64 / bestLevel.width;
+                    return (
+                      <div
+                        className="w-16 h-9 rounded overflow-hidden shrink-0 bg-secondary"
+                        style={{
+                          backgroundImage: `url(${frame.sheetUrl})`,
+                          backgroundPosition: `-${frame.x * scale}px -${frame.y * scale}px`,
+                          backgroundSize: `${sheetW * scale}px ${sheetH * scale}px`,
+                        }}
+                      />
+                    );
+                  })()}
                   {hasTimestamp && (
                     <span
                       role="button"

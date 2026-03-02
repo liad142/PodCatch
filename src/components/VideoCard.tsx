@@ -156,7 +156,52 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
     }
   };
 
+  const [isImporting, setIsImporting] = useState(false);
+
+  const handleNavigate = async () => {
+    posthog.capture('video_clicked', { video_id: video.videoId, title: video.title });
+    // Navigate to episode page if we have an episodeId
+    if (localEpisodeId) {
+      router.push(`/episode/${localEpisodeId}/insights`);
+      return;
+    }
+
+    // Import the video first, then navigate to the episode page
+    if (!user || isImporting) return;
+
+    setIsImporting(true);
+    try {
+      const res = await fetch(`/api/youtube/${video.videoId}/summary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          level: 'quick',
+          title: video.title,
+          description: video.description,
+          channelId: video.channelId || '',
+          channelTitle: video.channelName || '',
+          thumbnailUrl: video.thumbnailUrl,
+          publishedAt: video.publishedAt,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setLocalEpisodeId(data.episodeId);
+        router.push(`/episode/${data.episodeId}/insights`);
+      } else {
+        // Fallback: open on YouTube if import fails
+        window.open(video.url, '_blank', 'noopener,noreferrer');
+      }
+    } catch {
+      window.open(video.url, '_blank', 'noopener,noreferrer');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleWatch = () => {
+    posthog.capture('video_watch_on_youtube', { video_id: video.videoId, title: video.title });
     window.open(video.url, '_blank', 'noopener,noreferrer');
   };
 
@@ -177,9 +222,9 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
         />
         
         {/* Play overlay */}
-        <div 
+        <div
           className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center cursor-pointer"
-          onClick={handleWatch}
+          onClick={handleNavigate}
         >
           <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
             <Play className="w-6 h-6 text-red-600 ml-1" fill="currentColor" />
@@ -229,7 +274,7 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
         {/* Title */}
         <h3 
           className="font-medium text-sm line-clamp-2 leading-tight group-hover:text-primary transition-colors cursor-pointer"
-          onClick={handleWatch}
+          onClick={handleNavigate}
         >
           {video.title}
         </h3>

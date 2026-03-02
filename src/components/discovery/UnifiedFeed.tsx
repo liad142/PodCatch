@@ -6,6 +6,7 @@ import type { VideoItem } from '@/components/VideoCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2 } from 'lucide-react';
+import posthog from 'posthog-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
@@ -79,6 +80,7 @@ export function UnifiedFeed() {
   const handleLoadMore = useCallback(async () => {
     if (isLoadingMore || !hasMore) return;
     setIsLoadingMore(true);
+    posthog.capture('feed_load_more', { filter, offset: offsetRef.current });
     await fetchFeed(filter, offsetRef.current, true);
     setIsLoadingMore(false);
   }, [filter, isLoadingMore, hasMore, fetchFeed]);
@@ -92,6 +94,7 @@ export function UnifiedFeed() {
     url: item.url,
     duration: item.duration,
     bookmarked: item.bookmarked,
+    channelId: item.source_id,
   });
 
   if (!user) return null;
@@ -110,7 +113,7 @@ export function UnifiedFeed() {
           {filters.map((f) => (
             <button
               key={f.value}
-              onClick={() => setFilter(f.value)}
+              onClick={() => { setFilter(f.value); posthog.capture('feed_filter_changed', { filter: f.value }); }}
               className={cn(
                 'px-4 py-1.5 text-sm font-medium rounded-full transition-colors cursor-pointer',
                 filter === f.value
@@ -144,6 +147,7 @@ export function UnifiedFeed() {
                 <VideoCard
                   key={item.id}
                   video={mapToVideoItem(item)}
+                  episodeId={item.episode_id}
                 />
               ))}
           </div>

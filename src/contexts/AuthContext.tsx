@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import posthog from 'posthog-js';
 import { createClient } from '@/lib/supabase/client';
 import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setShowAuthModal = useCallback((show: boolean, message?: string) => {
     setShowAuthModalState(show);
     setAuthPromptMessage(message || null);
+    if (show) posthog.capture('auth_modal_opened', { message: message || null });
   }, []);
 
   const setShowCompactPrompt = useCallback((show: boolean, message?: string) => {
@@ -64,7 +66,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, session: Session | null) => {
-        console.log(`[AUTH] State change: ${event} user=${session?.user?.email ?? 'none'}`);
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
@@ -76,7 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message };
+    if (error) {
+      posthog.capture('auth_sign_in_failed', { provider: 'email', error: error.message });
+      return { error: error.message };
+    }
+    posthog.capture('auth_signed_in', { provider: 'email' });
     setShowAuthModal(false);
     return { error: null };
   }, []);
@@ -89,9 +94,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data: { display_name: displayName },
       },
     });
-    if (error) return { error: error.message, needsConfirmation: false };
+    if (error) {
+      posthog.capture('auth_sign_up_failed', { provider: 'email', error: error.message });
+      return { error: error.message, needsConfirmation: false };
+    }
     // needsConfirmation = true when Supabase requires email verification (session is null until confirmed)
     const needsConfirmation = !data.session;
+    posthog.capture('auth_signed_up', { provider: 'email', needs_confirmation: needsConfirmation });
     return { error: null, needsConfirmation };
   }, []);
 
@@ -105,14 +114,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
 
-    if (error) {
-      // User already exists — try signing them in instead
-      if (error.message.toLowerCase().includes('already registered') || error.message.toLowerCase().includes('already been registered')) {
-        const signInResult = await supabase.auth.signInWithPassword({ email, password });
-        if (signInResult.error) return { error: signInResult.error.message, needsConfirmation: false };
-        setShowAuthModal(false);
-        return { error: null, needsConfirmation: false };
+    // User already exists — Supabase may return an error or a fake success with empty identities
+    const alreadyExists =
+      error?.message.toLowerCase().includes('already registered') ||
+      error?.message.toLowerCase().includes('already been registered') ||
+      (!error && data.user && data.user.identities?.length === 0);
+
+    if (alreadyExists) {
+      const signInResult = await supabase.auth.signInWithPassword({ email, password });
+      if (signInResult.error) {
+        posthog.capture('auth_sign_in_failed', { provider: 'email', error: signInResult.error.message });
+        return { error: signInResult.error.message, needsConfirmation: false };
       }
+      posthog.capture('auth_signed_in', { provider: 'email', was_existing_user: true });
+      setShowAuthModal(false);
+      return { error: null, needsConfirmation: false };
+    }
+
+    if (error) {
       return { error: error.message, needsConfirmation: false };
     }
 
@@ -121,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
+    posthog.capture('auth_google_started');
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -132,11 +152,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       },
     });
-    if (error) return { error: error.message };
+    if (error) {
+      posthog.capture('auth_sign_in_failed', { provider: 'google', error: error.message });
+      return { error: error.message };
+    }
     return { error: null };
   }, []);
 
   const signOut = useCallback(async () => {
+    posthog.capture('auth_signed_out');
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);

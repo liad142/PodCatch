@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requestSummary, checkExistingSummary, getSummariesStatus } from "@/lib/summary-service";
 import { getAuthUser } from "@/lib/auth-helpers";
 import { resolvePodcastLanguage } from "@/lib/language-utils";
-import { checkQuota, isAdminEmail, checkRateLimit } from "@/lib/cache";
+import { checkQuota, isAdminEmail, checkRateLimit, deleteCached, CacheKeys } from "@/lib/cache";
 import type { SummaryLevel } from "@/types/database";
 
 interface RouteParams {
@@ -70,6 +70,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     logWithTime('POST request received', { episodeId: id, level });
+
+    // Invalidate stale insights cache so polling picks up new generation state
+    await deleteCached(CacheKeys.insightsStatus(id, 'en')).catch(() => {});
 
     // Get episode with podcast info - language comes from RSS feed
     logWithTime('Fetching episode and podcast from DB...');

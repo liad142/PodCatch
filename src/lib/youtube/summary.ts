@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchYouTubeTranscript } from './transcripts';
 import { generateSummaryForLevel } from '@/lib/summary-service';
+import { generateInsights } from '@/lib/insights-service';
+import { ensureYouTubeMetadata } from './metadata';
 import type { SummaryLevel, SummaryStatus } from '@/types/database';
 
 /**
@@ -98,13 +100,79 @@ export async function requestYouTubeSummary(
       { onConflict: 'episode_id,level,language' }
     );
 
+  // Fetch YouTube metadata context for richer AI prompts
+  let youtubeContext: { description: string; chapters: { title: string; startSeconds: number }[]; descriptionLinks: { url: string; text: string }[] } | undefined;
+  try {
+    const ytMeta = await ensureYouTubeMetadata(episodeId, videoId);
+    if (ytMeta) {
+      youtubeContext = {
+        description: ytMeta.description,
+        chapters: ytMeta.chapters,
+        descriptionLinks: ytMeta.description_links,
+      };
+    }
+  } catch {
+    // Non-blocking — metadata is optional enrichment
+  }
+
   // Generate summary
   const result = await generateSummaryForLevel(
     episodeId,
     level,
     transcriptText,
-    language
+    language,
+    undefined,
+    youtubeContext
   );
+
+  // After quick summary succeeds, fire-and-forget deep + insights generation
+  // This runs server-side, bypassing API rate limits
+  if (level === 'quick' && result.status === 'ready') {
+    const bgTranscript = transcriptText;
+    const bgContext = youtubeContext;
+
+    // Check which levels already exist before triggering
+    const { data: existingLevels } = await supabase
+      .from('summaries')
+      .select('level, status')
+      .eq('episode_id', episodeId)
+      .in('level', ['deep', 'insights']);
+
+    const deepExists = existingLevels?.find(s => s.level === 'deep' && s.status === 'ready');
+    const insightsExists = existingLevels?.find(s => s.level === 'insights' && s.status === 'ready');
+
+    // Deep summary (fire-and-forget, only if not already ready)
+    if (!deepExists) {
+      (async () => {
+        try {
+          await supabase.from('summaries').upsert(
+            { episode_id: episodeId, level: 'deep' as SummaryLevel, language, status: 'queued' },
+            { onConflict: 'episode_id,level,language' }
+          );
+          const r = await generateSummaryForLevel(episodeId, 'deep', bgTranscript, language, undefined, bgContext);
+          console.log(`[YT_SUMMARY] Deep summary completed for ${episodeId}: ${r.status}`);
+        } catch (e) {
+          console.error(`[YT_SUMMARY] Deep summary failed for ${episodeId}:`, e);
+        }
+      })();
+    }
+
+    // Insights (fire-and-forget, only if not already ready)
+    if (!insightsExists) {
+      (async () => {
+        try {
+          await supabase.from('summaries').upsert(
+            { episode_id: episodeId, level: 'insights' as SummaryLevel, language, status: 'queued' },
+            { onConflict: 'episode_id,level,language' }
+          );
+          const r = await generateInsights(episodeId, bgTranscript, language);
+          console.log(`[YT_SUMMARY] Insights completed for ${episodeId}: ${r.status}`);
+        } catch (e) {
+          console.error(`[YT_SUMMARY] Insights failed for ${episodeId}:`, e);
+        }
+      })();
+    }
+  }
 
   return { status: result.status, error: result.error };
 }
