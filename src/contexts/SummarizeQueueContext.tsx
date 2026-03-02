@@ -5,6 +5,7 @@ import React, { createContext, useContext, useState, useCallback, useRef, useEff
 import posthog from 'posthog-js';
 import type { QueueItem, QueueItemState, SummarizeQueueContextValue } from '@/types/queue';
 import { createLogger } from '@/lib/logger';
+import { UpgradeModal } from '@/components/UpgradeModal';
 
 const log = createLogger('queue');
 
@@ -45,6 +46,8 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [stats, setStats] = useState({ completed: 0, failed: 0, total: 0 });
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [rateLimitInfo, setRateLimitInfo] = useState<{ limit: number; used: number }>({ limit: 5, used: 5 });
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const processingRef = useRef(false);
@@ -226,7 +229,31 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
 
       log.info('POST returned', { episodeId, ok: res.ok, status: res.status, durationMs: Date.now() - startTime });
 
-      if (!res.ok) throw new Error('Failed to start processing');
+      if (!res.ok) {
+        // Handle rate limit: show upgrade modal for daily quota, don't retry
+        if (res.status === 429) {
+          const body = await res.json().catch(() => ({}));
+          if (body.limit != null && body.used != null) {
+            // Daily quota exceeded — show upgrade modal
+            log.warn('Daily quota exceeded', { episodeId, limit: body.limit, used: body.used });
+            setRateLimitInfo({ limit: body.limit, used: body.used });
+            setShowUpgradeModal(true);
+            updateQueueItem(episodeId, { state: 'failed', error: 'Daily limit reached' });
+            setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
+            finishProcessing();
+            processNext();
+            return;
+          }
+          // Per-minute rate limit — fail with message (no retry, it'll just hit the limit again)
+          log.warn('Rate limited', { episodeId });
+          updateQueueItem(episodeId, { state: 'failed', error: 'Too many requests. Try again in a minute.' });
+          setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
+          finishProcessing();
+          processNext();
+          return;
+        }
+        throw new Error('Failed to start processing');
+      }
 
       const responseData = await res.json();
       log.debug('POST response data', { episodeId, responseData });
@@ -354,6 +381,11 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
   return (
     <SummarizeQueueContext.Provider value={value}>
       {children}
+      <UpgradeModal
+        open={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        rateLimitInfo={rateLimitInfo}
+      />
     </SummarizeQueueContext.Provider>
   );
 }

@@ -39,15 +39,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Rate limit: 5 requests/min per user
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const rlAllowed = await checkRateLimit(`summary:${user.id || ip}`, 5, 60);
-    if (!rlAllowed) {
-      return NextResponse.json({ error: 'Too many requests. Try again in a minute.' }, { status: 429 });
+    const isAdmin = isAdminEmail(user.email ?? '');
+
+    // Rate limit: 5 requests/min per user (skip for admins)
+    if (!isAdmin) {
+      const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+      const rlAllowed = await checkRateLimit(`summary:${user.id || ip}`, 5, 60);
+      if (!rlAllowed) {
+        return NextResponse.json({ error: 'Too many requests. Try again in a minute.' }, { status: 429 });
+      }
     }
 
     // Per-user daily quota (skip for admins)
-    if (!isAdminEmail(user.email)) {
+    if (!isAdmin) {
       const quota = await checkQuota(user.id, 'summary', 5);
       if (!quota.allowed) {
         return NextResponse.json({
