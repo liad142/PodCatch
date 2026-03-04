@@ -1,116 +1,279 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Lightbulb, Share2, Bookmark, ArrowRight } from 'lucide-react';
+import { Wrench, GitBranch, Building2, TrendingUp, Lightbulb, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
+import type { BriefItem, BriefCategory, TodaysBriefResponse } from '@/types/brief';
 
-interface TodayInsight {
-  text: string;
-  sourceName: string;
-  episodeTitle: string;
-  episodeId: string;
-  timestamp?: string;
-  timestampSeconds?: number;
-  type: 'podcast' | 'youtube';
+const CATEGORY_CONFIG: Record<BriefCategory, { label: string; icon: typeof Wrench; color: string; badgeBg: string }> = {
+  tool:    { label: 'Tool',    icon: Wrench,     color: 'text-blue-500',   badgeBg: 'bg-blue-500/10' },
+  repo:    { label: 'Repo',    icon: GitBranch,  color: 'text-green-500',  badgeBg: 'bg-green-500/10' },
+  company: { label: 'Company', icon: Building2,  color: 'text-purple-500', badgeBg: 'bg-purple-500/10' },
+  metric:  { label: 'Metric',  icon: TrendingUp, color: 'text-amber-500',  badgeBg: 'bg-amber-500/10' },
+  insight: { label: 'Insight', icon: Lightbulb,  color: 'text-primary',    badgeBg: 'bg-primary/10' },
+};
+
+const FILTER_OPTIONS: Array<{ value: BriefCategory | 'all'; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'tool', label: 'Tools' },
+  { value: 'repo', label: 'Repos' },
+  { value: 'company', label: 'Companies' },
+  { value: 'metric', label: 'Metrics' },
+  { value: 'insight', label: 'Insights' },
+];
+
+const INITIAL_VISIBLE = 4;
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function BriefCard({ item, index }: { item: BriefItem; index: number }) {
+  const router = useRouter();
+  const cat = CATEGORY_CONFIG[item.category];
+  const Icon = cat.icon;
+
+  const handleClick = () => {
+    router.push(`/episode/${item.source.episodeId}/insights`);
+  };
+
+  const handleTimestampClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = `/episode/${item.source.episodeId}/insights${item.timestampSeconds ? `?t=${item.timestampSeconds}` : ''}`;
+    router.push(url);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05, duration: 0.3 }}
+      className="rounded-xl bg-card border border-border hover:border-primary/30 hover:shadow-[var(--shadow-2)] p-4 cursor-pointer transition-all duration-200"
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}
+    >
+      {/* Category badge */}
+      <div className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 mb-2.5', cat.badgeBg)}>
+        <Icon className={cn('h-3 w-3', cat.color)} />
+        <span className={cn('text-[10px] font-semibold uppercase tracking-wider', cat.color)}>
+          {cat.label}
+        </span>
+      </div>
+
+      {/* Content */}
+      <p className="text-sm font-semibold text-foreground line-clamp-1 mb-1">
+        {item.headline}
+      </p>
+      <p className="text-xs text-muted-foreground line-clamp-2 min-h-[2lh]">
+        {item.whyItMatters}
+      </p>
+
+      {/* Source row */}
+      <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-border/60">
+        <div className="flex items-center gap-1.5 min-w-0 max-w-[65%]">
+          {item.source.imageUrl ? (
+            <img
+              src={item.source.imageUrl}
+              alt=""
+              className="w-4 h-4 rounded-full object-cover flex-shrink-0"
+            />
+          ) : (
+            <div className="w-4 h-4 rounded-full bg-secondary flex-shrink-0" />
+          )}
+          <span className="text-[11px] text-muted-foreground truncate">
+            {item.source.name}
+          </span>
+        </div>
+        {item.timestamp && (
+          <button
+            onClick={handleTimestampClick}
+            className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors cursor-pointer"
+          >
+            @{item.timestamp}
+          </button>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+function BriefSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {[0, 1, 2, 3].map(i => (
+        <div key={i} className="rounded-xl border border-border p-4 space-y-3">
+          <Skeleton className="h-5 w-16 rounded-full" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-2/3" />
+          <div className="pt-2.5 border-t border-border/60">
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function TodaysInsights() {
-  const router = useRouter();
-  const [insights, setInsights] = useState<TodayInsight[]>([]);
+  const [data, setData] = useState<TodaysBriefResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [activeFilter, setActiveFilter] = useState<BriefCategory | 'all'>('all');
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    async function fetchInsights() {
+    async function fetchBrief() {
       try {
         const res = await fetch('/api/discover/todays-insights');
         if (res.ok) {
-          const data = await res.json();
-          setInsights(data.insights || []);
+          const json = await res.json();
+          // Handle both new and old response shapes
+          if (json.items) {
+            setData(json as TodaysBriefResponse);
+          }
         }
       } catch {
-        // Silently fail — section just won't show
+        // Silently fail — section shows empty state
       } finally {
         setIsLoading(false);
       }
     }
-    fetchInsights();
+    fetchBrief();
   }, []);
 
-  const handleShare = async (insight: TodayInsight, index: number) => {
-    const text = `"${insight.text}"\n— ${insight.sourceName}`;
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedIndex(index);
-      setTimeout(() => setCopiedIndex(null), 2000);
-    } catch {
-      // Fallback: no clipboard API
-    }
-  };
+  // Derive available categories
+  const availableCategories = useMemo(() => {
+    if (!data?.items.length) return new Set<BriefCategory>();
+    return new Set(data.items.map(i => i.category));
+  }, [data]);
 
-  // Don't render if no insights or still loading
-  if (isLoading || insights.length === 0) return null;
+  const showFilters = availableCategories.size >= 2;
+
+  // Filter items
+  const filteredItems = useMemo(() => {
+    if (!data?.items.length) return [];
+    if (activeFilter === 'all') return data.items;
+    return data.items.filter(i => i.category === activeFilter);
+  }, [data, activeFilter]);
+
+  const visibleItems = expanded ? filteredItems : filteredItems.slice(0, INITIAL_VISIBLE);
+  const hiddenCount = filteredItems.length - INITIAL_VISIBLE;
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <section>
+        <div className="relative rounded-2xl overflow-hidden bg-secondary/60 dark:bg-secondary/40 border border-border">
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+          <div className="relative px-6 py-6 sm:px-8 sm:py-8">
+            <div className="flex items-center gap-2 mb-6">
+              <Skeleton className="h-6 w-32" />
+            </div>
+            <BriefSkeleton />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Empty state
+  if (!data?.items.length) {
+    return null;
+  }
+
+  const today = new Date();
+  const dateLabel = formatDate(data.date);
+  const todayLabel = formatDate(today.toISOString().split('T')[0]);
+  const displayDate = dateLabel === todayLabel ? 'Today' : dateLabel;
 
   return (
     <motion.section
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
     >
-      <div className="mb-4">
-        <h2 className="text-h2 text-foreground">Today&apos;s Insights</h2>
-        <p className="text-body-sm text-muted-foreground">PodCatch distilled the internet for you today</p>
-      </div>
+      <div className="relative rounded-2xl overflow-hidden bg-secondary/60 dark:bg-secondary/40 border border-border">
+        {/* Subtle top accent line */}
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
 
-      <div className="bg-card/50 border border-border rounded-2xl p-6 space-y-4">
-        {insights.map((insight, i) => (
-          <motion.div
-            key={`${insight.episodeId}-${i}`}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className={cn(
-              'group',
-              i < insights.length - 1 && 'pb-4 border-b border-border/50'
-            )}
-          >
-            {/* Insight text */}
-            <div className="flex gap-3">
-              <Lightbulb className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <p className="text-body-sm text-foreground leading-relaxed">
-                  &ldquo;{insight.text}&rdquo;
-                </p>
-                {/* Source */}
-                <button
-                  onClick={() => router.push(`/episode/${insight.episodeId}/insights`)}
-                  className="mt-1.5 flex items-center gap-1 text-caption text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-                >
-                  <span>— {insight.sourceName}</span>
-                  {insight.timestamp && (
-                    <span className="text-primary/60">@{insight.timestamp}</span>
-                  )}
-                  <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </button>
-              </div>
+        <div className="relative px-6 py-6 sm:px-8 sm:py-8">
+          {/* Header row */}
+          <div className="flex items-start justify-between gap-4 mb-1.5">
+            <h2 className="text-lg sm:text-xl font-bold text-foreground tracking-tight">
+              Today&apos;s Brief
+            </h2>
+          </div>
 
-              {/* Actions */}
-              <div className="flex items-start gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={() => handleShare(insight, i)}
-                  className="p-1.5 rounded-full hover:bg-secondary transition-colors cursor-pointer"
-                  title={copiedIndex === i ? 'Copied!' : 'Copy insight'}
-                >
-                  <Share2 className={cn(
-                    'h-3.5 w-3.5',
-                    copiedIndex === i ? 'text-primary' : 'text-muted-foreground'
-                  )} />
-                </button>
-              </div>
+          {/* Date + count */}
+          <div className="flex items-center gap-3 mb-5">
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+              <Zap className="h-3 w-3 text-amber-500 dark:text-amber-400" />
+              {displayDate} &middot; {data.items.length} items
+            </span>
+          </div>
+
+          {/* Stale data banner */}
+          {data.isStale && (
+            <div className="text-[11px] text-muted-foreground bg-amber-500/5 border border-amber-500/10 rounded-lg px-3 py-1.5 mb-3">
+              Showing latest brief from {formatDate(data.date)}
             </div>
-          </motion.div>
-        ))}
+          )}
+
+          {/* Filter pills */}
+          {showFilters && (
+            <div className="flex items-center gap-1.5 mb-4 overflow-x-auto scrollbar-none">
+              {FILTER_OPTIONS
+                .filter(f => f.value === 'all' || availableCategories.has(f.value as BriefCategory))
+                .map(f => (
+                  <button
+                    key={f.value}
+                    onClick={() => { setActiveFilter(f.value as BriefCategory | 'all'); setExpanded(false); }}
+                    className={cn(
+                      'px-3 py-1 rounded-full text-[11px] font-medium transition-colors whitespace-nowrap cursor-pointer',
+                      activeFilter === f.value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80'
+                    )}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+            </div>
+          )}
+
+          {/* Card grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {visibleItems.map((item, i) => (
+              <BriefCard key={item.id} item={item} index={i} />
+            ))}
+          </div>
+
+          {/* Show more / less */}
+          {hiddenCount > 0 && !expanded && (
+            <button
+              onClick={() => setExpanded(true)}
+              className="mt-3 w-full flex items-center justify-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer py-2"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+              Show {hiddenCount} more
+            </button>
+          )}
+          {expanded && filteredItems.length > INITIAL_VISIBLE && (
+            <button
+              onClick={() => setExpanded(false)}
+              className="mt-3 w-full flex items-center justify-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer py-2"
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+              Show less
+            </button>
+          )}
+        </div>
       </div>
     </motion.section>
   );
