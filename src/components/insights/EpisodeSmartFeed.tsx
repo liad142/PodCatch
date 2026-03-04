@@ -422,7 +422,11 @@ export function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime }
                 transition={{ duration: 0.4, delay: 0.05 }}
                 dir={isRTL ? "rtl" : "ltr"}
               >
-                <PaywallOverlay isGated={isFree} module="deep summary">
+                <PaywallOverlay
+                  isGated={isFree && deepContent!.comprehensive_overview.split('\n').filter(p => p.trim()).length > cutoffs.deepSummaryParagraphs}
+                  module="deep summary"
+                  teaser={isFree ? <ComprehensiveOverview text={deepContent!.comprehensive_overview} isRTL={isRTL} skipParagraphs={cutoffs.deepSummaryParagraphs} maxParagraphs={cutoffs.deepSummaryParagraphs + 2} hideHeader /> : undefined}
+                >
                   <ComprehensiveOverview text={deepContent!.comprehensive_overview} isRTL={isRTL} maxParagraphs={isFree ? cutoffs.deepSummaryParagraphs : undefined} />
                 </PaywallOverlay>
               </motion.section>
@@ -436,7 +440,11 @@ export function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime }
                 transition={{ duration: 0.4, delay: 0.1 }}
                 dir={isRTL ? "rtl" : "ltr"}
               >
-                <PaywallOverlay isGated={isFree && deepContent!.core_concepts.length > cutoffs.coreConcepts} module="core concepts">
+                <PaywallOverlay
+                  isGated={isFree && deepContent!.core_concepts.length > cutoffs.coreConcepts}
+                  module="core concepts"
+                  teaser={isFree ? <CoreConcepts concepts={deepContent!.core_concepts.slice(cutoffs.coreConcepts, cutoffs.coreConcepts + 2)} isRTL={isRTL} hideHeader /> : undefined}
+                >
                   <CoreConcepts concepts={isFree ? deepContent!.core_concepts.slice(0, cutoffs.coreConcepts) : deepContent!.core_concepts} isRTL={isRTL} />
                 </PaywallOverlay>
               </motion.section>
@@ -450,7 +458,22 @@ export function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime }
                 transition={{ duration: 0.4, delay: 0.15 }}
                 dir={isRTL ? "rtl" : "ltr"}
               >
-                <PaywallOverlay isGated={isFree && deepContent!.chronological_breakdown!.length > cutoffs.chapters} module="chapters">
+                <PaywallOverlay
+                  isGated={isFree && deepContent!.chronological_breakdown!.length > cutoffs.chapters}
+                  module="chapters"
+                  teaser={isFree ? (
+                    <EpisodeChapters
+                      sections={deepContent!.chronological_breakdown!.slice(cutoffs.chapters, cutoffs.chapters + 2)}
+                      isRTL={isRTL}
+                      episode={episode}
+                      youtubePlayerRef={youtubePlayerRef}
+                      videoCurrentTime={videoCurrentTime}
+                      creatorChapters={ytMeta?.chapters}
+                      storyboardSpec={ytMeta?.storyboard_spec ?? undefined}
+                      hideHeader
+                    />
+                  ) : undefined}
+                >
                   <EpisodeChapters
                     sections={isFree ? deepContent!.chronological_breakdown!.slice(0, cutoffs.chapters) : deepContent!.chronological_breakdown}
                     isRTL={isRTL}
@@ -483,8 +506,13 @@ export function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime }
                 transition={{ duration: 0.4, delay: 0.2 }}
                 dir={isRTL ? "rtl" : "ltr"}
               >
-                <PaywallOverlay isGated={isFree} module="counterpoints">
-                  <ContrarianViews views={deepContent!.contrarian_views} isRTL={isRTL} />
+                <PaywallOverlay
+                  isGated={isFree}
+                  module="counterpoints"
+                  teaser={isFree ? <ContrarianViews views={deepContent!.contrarian_views.slice(0, 2)} isRTL={isRTL} /> : undefined}
+                >
+                  {/* Free users see no counterpoints but get the blurred teaser above */}
+                  {!isFree && <ContrarianViews views={deepContent!.contrarian_views} isRTL={isRTL} />}
                 </PaywallOverlay>
               </motion.section>
             )}
@@ -706,13 +734,14 @@ function GuestTeaserCard({ content, isRTL }: { content: QuickSummaryContent; isR
 }
 
 /* ─── 2. Comprehensive Overview ─── */
-function ComprehensiveOverview({ text, isRTL, maxParagraphs }: { text: string; isRTL: boolean; maxParagraphs?: number }) {
+function ComprehensiveOverview({ text, isRTL, maxParagraphs, skipParagraphs, hideHeader }: { text: string; isRTL: boolean; maxParagraphs?: number; skipParagraphs?: number; hideHeader?: boolean }) {
   const allParagraphs = text.split('\n').filter(p => p.trim());
-  const visibleParagraphs = maxParagraphs !== undefined ? allParagraphs.slice(0, maxParagraphs) : allParagraphs;
+  const start = skipParagraphs ?? 0;
+  const visibleParagraphs = maxParagraphs !== undefined ? allParagraphs.slice(start, maxParagraphs) : allParagraphs.slice(start);
 
   return (
     <div>
-      <SectionHeader icon={FileText} label="Comprehensive Overview" isRTL={isRTL} />
+      {!hideHeader && <SectionHeader icon={FileText} label="Comprehensive Overview" isRTL={isRTL} />}
       <div className={cn("prose-width", isRTL && "text-right")}>
         {visibleParagraphs.map((paragraph, i) => (
           <AnnotatedParagraph key={i} text={paragraph} isRTL={isRTL} />
@@ -744,13 +773,14 @@ function AnnotatedParagraph({ text, isRTL }: { text: string; isRTL: boolean }) {
 }
 
 /* ─── 3. Core Concepts ─── */
-function CoreConcepts({ concepts, isRTL }: {
+function CoreConcepts({ concepts, isRTL, hideHeader }: {
   concepts: DeepSummaryContent["core_concepts"];
   isRTL: boolean;
+  hideHeader?: boolean;
 }) {
   return (
     <div>
-      <SectionHeader icon={Lightbulb} label="Core Concepts" iconClassName="text-amber-500" isRTL={isRTL} />
+      {!hideHeader && <SectionHeader icon={Lightbulb} label="Core Concepts" iconClassName="text-amber-500" isRTL={isRTL} />}
       <div className="grid gap-4">
         {concepts.map((concept, i) => (
           <div key={i} className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-6">
@@ -781,7 +811,7 @@ function CoreConcepts({ concepts, isRTL }: {
 }
 
 /* ─── 4. Episode Chapters ─── */
-function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurrentTime, creatorChapters, storyboardSpec }: {
+function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurrentTime, creatorChapters, storyboardSpec, hideHeader }: {
   sections: ChronologicalSection[];
   isRTL: boolean;
   episode: Episode & { podcast?: Podcast };
@@ -789,6 +819,7 @@ function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurr
   videoCurrentTime?: number;
   creatorChapters?: { title: string; startSeconds: number }[];
   storyboardSpec?: string;
+  hideHeader?: boolean;
 }) {
   const { user } = useAuth();
 
@@ -885,7 +916,7 @@ function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurr
 
   return (
     <div>
-      <SectionHeader icon={ListMusic} label="Episode Chapters" isRTL={isRTL}>
+      {!hideHeader && <SectionHeader icon={ListMusic} label="Episode Chapters" isRTL={isRTL}>
         {normalized.length > 1 && (
           <Button
             variant="ghost"
@@ -900,7 +931,7 @@ function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurr
             )}
           </Button>
         )}
-      </SectionHeader>
+      </SectionHeader>}
 
       <div dir={isRTL ? "rtl" : "ltr"} className="space-y-1">
         {normalized.map((section, i) => {
@@ -1051,16 +1082,16 @@ function renderBoldMarkers(text: string) {
   );
 }
 
-function ContrarianViews({ views, isRTL }: { views: string[]; isRTL: boolean }) {
+function ContrarianViews({ views, isRTL, hideHeader }: { views: string[]; isRTL: boolean; hideHeader?: boolean }) {
   return (
     <div>
-      <SectionHeader
+      {!hideHeader && <SectionHeader
         icon={Scale}
         label="Counterpoints"
         iconClassName="text-red-400"
         subtitle="Alternative perspectives worth considering"
         isRTL={isRTL}
-      />
+      />}
       <div className="grid gap-4">
         {views.map((view, i) => (
           <div key={i} className={cn(

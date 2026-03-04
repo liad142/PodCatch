@@ -45,36 +45,20 @@ function getModelChain(level: SummaryLevel): readonly string[] {
   return level === 'deep' ? DEEP_MODELS : QUICK_MODELS;
 }
 
-/** Race a promise against a timeout */
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms: ${label}`)), ms);
-    promise.then(
-      (val) => { clearTimeout(timer); resolve(val); },
-      (err) => { clearTimeout(timer); reject(err); }
-    );
-  });
-}
-
-/** Generate content with automatic model fallback on 503/429/500/timeout errors */
+/** Generate content with automatic model fallback on 503/429/500 errors */
 async function generateWithFallback(
   level: SummaryLevel,
   prompt: string,
   logPrefix: string
 ): Promise<{ text: string; modelUsed: string }> {
   const chain = getModelChain(level);
-  const TIMEOUT_MS = 30_000; // 30s per model attempt
   let lastError: Error | null = null;
 
   for (const modelId of chain) {
     try {
       log.info(`${logPrefix} trying ${modelId}...`);
       const model = getModel(modelId);
-      const result = await withTimeout(
-        model.generateContent(prompt),
-        TIMEOUT_MS,
-        `${logPrefix} ${modelId}`
-      );
+      const result = await model.generateContent(prompt);
       const text = result.response.text();
       return { text, modelUsed: modelId };
     } catch (err) {
@@ -83,8 +67,7 @@ async function generateWithFallback(
         lastError.message.includes('429') ||
         lastError.message.includes('500') ||
         lastError.message.includes('overloaded') ||
-        lastError.message.includes('high demand') ||
-        lastError.message.includes('Timeout');
+        lastError.message.includes('high demand');
 
       log.warn(`${logPrefix} ${modelId} failed: ${lastError.message.substring(0, 120)}`);
 

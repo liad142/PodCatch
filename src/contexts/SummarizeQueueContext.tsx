@@ -352,9 +352,9 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
 
   const clearStats = useCallback(() => {
     setStats({ completed: 0, failed: 0, total: 0 });
-    setQueue(prev => prev.filter(item =>
-      item.state !== 'ready' && item.state !== 'failed'
-    ));
+    // Only remove failed items — keep 'ready' items so SummarizeButton
+    // continues to show "View Summary" without needing a page refresh
+    setQueue(prev => prev.filter(item => item.state !== 'failed'));
   }, []);
 
   useEffect(() => {

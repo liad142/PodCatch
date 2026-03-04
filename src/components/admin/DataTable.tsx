@@ -69,7 +69,7 @@ export function DataTable<T extends Record<string, unknown>>({ columns, data, cl
             {sorted.map((row, i) => (
               <tr key={i} className="hover:bg-accent/50 transition-colors">
                 {columns.map(col => (
-                  <td key={col.key} className="px-4 py-3 whitespace-nowrap">
+                  <td key={col.key} className="px-4 py-3 whitespace-nowrap text-ellipsis overflow-hidden max-w-[200px]">
                     {col.render ? col.render(row) : String(row[col.key] ?? '')}
                   </td>
                 ))}

@@ -193,13 +193,25 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
       {(() => {
         const paragraphs = content.comprehensive_overview.split('\n').filter(p => p.trim());
         const visibleParagraphs = isFree ? paragraphs.slice(0, cutoffs.deepSummaryParagraphs) : paragraphs;
+        const hiddenParagraphs = isFree ? paragraphs.slice(cutoffs.deepSummaryParagraphs) : [];
+        const isGated = isFree && hiddenParagraphs.length > 0;
         return (
           <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
             <div className={cn("flex items-center gap-2 mb-3", isRTL && "flex-row-reverse")}>
               <FileText className="h-4 w-4 text-primary" />
               <span className="font-semibold">Comprehensive Overview</span>
             </div>
-            <PaywallOverlay isGated={isFree && paragraphs.length > cutoffs.deepSummaryParagraphs} module="deep summary">
+            <PaywallOverlay
+              isGated={isGated}
+              module="deep summary"
+              teaser={isGated ? (
+                <div className={cn("prose prose-sm dark:prose-invert max-w-none", isRTL && "text-right")}>
+                  {hiddenParagraphs.slice(0, 2).map((paragraph, i) => (
+                    <p key={i} className="mb-3 last:mb-0 leading-relaxed">{paragraph}</p>
+                  ))}
+                </div>
+              ) : undefined}
+            >
               <div className={cn("prose prose-sm dark:prose-invert max-w-none", isRTL && "text-right")}>
                 {visibleParagraphs.map((paragraph, i) => (
                   <p key={i} className="mb-3 last:mb-0 leading-relaxed">{paragraph}</p>

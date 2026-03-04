@@ -5,6 +5,8 @@ import { User, LogOut, Settings, ChevronDown, Headphones, Play } from 'lucide-re
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserPlan } from '@/hooks/useUserPlan';
+import { PLAN_META } from '@/lib/plans';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -23,6 +25,7 @@ interface SidebarUserSectionProps {
 
 export function SidebarUserSection({ compact = false }: SidebarUserSectionProps) {
   const { user, isLoading, signOut, setShowAuthModal } = useAuth();
+  const { plan } = useUserPlan();
   const [showDropdown, setShowDropdown] = useState(false);
 
   if (isLoading) {
@@ -120,6 +123,14 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{displayName}</p>
           <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{email}</p>
+          <p className={cn(
+            'text-[10px] font-medium mt-0.5',
+            plan === 'free' && 'text-slate-400 dark:text-slate-500',
+            plan === 'pro' && 'text-blue-500 dark:text-blue-400',
+            plan === 'power' && 'text-amber-500 dark:text-amber-400',
+          )}>
+            {PLAN_META[plan].label} Plan
+          </p>
         </div>
         <ChevronDown className={cn(
           'h-4 w-4 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-400 transition-transform',

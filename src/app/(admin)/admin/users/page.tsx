@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Users, UserPlus, CheckCircle } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { Users, UserPlus, CheckCircle, ChevronDown } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { StatCard } from '@/components/admin/StatCard';
 import { ChartCard } from '@/components/admin/ChartCard';
@@ -13,18 +14,90 @@ const BarChartWidget = dynamic(() => import('@/components/admin/charts/BarChartW
 const PieChartWidget = dynamic(() => import('@/components/admin/charts/PieChartWidget').then(m => ({ default: m.PieChartWidget })), { ssr: false, loading: () => <div className="h-64 animate-pulse bg-white/5 rounded-xl" /> });
 import type { UserAnalytics } from '@/types/admin';
 
-const PLAN_BADGE_COLORS: Record<string, string> = {
-  free: 'bg-zinc-500/20 text-zinc-300',
-  pro: 'bg-amber-500/20 text-amber-300',
-  power: 'bg-purple-500/20 text-purple-300',
+const PLANS = ['free', 'pro', 'power'] as const;
+
+const PLAN_STYLES: Record<string, { badge: string; dot: string }> = {
+  free:  { badge: 'bg-gray-100 text-gray-600', dot: 'bg-gray-400' },
+  pro:   { badge: 'bg-blue-50 text-blue-700', dot: 'bg-blue-500' },
+  power: { badge: 'bg-amber-50 text-amber-700', dot: 'bg-amber-500' },
 };
 
-function PlanBadge({ plan }: { plan: string }) {
-  const colors = PLAN_BADGE_COLORS[plan] || PLAN_BADGE_COLORS.free;
+function PlanSelector({ userId, currentPlan, onChanged }: { userId: string; currentPlan: string; onChanged: (plan: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function changePlan(plan: string) {
+    if (plan === currentPlan) { setOpen(false); return; }
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/users/plan', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, plan }),
+      });
+      if (res.ok) onChanged(plan);
+    } finally {
+      setSaving(false);
+      setOpen(false);
+    }
+  }
+
+  const style = PLAN_STYLES[currentPlan] || PLAN_STYLES.free;
+
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const dropdownHeight = PLANS.length * 30 + 8; // approximate
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openUpward = spaceBelow < dropdownHeight + 8;
+      setMenuPos({
+        top: openUpward ? rect.top - dropdownHeight - 4 : rect.bottom + 4,
+        left: rect.left,
+      });
+    }
+  }, [open]);
+
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors}`}>
-      {plan}
-    </span>
+    <div className="inline-block">
+      <button
+        ref={btnRef}
+        onClick={() => setOpen(!open)}
+        disabled={saving}
+        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition hover:shadow-sm ${style.badge} ${saving ? 'opacity-50' : 'cursor-pointer'}`}
+      >
+        {saving ? '...' : currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)}
+        <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && menuPos && createPortal(
+        <>
+          <div className="fixed inset-0 z-[99]" onClick={() => setOpen(false)} />
+          <div
+            className="fixed z-[100] bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[110px]"
+            style={{ top: menuPos.top, left: menuPos.left }}
+          >
+            {PLANS.map((p) => {
+              const s = PLAN_STYLES[p];
+              const active = p === currentPlan;
+              return (
+                <button
+                  key={p}
+                  onClick={() => changePlan(p)}
+                  className={`w-full text-left px-3 py-1.5 text-xs transition flex items-center gap-2 hover:bg-gray-50 ${active ? 'font-semibold text-gray-900' : 'text-gray-600'}`}
+                >
+                  <span className={`inline-block w-2 h-2 rounded-full ${s.dot}`} />
+                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                  {active && <span className="ml-auto text-blue-500">&#10003;</span>}
+                </button>
+              );
+            })}
+          </div>
+        </>,
+        document.body,
+      )}
+    </div>
   );
 }
 
@@ -48,6 +121,18 @@ export default function UsersPage() {
     return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" /></div>;
   }
   if (!data) return null;
+
+  function handlePlanChanged(userId: string, newPlan: string) {
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        recentUsers: prev.recentUsers.map((u: any) =>
+          u.id === userId ? { ...u, plan: newPlan } : u,
+        ),
+      };
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -88,7 +173,13 @@ export default function UsersPage() {
           {
             key: 'plan',
             label: 'Plan',
-            render: (row) => <PlanBadge plan={(row.plan as string) || 'free'} />,
+            render: (row) => (
+              <PlanSelector
+                userId={row.id as string}
+                currentPlan={(row.plan as string) || 'free'}
+                onChanged={(plan) => handlePlanChanged(row.id as string, plan)}
+              />
+            ),
           },
           {
             key: 'onboarding_completed',

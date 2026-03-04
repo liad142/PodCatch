@@ -7,13 +7,16 @@ import { cn } from '@/lib/utils';
 import { trackEvent } from '@/lib/analytics';
 
 // ---------------------------------------------------------------------------
-// PaywallOverlay — wraps block content with a gradient fade + CTA
+// PaywallOverlay — shows free content clearly, then blurs the rest as a teaser
 // ---------------------------------------------------------------------------
 
 interface PaywallOverlayProps {
   isGated: boolean;
   module: string;
+  /** Free content shown clearly to all users */
   children: React.ReactNode;
+  /** Extra content rendered blurred as a teaser (optional) */
+  teaser?: React.ReactNode;
   className?: string;
 }
 
@@ -21,6 +24,7 @@ export function PaywallOverlay({
   isGated,
   module,
   children,
+  teaser,
   className,
 }: PaywallOverlayProps) {
   const sentRef = useRef(false);
@@ -33,34 +37,47 @@ export function PaywallOverlay({
   }, [isGated, module]);
 
   // Paid users — zero wrapper overhead
-  if (!isGated) return <>{children}</>;
+  if (!isGated) return <>{children}{teaser}</>;
 
+  // Legacy mode: no teaser — blur children entirely (backward compat for tab components)
+  if (!teaser) {
+    return (
+      <div className={cn('relative', className)}>
+        <div className="relative select-none">
+          <div aria-hidden="true">{children}</div>
+          <div
+            className="pointer-events-none absolute inset-0 backdrop-blur-[5px]"
+            aria-hidden="true"
+          />
+        </div>
+        <div className="flex justify-center pt-3 pb-1">
+          <UpgradeCta module={module} />
+        </div>
+      </div>
+    );
+  }
+
+  // New mode: free content + blurred teaser
   return (
     <div className={cn('relative', className)}>
-      {/* Visible preview content (rendered by the consumer) */}
-      <div className="overflow-hidden">{children}</div>
+      {/* Free content — fully readable */}
+      {children}
 
-      {/* Gradient fade + CTA overlay */}
-      <div
-        className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-end"
-        style={{ height: '160px' }}
-      >
-        {/* Gradient: transparent -> background */}
+      {/* Blurred teaser — shows what they're missing */}
+      <div className="relative select-none">
+        <div aria-hidden="true">{teaser}</div>
+        {/* Gradient mask: fades from transparent to white so blur has no hard edge */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
-            background:
-              'linear-gradient(to bottom, transparent 0%, rgba(9,9,11,0.6) 40%, rgb(9,9,11) 100%)',
+            background: 'linear-gradient(to bottom, transparent 0%, hsl(var(--background) / 0.7) 40%, hsl(var(--background)) 100%)',
           }}
-        />
-
-        {/* Subtle blur on the lowest content lines */}
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-12 backdrop-blur-[2px]"
           aria-hidden="true"
         />
+      </div>
 
-        {/* CTA card */}
+      {/* CTA */}
+      <div className="flex justify-center pt-3 pb-1">
         <UpgradeCta module={module} />
       </div>
     </div>
@@ -68,7 +85,7 @@ export function PaywallOverlay({
 }
 
 // ---------------------------------------------------------------------------
-// PaywallList — show first N items, then gradient fade over the rest
+// PaywallList — show first N items clearly, then blur the next few as teaser
 // ---------------------------------------------------------------------------
 
 interface PaywallListProps<T> {
@@ -115,35 +132,24 @@ export function PaywallList<T>({
 
   return (
     <div className={cn('relative', className)}>
-      {/* Fully-rendered preview items */}
+      {/* Fully-readable free items */}
       {visible.map((item, i) => renderItem(item, i))}
 
       {hasHidden && (
         <>
-          {/* Peek: render the next 1-2 items to create the "there's more" feeling */}
-          <div className="relative overflow-hidden" style={{ maxHeight: '80px' }}>
-            {items.slice(visibleCount, visibleCount + 2).map((item, i) =>
+          {/* Blurred teaser: next 2-3 items visible through frosted glass */}
+          <div className="relative select-none" aria-hidden="true">
+            {items.slice(visibleCount, visibleCount + 3).map((item, i) =>
               renderItem(item, visibleCount + i),
             )}
-
-            {/* Gradient fade over the peek items */}
             <div
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background:
-                  'linear-gradient(to bottom, transparent 0%, rgba(9,9,11,0.6) 40%, rgb(9,9,11) 100%)',
-              }}
-            />
-
-            {/* Subtle blur */}
-            <div
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-8 backdrop-blur-[2px]"
+              className="pointer-events-none absolute inset-0 backdrop-blur-[5px]"
               aria-hidden="true"
             />
           </div>
 
           {/* CTA */}
-          <div className="flex justify-center pt-2">
+          <div className="flex justify-center pt-3 pb-1">
             <UpgradeCta module={module} />
           </div>
         </>
@@ -165,24 +171,19 @@ function UpgradeCta({ module }: { module: string }) {
         'relative z-10 group',
         'inline-flex items-center gap-2 px-5 py-2.5',
         'rounded-full',
-        // Glass-morphism: translucent bg + border + backdrop blur
-        'bg-white/[0.06] border border-white/[0.1]',
-        'backdrop-blur-md shadow-lg shadow-black/20',
-        // Typography
-        'text-sm font-medium text-zinc-200',
-        // Hover state
+        'bg-muted/60 border border-border',
+        'shadow-sm',
+        'text-sm font-medium text-foreground',
         'transition-all duration-200',
-        'hover:bg-white/[0.1] hover:border-white/[0.18] hover:shadow-primary/10',
-        'hover:text-white hover:scale-[1.02]',
+        'hover:bg-muted hover:border-border-strong hover:shadow-md',
+        'hover:scale-[1.02]',
         'active:scale-[0.98]',
       )}
     >
       <Crown className="h-4 w-4 text-amber-400 transition-transform duration-200 group-hover:scale-110" />
-      <span>
-        Unlock full {module} with Pro
-      </span>
+      <span>Unlock full {module} with Pro</span>
       <span
-        className="text-zinc-500 transition-transform duration-200 group-hover:translate-x-0.5"
+        className="text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5"
         aria-hidden="true"
       >
         &rarr;
