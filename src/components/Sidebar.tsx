@@ -13,10 +13,13 @@ import {
   Menu,
   X,
   ArrowLeft,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { SidebarUserSection } from '@/components/auth/SidebarUserSection';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const ROOT_PATHS = ['/', '/discover', '/my-podcasts', '/summaries', '/saved', '/settings', '/onboarding'];
 
@@ -53,6 +56,73 @@ function NavItem({ item, isActive, onClick }: NavItemProps) {
       <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-primary')} />
       <span className="text-sm font-medium">{item.label}</span>
     </Link>
+  );
+}
+
+function ThemeToggle({ className }: { className?: string }) {
+  const { resolvedTheme, toggleTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+
+  return (
+    <button
+      onClick={toggleTheme}
+      className={cn(
+        'relative h-8 w-[60px] rounded-full p-0.5 cursor-pointer',
+        isDark
+          ? 'bg-slate-700'
+          : 'bg-amber-100',
+        className
+      )}
+      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+    >
+      {/* Track icons — sun on left, moon on right */}
+      <div className="absolute inset-0 flex items-center justify-between px-2 pointer-events-none">
+        <Sun className={cn(
+          'h-3.5 w-3.5',
+          isDark ? 'opacity-40 text-slate-400' : 'opacity-0'
+        )} />
+        <Moon className={cn(
+          'h-3.5 w-3.5',
+          isDark ? 'opacity-0' : 'opacity-40 text-amber-400'
+        )} />
+      </div>
+      {/* Thumb — only this animates */}
+      <div
+        className={cn(
+          'relative h-7 w-7 rounded-full shadow-sm flex items-center justify-center transition-transform duration-200 ease-out',
+          isDark
+            ? 'translate-x-[28px] bg-slate-900'
+            : 'translate-x-0 bg-white'
+        )}
+      >
+        {isDark ? (
+          <Moon className="h-3.5 w-3.5 text-blue-300" />
+        ) : (
+          <Sun className="h-3.5 w-3.5 text-amber-500" />
+        )}
+      </div>
+    </button>
+  );
+}
+
+function MobileThemeToggle() {
+  const { resolvedTheme, toggleTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggleTheme}
+      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      className="h-9 w-9"
+    >
+      {isDark ? (
+        <Sun className="h-[18px] w-[18px] text-amber-400" />
+      ) : (
+        <Moon className="h-[18px] w-[18px] text-muted-foreground" />
+      )}
+    </Button>
   );
 }
 
@@ -109,6 +179,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           />
         ))}
       </nav>
+
+      {/* Theme Toggle */}
+      <div className="px-5 pb-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground">Theme</span>
+          <ThemeToggle />
+        </div>
+      </div>
 
       {/* Footer - User Status */}
       <div className="px-4 py-4 pb-6">
@@ -292,7 +370,10 @@ export function Sidebar() {
             </span>
           </Link>
 
-          <SidebarUserSection compact />
+          <div className="flex items-center gap-1">
+            <MobileThemeToggle />
+            <SidebarUserSection compact />
+          </div>
         </div>
       </header>
 

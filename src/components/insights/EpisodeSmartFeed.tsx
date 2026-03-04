@@ -285,7 +285,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
       {/* Main Feed — Linear sections */}
       <div className="pb-28 space-y-10 max-w-3xl mx-auto px-4 md:px-0">
 
-        {/* ─── Section 1: Teaser Card ─── */}
+        {/* --- Section 1: Teaser Card --- */}
         {isQuickReady && (
           <motion.section
             initial={{ opacity: 0, y: 20 }}
@@ -301,7 +301,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
           </motion.section>
         )}
 
-        {/* ─── Sections 2-7: Auth-gated with real content preview for guests ─── */}
+        {/* --- Sections 2-7: Auth-gated with real content preview for guests --- */}
         {!user && hasAnyContent ? (
           <>
             {/* CTA card — scrolls naturally, visible at the top then gone */}
@@ -403,7 +403,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
           </>
         ) : user ? (
           <>
-            {/* ─── Section 1.5: Description Links (YouTube only) ─── */}
+            {/* --- Section 1.5: Description Links (YouTube only) --- */}
             {isYouTube && ytMeta && ytMeta.description_links.length > 0 && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
@@ -414,7 +414,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
               </motion.section>
             )}
 
-            {/* ─── Section 2: Comprehensive Overview ─── */}
+            {/* --- Section 2: Comprehensive Overview --- */}
             {isDeepReady && deepContent!.comprehensive_overview && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
@@ -432,7 +432,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
               </motion.section>
             )}
 
-            {/* ─── Section 3: Core Concepts ─── */}
+            {/* --- Section 3: Core Concepts --- */}
             {isDeepReady && deepContent!.core_concepts?.length > 0 && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
@@ -450,7 +450,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
               </motion.section>
             )}
 
-            {/* ─── Section 4: Episode Chapters ─── */}
+            {/* --- Section 4: Episode Chapters --- */}
             {isDeepReady && deepContent!.chronological_breakdown?.length > 0 && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
@@ -487,7 +487,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
               </motion.section>
             )}
 
-            {/* ─── Section 4.5: Pinned Comment (YouTube only) ─── */}
+            {/* --- Section 4.5: Pinned Comment (YouTube only) --- */}
             {isYouTube && ytMeta?.pinned_comment && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
@@ -498,7 +498,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
               </motion.section>
             )}
 
-            {/* ─── Section 5: Counterpoints ─── */}
+            {/* --- Section 5: Counterpoints --- */}
             {isDeepReady && deepContent!.contrarian_views?.length > 0 && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
@@ -517,7 +517,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
               </motion.section>
             )}
 
-            {/* ─── Section 6: Transcript ─── */}
+            {/* --- Section 6: Transcript --- */}
             <section>
               <TranscriptAccordion
                 transcript={data?.transcript_text}
@@ -527,7 +527,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
               />
             </section>
 
-            {/* ─── Section 7: Action Items ─── */}
+            {/* --- Section 7: Action Items --- */}
             <section>
               <ActionFooter
                 episode={episode}
@@ -538,7 +538,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
           </>
         ) : null}
 
-        {/* ─── Section 8: Discussion / Comments ─── */}
+        {/* --- Section 8: Discussion / Comments --- */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -560,12 +560,12 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
       {user && <AskAIBar mode="standalone" track={track} />}
     </div>
   );
-}
+});
 
 
-/* ═══════════════════════════════════════════
+/* -------------------------------------------
    Section Components
-   ═══════════════════════════════════════════ */
+   ------------------------------------------- */
 
 /** Section header with icon + label */
 function SectionHeader({ icon: Icon, label, iconClassName, subtitle, isRTL, children }: {
@@ -595,7 +595,7 @@ function SectionHeader({ icon: Icon, label, iconClassName, subtitle, isRTL, chil
   );
 }
 
-/* ─── 1. Teaser Card ─── */
+/* --- 1. Teaser Card --- */
 function TeaserCard({ content, isRTL }: { content: QuickSummaryContent; isRTL: boolean }) {
   return (
     <div className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-6 lg:p-8 space-y-6">
@@ -656,7 +656,7 @@ function TeaserCard({ content, isRTL }: { content: QuickSummaryContent; isRTL: b
   );
 }
 
-/* ─── 1b. Guest Teaser Card (truncated for unauthenticated users) ─── */
+/* --- 1b. Guest Teaser Card (truncated for unauthenticated users) --- */
 function GuestTeaserCard({ content, isRTL }: { content: QuickSummaryContent; isRTL: boolean }) {
   const { setShowAuthModal } = useAuth();
 
@@ -731,9 +731,9 @@ function GuestTeaserCard({ content, isRTL }: { content: QuickSummaryContent; isR
       </div>
     </div>
   );
-});
+}
 
-/* ─── 2. Comprehensive Overview ─── */
+/* --- 2. Comprehensive Overview --- */
 function ComprehensiveOverview({ text, isRTL, maxParagraphs, skipParagraphs, hideHeader }: { text: string; isRTL: boolean; maxParagraphs?: number; skipParagraphs?: number; hideHeader?: boolean }) {
   const allParagraphs = text.split('\n').filter(p => p.trim());
   const start = skipParagraphs ?? 0;
@@ -772,7 +772,7 @@ function AnnotatedParagraph({ text, isRTL }: { text: string; isRTL: boolean }) {
   );
 }
 
-/* ─── 3. Core Concepts ─── */
+/* --- 3. Core Concepts --- */
 function CoreConcepts({ concepts, isRTL, hideHeader }: {
   concepts: DeepSummaryContent["core_concepts"];
   isRTL: boolean;
@@ -810,7 +810,7 @@ function CoreConcepts({ concepts, isRTL, hideHeader }: {
   );
 }
 
-/* ─── 4. Episode Chapters ─── */
+/* --- 4. Episode Chapters --- */
 function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurrentTime, creatorChapters, storyboardSpec, hideHeader }: {
   sections: ChronologicalSection[];
   isRTL: boolean;
@@ -1069,7 +1069,7 @@ function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurr
   );
 }
 
-/* ─── 5. Contrarian Views ─── */
+/* --- 5. Contrarian Views --- */
 /** Render text with **bold** markers as <strong> tags */
 function renderBoldMarkers(text: string) {
   const parts = text.split(/\*\*([^*]+)\*\*/g);

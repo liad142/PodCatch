@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { BookOpen, ArrowRight, Target, Clock } from 'lucide-react';
+import { BookOpen, ArrowRight, Target, Layers } from 'lucide-react';
 
 interface DailyMixCardProps {
   title: string;
@@ -40,7 +40,7 @@ function formatDate(date: Date): string {
 
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
@@ -59,19 +59,9 @@ export const DailyMixCard = React.memo(function DailyMixCard({
   const artwork = isValidImageUrl(podcastArtwork) ? podcastArtwork : '/placeholder-podcast.png';
   const podcastHref = podcastAppleId ? `/browse/podcast/${podcastAppleId}` : `/browse/podcast/${podcastId}`;
 
-  // Value line: prefer hookHeadline, then executiveBrief, then raw description
   const valueLine = summaryPreview?.hookHeadline
     || summaryPreview?.executiveBrief
     || description;
-
-  // Stats
-  const statsItems: string[] = [];
-  if (summaryPreview?.takeawayCount && summaryPreview.takeawayCount > 0) {
-    statsItems.push(`${summaryPreview.takeawayCount} takeaways`);
-  }
-  if (summaryPreview?.chapterCount && summaryPreview.chapterCount > 0) {
-    statsItems.push(`${summaryPreview.chapterCount} chapters`);
-  }
 
   return (
     <div
@@ -79,27 +69,27 @@ export const DailyMixCard = React.memo(function DailyMixCard({
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
-      className="relative w-[340px] h-[200px] rounded-2xl overflow-hidden flex-shrink-0 bg-card border border-border shadow-[var(--shadow-1)] cursor-pointer hover:shadow-[var(--shadow-2)] transition-all duration-150"
+      className="group relative w-[320px] h-[220px] rounded-2xl overflow-hidden flex-shrink-0 bg-card border border-border shadow-[var(--shadow-1)] cursor-pointer hover:shadow-[var(--shadow-floating)] hover:border-primary/30 transition-all duration-200"
     >
-      {/* Blurred Background */}
-      <div className="absolute inset-0">
+      {/* Artwork ambient glow — top portion only */}
+      <div className="absolute inset-x-0 top-0 h-28 overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={artwork}
           alt=""
-          className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-30"
+          className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-40 dark:opacity-50"
         />
-        <div className="absolute inset-0 bg-card/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-card/60 via-card/80 to-card" />
       </div>
 
       {/* Content */}
-      <div className="absolute inset-0 p-5 flex flex-col justify-between">
-        {/* Top row: avatar, podcast name, date */}
-        <div className="flex items-center gap-3">
+      <div className="relative p-4 h-full flex flex-col">
+        {/* Top row: podcast info + date */}
+        <div className="flex items-center gap-2.5">
           <Link
             href={podcastHref}
             onClick={(e) => e.stopPropagation()}
-            className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-border flex-shrink-0 hover:opacity-80 transition-opacity"
+            className="relative w-10 h-10 rounded-xl overflow-hidden border border-border/60 flex-shrink-0 hover:opacity-80 transition-opacity shadow-sm"
             aria-label={`Go to ${podcastName}`}
           >
             <Image
@@ -107,59 +97,60 @@ export const DailyMixCard = React.memo(function DailyMixCard({
               alt={podcastName}
               fill
               className="object-cover"
-              sizes="48px"
+              sizes="40px"
             />
           </Link>
           <div className="flex-1 min-w-0">
             <Link
               href={podcastHref}
               onClick={(e) => e.stopPropagation()}
-              className="text-body-sm text-muted-foreground truncate block hover:text-foreground transition-colors"
+              className="text-body-sm font-medium text-foreground truncate block hover:text-primary transition-colors leading-tight"
             >
               {podcastName}
             </Link>
-            <p className="text-caption text-muted-foreground">{formatDate(publishedAt)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{formatDate(publishedAt)}</p>
           </div>
         </div>
 
-        {/* Middle: episode title + value line + stats */}
-        <div className="flex flex-col gap-1">
-          <h3 className="text-h4 text-foreground line-clamp-2 leading-snug">
+        {/* Middle: title + description — fills available space */}
+        <div className="flex-1 flex flex-col gap-1 mt-3 min-h-0">
+          <h3 className="text-[15px] font-semibold text-foreground line-clamp-2 leading-snug tracking-tight">
             {title}
           </h3>
-          <p className="text-caption text-muted-foreground line-clamp-2 leading-relaxed">
+          <p className="text-body-sm text-muted-foreground line-clamp-2 leading-relaxed">
             {valueLine}
           </p>
-          {statsItems.length > 0 && (
-            <div className="flex items-center gap-2.5 mt-0.5">
-              {summaryPreview?.takeawayCount && summaryPreview.takeawayCount > 0 && (
-                <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                  <Target className="h-2.5 w-2.5" />
-                  {summaryPreview.takeawayCount} takeaways
-                </span>
-              )}
-              {summaryPreview?.chapterCount && summaryPreview.chapterCount > 0 && (
-                <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                  <BookOpen className="h-2.5 w-2.5" />
-                  {summaryPreview.chapterCount} chapters
-                </span>
-              )}
-            </div>
-          )}
         </div>
 
-        {/* Bottom row: CTA */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-primary hover:bg-primary/90 transition-colors duration-200 rounded-full px-4 py-2 cursor-pointer">
+        {/* Bottom row: stats + CTA — always pinned to bottom */}
+        <div className="flex items-center justify-between pt-2 mt-auto border-t border-border/50">
+          {/* Stats */}
+          <div className="flex items-center gap-3">
+            {summaryPreview?.takeawayCount && summaryPreview.takeawayCount > 0 && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Target className="h-3 w-3 text-primary/60" />
+                {summaryPreview.takeawayCount}
+              </span>
+            )}
+            {summaryPreview?.chapterCount && summaryPreview.chapterCount > 0 && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Layers className="h-3 w-3 text-primary/60" />
+                {summaryPreview.chapterCount}
+              </span>
+            )}
+          </div>
+
+          {/* CTA */}
+          <div className="flex items-center gap-1.5 text-primary group-hover:gap-2 transition-all duration-200">
             {hasReadProgress ? (
               <>
-                <span className="text-xs font-semibold text-white tracking-wide">Continue</span>
-                <ArrowRight className="h-3.5 w-3.5 text-white flex-shrink-0" />
+                <span className="text-xs font-semibold">Continue</span>
+                <ArrowRight className="h-3.5 w-3.5" />
               </>
             ) : (
               <>
-                <BookOpen className="h-3.5 w-3.5 text-white flex-shrink-0" />
-                <span className="text-xs font-semibold text-white tracking-wide">Read Summary</span>
+                <BookOpen className="h-3.5 w-3.5" />
+                <span className="text-xs font-semibold">Read Summary</span>
               </>
             )}
           </div>

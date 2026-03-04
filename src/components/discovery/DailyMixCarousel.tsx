@@ -123,7 +123,7 @@ export function DailyMixCarousel({ episodes, isLoading = false, hasMore = false,
       >
         {isLoading
           ? Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="w-[340px] h-[200px] rounded-2xl flex-shrink-0" />
+              <Skeleton key={i} className="w-[320px] h-[220px] rounded-2xl flex-shrink-0" />
             ))
           : episodes.map((ep) => (
               <div key={ep.id} className="snap-start">

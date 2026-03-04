@@ -67,10 +67,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem(STORAGE_KEY, newTheme);
+
+    // Apply immediately to DOM — don't wait for useEffect
+    const resolved = newTheme === 'system' ? getSystemTheme() : newTheme;
+    setResolvedTheme(resolved);
+    const root = document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(resolved);
   };
 
   const toggleTheme = () => {
-    // Simple toggle between light and dark (not system)
     const newTheme = resolvedTheme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
   };

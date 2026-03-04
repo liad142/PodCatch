@@ -228,10 +228,7 @@ h1, h2, h3, h4, h5, h6 {
   .text-h3 { font-size: 1.125rem; }
 }
 
-/* Smooth theme transitions */
-html {
-  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
-}
+/* Theme switch — instant, no partial transitions */
 
 html.dark {
   color-scheme: dark;
