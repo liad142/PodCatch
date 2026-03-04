@@ -99,6 +99,27 @@ export interface AdminTodo {
   updated_at: string;
 }
 
+export interface PostHogAnalytics {
+  dau: number;
+  wau: number;
+  mau: number;
+  dauMauRatio: number;
+  activeUsersTrend: TimeSeriesPoint[];
+  topEvents: { event: string; count: number; uniqueUsers: number }[];
+  featureAdoption: { event: string; uniqueUsers: number; totalFires: number; adoptionPct: number }[];
+  funnel: { step: string; count: number; conversionPct: number }[];
+  correlation: {
+    totalRegistered: number;
+    completedOnboarding: number;
+    hasPlayed: number;
+    hasSubscribed: number;
+    onboardingRate: number;
+    playRate: number;
+    subscribeRate: number;
+  };
+  lastUpdated: string;
+}
+
 export interface SystemHealth {
   redis: {
     connected: boolean;

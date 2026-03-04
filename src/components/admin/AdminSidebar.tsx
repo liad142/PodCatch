@@ -8,6 +8,7 @@ import {
   Users,
   Database,
   Brain,
+  BarChart3,
   Bell,
   Activity,
   Shield,
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { label: 'Users', href: '/admin/users', icon: Users },
   { label: 'Content', href: '/admin/content', icon: Database },
   { label: 'AI Pipeline', href: '/admin/ai', icon: Brain },
+  { label: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { label: 'Notifications', href: '/admin/notifications', icon: Bell },
   { label: 'System', href: '/admin/system', icon: Activity },
 ] as const;
