@@ -10,13 +10,13 @@ import {
   Sparkles,
   ExternalLink,
   Target,
-  Lightbulb,
   Clock,
   Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { InlinePlayButton } from '@/components/PlayButton';
+import { DiscoverySummarizeButton } from './DiscoverySummarizeButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -61,6 +61,13 @@ export interface KnowledgeCardProps {
   // Audio (podcast only)
   audioUrl?: string;
 
+  // Curiosity mode podcast data (enables full DiscoverySummarizeButton)
+  podcastFeedData?: {
+    externalPodcastId: string;
+    podcastArtist: string;
+    podcastFeedUrl?: string;
+  };
+
   // Callbacks
   onSave?: (id: string, saved: boolean) => void;
   onSummarize?: () => void;
@@ -98,6 +105,18 @@ function estimateReadTime(
   return null;
 }
 
+function cleanYoutubeDescription(raw: string): string {
+  if (!raw) return 'Tap Summarize to get key takeaways.';
+  const lines = raw.split('\n').filter(l => l.trim().length > 0);
+  const kept = lines
+    .slice(0, 3)
+    .filter(line => !line.match(/https?:\/\//))
+    .join(' ')
+    .trim();
+  if (kept.length < 20) return 'Tap Summarize to get key takeaways.';
+  return kept.length > 200 ? kept.slice(0, 197) + '...' : kept;
+}
+
 function isValidImageUrl(url: string): boolean {
   if (!url) return false;
   try {
@@ -126,6 +145,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
   bookmarked = false,
   episodeId,
   audioUrl,
+  podcastFeedData,
   onSave,
   onSummarize,
 }: KnowledgeCardProps) {
@@ -442,9 +462,11 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
         </div>
       ) : (
         <div className="space-y-1.5">
-          {/* Fallback: Description */}
+          {/* Fallback: Description (cleaned for YouTube) */}
           <p className="text-body-sm text-muted-foreground line-clamp-2 leading-relaxed">
-            {description}
+            {type === 'youtube' && localSummaryStatus !== 'ready'
+              ? cleanYoutubeDescription(description)
+              : description}
           </p>
 
           {/* Recommend reason */}
@@ -484,13 +506,26 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
       )}
 
       {/* CTA row */}
-      <div className="flex items-center gap-2 mt-3">
-        {/* Primary CTA */}
-        {localSummaryStatus === 'ready' ? (
+      <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+        {/* Primary CTA: Curiosity mode podcasts get full DiscoverySummarizeButton */}
+        {type === 'podcast' && podcastFeedData ? (
+          <DiscoverySummarizeButton
+            externalEpisodeId={id}
+            episodeTitle={title}
+            episodeDescription={description}
+            episodePublishedAt={typeof publishedAt === 'string' ? publishedAt : publishedAt.toISOString()}
+            episodeDuration={duration}
+            audioUrl={audioUrl}
+            externalPodcastId={podcastFeedData.externalPodcastId}
+            podcastName={sourceName}
+            podcastArtist={podcastFeedData.podcastArtist}
+            podcastArtwork={sourceArtwork}
+            podcastFeedUrl={podcastFeedData.podcastFeedUrl}
+          />
+        ) : localSummaryStatus === 'ready' ? (
           <Button
             size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={() => {
               if (localEpisodeId) router.push(`/episode/${localEpisodeId}/insights`);
             }}
             className="gap-1.5 rounded-full"
@@ -511,6 +546,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
           >
             <Sparkles className="h-3.5 w-3.5" />
             Summarize
+            <span className="text-[10px] text-muted-foreground/70 ml-0.5">~30s</span>
           </Button>
         )}
 

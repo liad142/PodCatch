@@ -12,6 +12,10 @@ import type { QuickSummaryContent, DeepSummaryContent } from '@/types/database';
 
 const log = createLogger('feed');
 
+// Simple in-memory cache for source metadata (rarely changes)
+const sourceMetadataCache = new Map<string, { data: any; expiry: number }>();
+const SOURCE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export async function GET(request: NextRequest) {
   const user = await getAuthUser();
   if (!user) {
@@ -37,7 +41,84 @@ export async function GET(request: NextRequest) {
       offset,
     });
 
-    // Enrich with summary preview data
+    const admin = createAdminClient();
+
+    // --- Enrich with source metadata ---
+    const youtubeSourceIds: string[] = [];
+    const podcastSourceIds: string[] = [];
+    for (const item of items) {
+      if (!item.sourceId) continue;
+      if (item.sourceType === 'youtube') youtubeSourceIds.push(item.sourceId);
+      else if (item.sourceType === 'podcast') podcastSourceIds.push(item.sourceId);
+    }
+
+    const sourceMap = new Map<string, {
+      sourceName: string;
+      sourceArtwork: string;
+      sourceAppleId?: string;
+      audioUrl?: string;
+    }>();
+
+    // Check cache first, collect uncached IDs
+    const uncachedYt: string[] = [];
+    const uncachedPod: string[] = [];
+    const now = Date.now();
+
+    for (const id of [...new Set(youtubeSourceIds)]) {
+      const cached = sourceMetadataCache.get(id);
+      if (cached && cached.expiry > now) {
+        sourceMap.set(id, cached.data);
+      } else {
+        uncachedYt.push(id);
+      }
+    }
+    for (const id of [...new Set(podcastSourceIds)]) {
+      const cached = sourceMetadataCache.get(id);
+      if (cached && cached.expiry > now) {
+        sourceMap.set(id, cached.data);
+      } else {
+        uncachedPod.push(id);
+      }
+    }
+
+    // Batch fetch uncached sources in parallel
+    const [ytChannels, podcastSources] = await Promise.all([
+      uncachedYt.length > 0
+        ? admin
+            .from('youtube_channels')
+            .select('id, channel_name, thumbnail_url')
+            .in('id', uncachedYt)
+            .then(r => r.data || [])
+        : [],
+      uncachedPod.length > 0
+        ? admin
+            .from('podcasts')
+            .select('id, title, image_url, apple_podcast_id')
+            .in('id', uncachedPod)
+            .then(r => r.data || [])
+        : [],
+    ]);
+
+    for (const ch of ytChannels) {
+      const meta = {
+        sourceName: ch.channel_name || '',
+        sourceArtwork: ch.thumbnail_url || '',
+      };
+      sourceMap.set(ch.id, meta);
+      sourceMetadataCache.set(ch.id, { data: meta, expiry: now + SOURCE_CACHE_TTL });
+    }
+
+    for (const pod of podcastSources) {
+      const meta = {
+        sourceName: pod.title || '',
+        sourceArtwork: pod.image_url || '',
+        sourceAppleId: pod.apple_podcast_id || undefined,
+      };
+      sourceMap.set(pod.id, meta);
+      sourceMetadataCache.set(pod.id, { data: meta, expiry: now + SOURCE_CACHE_TTL });
+    }
+
+    // --- Enrich with summary preview data ---
     const episodeIds = items
       .map(item => item.episodeId)
       .filter((id): id is string => !!id);
@@ -52,7 +133,6 @@ export async function GET(request: NextRequest) {
     }>();
 
     if (episodeIds.length > 0) {
-      const admin = createAdminClient();
       const { data: summaries } = await admin
         .from('summaries')
         .select('episode_id, level, content_json, status')
@@ -91,11 +171,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Attach summary data to items
+    // Attach summary + source data to items
     const enrichedItems = items.map(item => {
       const preview = item.episodeId ? summaryMap.get(item.episodeId) : undefined;
+      const source = item.sourceId ? sourceMap.get(item.sourceId) : undefined;
       return {
         ...item,
+        sourceName: source?.sourceName || '',
+        sourceArtwork: source?.sourceArtwork || item.thumbnailUrl || '',
+        sourceAppleId: source?.sourceAppleId,
         summaryPreview: preview ? {
           hookHeadline: preview.hookHeadline,
           executiveBrief: preview.executiveBrief,

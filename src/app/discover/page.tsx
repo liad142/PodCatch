@@ -9,8 +9,7 @@ import { SemanticSearchBar } from '@/components/discovery/SemanticSearchBar';
 import { DailyMixCarousel } from '@/components/discovery/DailyMixCarousel';
 import { TodaysInsights } from '@/components/discovery/TodaysInsights';
 import { BrandShelf } from '@/components/discovery/BrandShelf';
-import { CuriosityFeed } from '@/components/discovery/CuriosityFeed';
-import { UnifiedFeed } from '@/components/discovery/UnifiedFeed';
+import { HighSignalFeed } from '@/components/discovery/HighSignalFeed';
 import { ApplePodcast } from '@/components/ApplePodcastCard';
 import { createLogger } from '@/lib/logger';
 
@@ -350,12 +349,15 @@ export default function DiscoverPage() {
             <TodaysInsights />
           </div>
 
-          {/* 3. For You: Value Feed - unified KnowledgeCards (auth only) */}
-          {user && (
-            <div className="mb-12">
-              <UnifiedFeed />
-            </div>
-          )}
+          {/* 3. High-Signal Feed - unified For You + Curiosity */}
+          <div className="mb-12">
+            <HighSignalFeed
+              curiosityEpisodes={feedEpisodes}
+              isCuriosityLoading={isLoadingFeed}
+              hasCuriosityMore={hasMoreFeed}
+              onCuriosityLoadMore={handleLoadMore}
+            />
+          </div>
 
           {/* 4. Because you like... - upgraded with "Best this week" */}
           {personalizedSections.length > 0 && personalizedSections.map((section) => (
@@ -375,15 +377,6 @@ export default function DiscoverPage() {
             <BrandShelf podcasts={topPodcasts.slice(0, 15)} isLoading={isLoadingPodcasts} />
           </div>
 
-          {/* 6. Curiosity Feed - upgraded with value previews */}
-          <div className="mb-12">
-            <CuriosityFeed
-              episodes={feedEpisodes}
-              isLoading={isLoadingFeed}
-              hasMore={hasMoreFeed}
-              onLoadMore={handleLoadMore}
-            />
-          </div>
         </main>
       </div>
     </EpisodeLookupProvider>
