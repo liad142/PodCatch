@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { InlinePlayButton } from '@/components/PlayButton';
 import { DiscoverySummarizeButton } from './DiscoverySummarizeButton';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEpisodeLookup } from '@/contexts/EpisodeLookupContext';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import posthog from 'posthog-js';
@@ -150,12 +151,37 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
   onSummarize,
 }: KnowledgeCardProps) {
   const { user, setShowAuthModal } = useAuth();
+  const { registerLookup, getLookupResult } = useEpisodeLookup();
   const router = useRouter();
   const [isSaved, setIsSaved] = useState(bookmarked);
   const [isSaving, setIsSaving] = useState(false);
   const [localSummaryStatus, setLocalSummaryStatus] = useState(summaryStatus);
   const [localEpisodeId, setLocalEpisodeId] = useState(episodeId);
   const [isImporting, setIsImporting] = useState(false);
+
+  // For episodes without a known summary status, check via batch lookup
+  // YouTube: url is the watch URL stored as audio_url in DB
+  // Podcast: audioUrl is the audio file URL
+  const lookupUrl = type === 'youtube' ? url : audioUrl;
+
+  useEffect(() => {
+    if (lookupUrl && summaryStatus !== 'ready' && !episodeId) {
+      registerLookup(lookupUrl);
+    }
+  }, [lookupUrl, summaryStatus, episodeId, registerLookup]);
+
+  const lookupResult = lookupUrl ? getLookupResult(lookupUrl) : undefined;
+
+  useEffect(() => {
+    if (lookupResult) {
+      if (lookupResult.episodeId && !localEpisodeId) {
+        setLocalEpisodeId(lookupResult.episodeId);
+      }
+      if (lookupResult.summaryStatus === 'ready' && localSummaryStatus !== 'ready') {
+        setLocalSummaryStatus('ready');
+      }
+    }
+  }, [lookupResult, localEpisodeId, localSummaryStatus]);
 
   const artwork = isValidImageUrl(sourceArtwork)
     ? sourceArtwork.replace('100x100', '200x200')
