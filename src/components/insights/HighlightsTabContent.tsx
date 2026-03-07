@@ -8,6 +8,7 @@ import { MiniLoadingAnimation } from "@/components/animations";
 import { cn } from "@/lib/utils";
 import type { HighlightItem } from "@/types/database";
 import { Quote, Copy, Check, Sparkles, Lightbulb, AlertCircle, Star, Clock } from "lucide-react";
+import { AiDisclosure } from "@/components/AiDisclosure";
 
 // Detect if text is primarily RTL (Hebrew, Arabic, etc.)
 function isRTLText(text: string): boolean {
@@ -107,7 +108,10 @@ export function HighlightsTabContent({
           <Quote className="h-4 w-4" />
           Key Highlights
         </h3>
-        <Badge variant="outline">{highlights.length} quotes</Badge>
+        <div className="flex items-center gap-2">
+          <AiDisclosure />
+          <Badge variant="outline">{highlights.length} quotes</Badge>
+        </div>
       </div>
 
       {/* Highlights List */}

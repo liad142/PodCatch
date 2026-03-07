@@ -8,6 +8,7 @@ import { MiniLoadingAnimation } from "@/components/animations";
 import { cn } from "@/lib/utils";
 import type { ShownotesSection } from "@/types/database";
 import { List, Check, Sparkles, Clock, ExternalLink, ChevronDown, ChevronRight, FileDown } from "lucide-react";
+import { AiDisclosure } from "@/components/AiDisclosure";
 
 // Detect if text is primarily RTL (Hebrew, Arabic, etc.)
 function isRTLText(text: string): boolean {
@@ -122,6 +123,7 @@ export function ShownotesTabContent({
           <List className="h-4 w-4" />
           Shownotes
           <Badge variant="outline">{shownotes.length} sections</Badge>
+          <AiDisclosure />
         </h3>
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" onClick={expandAll}>
